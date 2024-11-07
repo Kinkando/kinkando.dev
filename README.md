@@ -40,30 +40,28 @@ You can preview the production build with `npm run preview`.
 ## Pre Commit Lint
 
 1. Install `husky` and `lint-staged`
+
 ```bash
 pnpm install --save-dev husky lint-staged
 ```
+
 2. Add script `prepare` in `package.json`
+
 ```json
 {
 	"scripts": {
 		"prepare": "husky install"
-    },
-    "lint-staged": {
-        "src/**/*.{js,jsx,ts,tsx,svelte}": [
-			"prettier --write",
-			"eslint --fix",
-			"git add"
-        ],
-    	"*.{json,md,scss}": [
-			"prettier --write",
-			"git add"
-		]
-    }
+	},
+	"lint-staged": {
+		"src/**/*.{js,jsx,ts,tsx,svelte}": ["prettier --write", "eslint --fix", "git add"],
+		"*.{json,md,scss}": ["prettier --write", "git add"]
+	}
 }
 ```
+
 3. Then run command `pnpm prepare` to auto-generated `.husky/_/*` files
 4. Edit file `.husky/_/pre-commit` like this
+
 ```bash
 #!/bin/sh
 

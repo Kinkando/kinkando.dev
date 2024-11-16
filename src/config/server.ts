@@ -8,6 +8,12 @@ export type Config = {
 		readonly username: string;
 		readonly password: string;
 	};
+	readonly redis: {
+		readonly host: string;
+		readonly port: number;
+		readonly username: string;
+		readonly password: string;
+	};
 };
 
 const config: Config = {
@@ -17,6 +23,12 @@ const config: Config = {
 		database: env.MONGO_DATABASE,
 		username: env.MONGO_USERNAME,
 		password: env.MONGO_PASSWORD
+	},
+	redis: {
+		host: env.REDIS_HOST,
+		port: Number(env.REDIS_PORT),
+		username: env.REDIS_USERNAME,
+		password: env.REDIS_PASSWORD
 	}
 };
 

@@ -13,8 +13,7 @@
 		"test:unit": "vitest",
 		"test": "npm run test:unit -- --run && npm run test:e2e",
 		"test:e2e": "playwright test",
-		"prepare": "husky install",
-		"pre-commit": "lint-staged"
+		"prepare": "husky install"
 	},
 	"lint-staged": {
 		"src/**/*.{ts,tsx,svelte}": [

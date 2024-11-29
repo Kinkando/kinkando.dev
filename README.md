@@ -50,8 +50,7 @@ pnpm install --save-dev husky lint-staged
 ```json
 {
 	"scripts": {
-		"prepare": "husky install",
-		"pre-commit": "lint-staged"
+		"prepare": "husky install"
 	},
 	"lint-staged": {
 		"src/**/*.{js,jsx,ts,tsx,svelte}": ["prettier --write", "eslint --fix", "git add"],
@@ -66,5 +65,5 @@ pnpm install --save-dev husky lint-staged
 ```bash
 #!/bin/sh
 
-pnpm pre-commit
+pnpm lint-staged --no-stash
 ```

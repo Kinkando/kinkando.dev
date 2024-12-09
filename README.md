@@ -42,7 +42,7 @@ You can preview the production build with `npm run preview`.
 1. Install `husky` and `lint-staged`
 
 ```bash
-pnpm install --save-dev husky lint-staged
+pnpm install --save-dev husky lint-staged prettier eslint
 ```
 
 2. Add script `prepare` in `package.json`

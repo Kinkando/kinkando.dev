@@ -30,11 +30,22 @@ func New(d Deps) *mcp.Server {
 
 // ---- Finance types --------------------------------------------------------
 
+type recordDTO struct {
+	ID        string  `json:"id"`
+	UserID    string  `json:"user_id"`
+	Type      string  `json:"type"`
+	Amount    float64 `json:"amount"`
+	Category  string  `json:"category"`
+	Note      string  `json:"note"`
+	Date      string  `json:"date"`
+	CreatedAt string  `json:"created_at"`
+}
+
 type listRecordsIn struct {
 	Month string `json:"month" jsonschema:"Month to query in YYYY-MM format (e.g. 2026-05)"`
 }
 type listRecordsOut struct {
-	Records []*finance.Record `json:"records"`
+	Records []recordDTO `json:"records"`
 }
 
 type createRecordIn struct {
@@ -45,7 +56,7 @@ type createRecordIn struct {
 	Date     string  `json:"date"     jsonschema:"Date in YYYY-MM-DD format"`
 }
 type createRecordOut struct {
-	Record *finance.Record `json:"record"`
+	Record recordDTO `json:"record"`
 }
 
 type deleteRecordIn struct {
@@ -121,6 +132,19 @@ type deleteCardOut struct {
 
 // ---- Registration ---------------------------------------------------------
 
+func toRecordDTO(r *finance.Record) recordDTO {
+	return recordDTO{
+		ID:        r.ID.String(),
+		UserID:    r.UserID.String(),
+		Type:      string(r.Type),
+		Amount:    r.Amount,
+		Category:  r.Category,
+		Note:      r.Note,
+		Date:      r.Date.Format("2006-01-02"),
+		CreatedAt: r.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+	}
+}
+
 func toBoardDTO(b *kanban.Board) boardDTO {
 	return boardDTO{
 		ID:        b.ID.Hex(),
@@ -167,7 +191,14 @@ func registerTools(s *mcp.Server, d Deps) {
 		if records == nil {
 			records = []*finance.Record{}
 		}
-		return nil, listRecordsOut{Records: records}, nil
+
+		// Convert to DTOs
+		recordDTOs := make([]recordDTO, len(records))
+		for i, rec := range records {
+			recordDTOs[i] = toRecordDTO(rec)
+		}
+
+		return nil, listRecordsOut{Records: recordDTOs}, nil
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
@@ -191,7 +222,7 @@ func registerTools(s *mcp.Server, d Deps) {
 		if err != nil {
 			return nil, createRecordOut{}, fmt.Errorf("create record: %w", err)
 		}
-		return nil, createRecordOut{Record: rec}, nil
+		return nil, createRecordOut{Record: toRecordDTO(rec)}, nil
 	})
 
 	mcp.AddTool(s, &mcp.Tool{

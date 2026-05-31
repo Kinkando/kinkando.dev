@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import type { FormEvent } from 'react'
 import type { CreateRecordInput, RecordType } from '../../lib/api/types'
 import { useCreateRecord, useCategories } from '../../queries/useFinance'
 import { getIcon } from '../../lib/icons'
+import { ChevronDown } from 'lucide-react'
 
 export default function RecordForm({ month }: { month: string }) {
   const mutation = useCreateRecord(month)
@@ -12,12 +13,28 @@ export default function RecordForm({ month }: { month: string }) {
   const [categoryID, setCategoryID] = useState('')
   const [note, setNote] = useState('')
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10))
+  const [dropdownOpen, setDropdownOpen] = useState(false)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(e.target as Node)
+      ) {
+        setDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   const filtered = (categories ?? []).filter((c) => c.type === type)
 
   function handleTypeChange(t: RecordType) {
     setType(t)
     setCategoryID('')
+    setDropdownOpen(false)
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -76,41 +93,70 @@ export default function RecordForm({ month }: { month: string }) {
           No {type} categories — add one below
         </p>
       ) : (
-        <select
-          value={categoryID}
-          required
-          onChange={(e) => setCategoryID(e.target.value)}
-          className={inputClass}
-        >
-          <option value="">Select category…</option>
-          {filtered.map((cat) => {
-            const Icon = getIcon(cat.icon)
-            return (
-              <option key={cat.id} value={cat.id}>
-                {cat.name}
-              </option>
-            )
-          })}
-        </select>
+        <div ref={dropdownRef} className="relative">
+          <button
+            type="button"
+            onClick={() => setDropdownOpen((o) => !o)}
+            className={`${inputClass} flex w-full items-center justify-between gap-2`}
+          >
+            {categoryID ? (
+              (() => {
+                const cat = filtered.find((c) => c.id === categoryID)!
+                const Icon = getIcon(cat.icon)
+                return (
+                  <span className="flex items-center gap-2">
+                    <span
+                      className="flex h-5 w-5 items-center justify-center rounded"
+                      style={{ color: cat.color }}
+                    >
+                      <Icon size={14} />
+                    </span>
+                    <span style={{ color: cat.color }}>{cat.name}</span>
+                  </span>
+                )
+              })()
+            ) : (
+              <span className="text-gray-500">Select category…</span>
+            )}
+            <ChevronDown size={14} className="shrink-0 text-gray-400" />
+          </button>
+          {dropdownOpen && (
+            <ul className="absolute z-10 mt-1 w-full rounded-lg border border-gray-700 bg-gray-800 py-1 shadow-lg">
+              {filtered.map((cat) => {
+                const Icon = getIcon(cat.icon)
+                return (
+                  <li key={cat.id}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCategoryID(cat.id)
+                        setDropdownOpen(false)
+                      }}
+                      className={`flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-gray-700 ${categoryID === cat.id ? 'bg-gray-700' : ''}`}
+                    >
+                      <span
+                        className="flex h-5 w-5 shrink-0 items-center justify-center rounded"
+                        style={{ color: cat.color }}
+                      >
+                        <Icon size={14} />
+                      </span>
+                      <span style={{ color: cat.color }}>{cat.name}</span>
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </div>
       )}
-      {categoryID &&
-        filtered.length > 0 &&
-        (() => {
-          const cat = filtered.find((c) => c.id === categoryID)
-          if (!cat) return null
-          const Icon = getIcon(cat.icon)
-          return (
-            <div className="flex items-center gap-2 text-sm text-gray-400">
-              <span
-                className="flex h-5 w-5 items-center justify-center rounded"
-                style={{ color: cat.color }}
-              >
-                <Icon size={14} />
-              </span>
-              <span style={{ color: cat.color }}>{cat.name}</span>
-            </div>
-          )
-        })()}
+      <input
+        type="text"
+        required
+        className="sr-only"
+        value={categoryID}
+        readOnly
+        tabIndex={-1}
+      />
       <input
         type="text"
         placeholder="Note (optional)"

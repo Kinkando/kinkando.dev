@@ -157,6 +157,11 @@ export type ChatMessage = {
   content: string
 }
 
+export type ChatUsage = {
+  inputTokens: number
+  outputTokens: number
+}
+
 export type PortfolioProject = {
   name: string
   description: string

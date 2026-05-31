@@ -1,7 +1,7 @@
 import { getIdToken } from '../firebase'
 import env from '../../config/env'
 import { ApiError } from './client'
-import type { ChatMessage } from './types'
+import type { ChatMessage, ChatUsage } from './types'
 
 /**
  * Streams an AI chat response from the backend.
@@ -13,6 +13,7 @@ import type { ChatMessage } from './types'
 export async function streamChat(
   messages: ChatMessage[],
   onToken: (token: string) => void,
+  onUsage: ((usage: ChatUsage) => void) | undefined,
   signal?: AbortSignal,
 ): Promise<void> {
   const token = await getIdToken()
@@ -61,6 +62,13 @@ export async function streamChat(
       }
 
       if (eventType === 'done') return
+      if (eventType === 'usage') {
+        if (dataLine && onUsage) {
+          const json = JSON.parse(dataLine) as ChatUsage
+          onUsage(json)
+        }
+        continue
+      }
       if (eventType === 'error') {
         const json = JSON.parse(dataLine) as { error?: string }
         throw new ApiError(500, json.error ?? 'Stream error')

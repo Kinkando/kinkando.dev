@@ -1,16 +1,39 @@
 import { useEffect, useRef, useState } from 'react'
+import { RotateCcw } from 'lucide-react'
 import { streamChat } from '../lib/api/chat'
-import type { ChatMessage } from '../lib/api/types'
+import type { ChatMessage, ChatUsage } from '../lib/api/types'
 import MessageBubble from '../components/chat/MessageBubble'
 import ChatInput from '../components/chat/ChatInput'
 
 // Maximum number of history turns sent to the backend per request.
 const MAX_HISTORY = 20
 
+// Gemini 2.0 Flash pricing (USD per token)
+const INPUT_PRICE_PER_TOKEN = 0.075 / 1_000_000
+const OUTPUT_PRICE_PER_TOKEN = 0.3 / 1_000_000
+
+type SessionUsage = {
+  inputTokens: number
+  outputTokens: number
+}
+
+function formatCost(usage: SessionUsage): string {
+  const cost =
+    usage.inputTokens * INPUT_PRICE_PER_TOKEN +
+    usage.outputTokens * OUTPUT_PRICE_PER_TOKEN
+  if (cost === 0) return '$0'
+  if (cost < 0.000001) return '< $0.000001'
+  return `$${cost.toFixed(6)}`
+}
+
 export default function ChatPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [streaming, setStreaming] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [sessionUsage, setSessionUsage] = useState<SessionUsage>({
+    inputTokens: 0,
+    outputTokens: 0,
+  })
   const bottomRef = useRef<HTMLDivElement>(null)
   const abortRef = useRef<AbortController | null>(null)
 
@@ -18,6 +41,14 @@ export default function ChatPage() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  function handleNewSession() {
+    abortRef.current?.abort()
+    setMessages([])
+    setSessionUsage({ inputTokens: 0, outputTokens: 0 })
+    setError(null)
+    setStreaming(false)
+  }
 
   async function handleSend(text: string) {
     setError(null)
@@ -51,6 +82,12 @@ export default function ChatPage() {
             return next
           })
         },
+        (usage: ChatUsage) => {
+          setSessionUsage((prev) => ({
+            inputTokens: prev.inputTokens + usage.inputTokens,
+            outputTokens: prev.outputTokens + usage.outputTokens,
+          }))
+        },
         abort.signal,
       )
     } catch (err: unknown) {
@@ -77,12 +114,33 @@ export default function ChatPage() {
     }
   }
 
+  const hasUsage = sessionUsage.inputTokens > 0 || sessionUsage.outputTokens > 0
+
   return (
     <main
       className="mx-auto flex max-w-3xl flex-col px-6 py-8"
       style={{ height: 'calc(100vh - 57px)' }}
     >
-      <h1 className="mb-6 text-xl font-semibold text-gray-100">AI Assistant</h1>
+      {/* Header */}
+      <div className="mb-6 flex items-center justify-between">
+        <h1 className="text-xl font-semibold text-gray-100">AI Assistant</h1>
+        <div className="flex items-center gap-3">
+          {hasUsage && (
+            <span className="text-xs text-gray-500">
+              {sessionUsage.inputTokens.toLocaleString()} in ·{' '}
+              {sessionUsage.outputTokens.toLocaleString()} out ·{' '}
+              <span className="text-gray-400">{formatCost(sessionUsage)}</span>
+            </span>
+          )}
+          <button
+            onClick={handleNewSession}
+            className="flex items-center gap-1.5 rounded-lg border border-gray-700 px-3 py-1.5 text-xs text-gray-400 transition hover:border-gray-500 hover:text-gray-200"
+          >
+            <RotateCcw size={12} />
+            New session
+          </button>
+        </div>
+      </div>
 
       {/* Message list */}
       <div className="flex-1 space-y-4 overflow-y-auto pr-1">

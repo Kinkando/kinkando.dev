@@ -12,9 +12,19 @@ type Props = {
   disabled: boolean
 }
 
+const MAX_HEIGHT = 160 // px — matches roughly max-h-40
+
 export default function ChatInput({ onSend, disabled }: Props) {
   const [value, setValue] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  // Auto-expand height to fit content, capped at MAX_HEIGHT.
+  useEffect(() => {
+    const el = textareaRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${Math.min(el.scrollHeight, MAX_HEIGHT)}px`
+  }, [value])
 
   // Restore focus when the AI finishes responding.
   useEffect(() => {
@@ -37,10 +47,14 @@ export default function ChatInput({ onSend, disabled }: Props) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex items-end gap-2">
+    <form
+      onSubmit={handleSubmit}
+      className="relative rounded-xl border border-gray-700 bg-gray-800 transition-colors focus-within:border-indigo-500"
+    >
       <textarea
         ref={textareaRef}
-        className="max-h-40 min-h-[48px] flex-1 resize-none rounded-xl border border-gray-700 bg-gray-800 px-4 py-3 text-sm text-gray-100 placeholder-gray-500 focus:border-indigo-500 focus:outline-none disabled:opacity-50"
+        className="block w-full resize-none bg-transparent px-4 pt-3 pb-12 text-sm text-gray-100 placeholder-gray-500 focus:outline-none disabled:opacity-50"
+        style={{ minHeight: 48, maxHeight: MAX_HEIGHT, overflowY: 'auto' }}
         placeholder="Message the assistant… (Enter to send, Shift+Enter for new line)"
         rows={1}
         value={value}
@@ -51,10 +65,10 @@ export default function ChatInput({ onSend, disabled }: Props) {
       <button
         type="submit"
         disabled={disabled || !value.trim()}
-        className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white transition hover:bg-indigo-500 disabled:opacity-40"
+        className="absolute right-2 bottom-2 flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-600 text-white transition hover:bg-indigo-500 disabled:opacity-40"
         aria-label="Send message"
       >
-        <SendHorizonal size={18} />
+        <SendHorizonal size={16} />
       </button>
     </form>
   )

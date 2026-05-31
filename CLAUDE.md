@@ -36,3 +36,14 @@ See `backend/CLAUDE.md` and `frontend/CLAUDE.md` for module-specific guidance.
 ## Planning
 
 Save finalized implementation plans to `plans/` in the repo root. This directory is gitignored — plans are working artifacts, not committed.
+
+## Response Style
+
+- Answer briefly and directly.
+- Do not add disclaimers.
+- Do not add conclusions or summaries.
+- Do not suggest next steps unless explicitly asked.
+- Do not explain reasoning unless requested.
+- Prefer short bullet points.
+- Avoid conversational filler.
+- Answer only what was asked.

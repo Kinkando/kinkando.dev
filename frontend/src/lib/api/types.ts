@@ -75,9 +75,12 @@ export type UpdateCategoryInput = {
   color: string
 }
 
+export type Priority = 'none' | 'low' | 'medium' | 'high' | 'urgent'
+
 export type Board = {
   id: string
   user_id: string
+  name: string
   created_at: string
 }
 
@@ -95,14 +98,39 @@ export type Card = {
   column_id: string
   title: string
   content: string
+  description: string
+  priority: Priority
+  due_date?: string
+  tags: string[]
   order: number
   created_at: string
 }
 
+export type CreateBoardInput = {
+  name: string
+}
+
+export type UpdateBoardInput = {
+  name: string
+}
+
 export type CreateCardInput = {
+  board_id: string
   column_id: string
   title: string
   content: string
+  description?: string
+  priority?: Priority
+  due_date?: string
+  tags?: string[]
+}
+
+export type UpdateCardInput = {
+  title?: string
+  description?: string
+  priority?: Priority
+  due_date?: string
+  tags?: string[]
 }
 
 export type MoveCardInput = {
@@ -114,6 +142,14 @@ export type KanbanBoard = {
   board: Board
   columns: Column[]
   cards: Card[]
+}
+
+export type BoardStats = {
+  total: number
+  by_column: Record<string, number>
+  by_priority: Record<string, number>
+  overdue: number
+  no_due_date: number
 }
 
 export type PortfolioProject = {

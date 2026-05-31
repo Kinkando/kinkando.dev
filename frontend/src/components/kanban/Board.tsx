@@ -14,26 +14,74 @@ import type {
   Card as CardType,
 } from '../../lib/api/types'
 import { useMoveCard } from '../../queries/useKanban'
+import { isOverdue, isDueSoon } from '../../lib/kanban'
 import KanbanColumn from './Column'
 import KanbanCard from './Card'
+import CardModal from './CardModal'
+import FilterBar, { type FilterState, DEFAULT_FILTER } from './FilterBar'
+import StatsBar from './StatsBar'
+
+type CardModalState =
+  | { mode: 'create'; columnId: string }
+  | { mode: 'edit'; card: CardType }
+  | null
 
 type Props = {
+  boardId: string
   data: KanbanBoardType
 }
 
-export default function KanbanBoard({ data }: Props) {
-  const moveCard = useMoveCard()
+export default function KanbanBoard({ boardId, data }: Props) {
+  const moveCard = useMoveCard(boardId)
   const [activeCard, setActiveCard] = useState<CardType | null>(null)
+  const [modalState, setModalState] = useState<CardModalState>(null)
+  const [filter, setFilter] = useState<FilterState>(DEFAULT_FILTER)
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
   )
 
   const columns = [...data.columns].sort((a, b) => a.order - b.order)
 
+  // Collect all unique tags across the board for the filter UI
+  const allTags = Array.from(
+    new Set(data.cards.flatMap((c) => c.tags ?? [])),
+  ).sort()
+
+  function applyFilter(cards: CardType[]): CardType[] {
+    return cards.filter((c) => {
+      if (
+        filter.search &&
+        !c.title.toLowerCase().includes(filter.search.toLowerCase()) &&
+        !c.description?.toLowerCase().includes(filter.search.toLowerCase())
+      )
+        return false
+
+      if (
+        filter.priorities.length > 0 &&
+        !filter.priorities.includes(c.priority)
+      )
+        return false
+
+      if (
+        filter.tags.length > 0 &&
+        !filter.tags.some((t) => c.tags?.includes(t))
+      )
+        return false
+
+      if (filter.dueStatus === 'overdue' && !isOverdue(c)) return false
+      if (filter.dueStatus === 'due-soon' && !isDueSoon(c)) return false
+      if (filter.dueStatus === 'no-date' && !!c.due_date) return false
+
+      return true
+    })
+  }
+
   function getCardsForColumn(columnId: string) {
-    return data.cards
+    const col = data.cards
       .filter((c) => c.column_id === columnId)
       .sort((a, b) => a.order - b.order)
+    return applyFilter(col)
   }
 
   function onDragStart({ active }: DragStartEvent) {
@@ -80,23 +128,46 @@ export default function KanbanBoard({ data }: Props) {
   }
 
   return (
-    <DndContext
-      sensors={sensors}
-      onDragStart={onDragStart}
-      onDragEnd={onDragEnd}
-    >
-      <div className="flex gap-5 overflow-x-auto pb-4">
-        {columns.map((column) => (
-          <KanbanColumn
-            key={column.id}
-            column={column}
-            cards={getCardsForColumn(column.id)}
-          />
-        ))}
-      </div>
-      <DragOverlay>
-        {activeCard ? <KanbanCard card={activeCard} /> : null}
-      </DragOverlay>
-    </DndContext>
+    <>
+      <StatsBar boardId={boardId} />
+      <FilterBar filter={filter} onChange={setFilter} allTags={allTags} />
+
+      <DndContext
+        sensors={sensors}
+        onDragStart={onDragStart}
+        onDragEnd={onDragEnd}
+      >
+        <div className="flex gap-5 overflow-x-auto pb-4">
+          {columns.map((column) => (
+            <KanbanColumn
+              key={column.id}
+              column={column}
+              cards={getCardsForColumn(column.id)}
+              boardId={boardId}
+              onAddCard={(colId) =>
+                setModalState({ mode: 'create', columnId: colId })
+              }
+              onEditCard={(card) => setModalState({ mode: 'edit', card })}
+            />
+          ))}
+        </div>
+        <DragOverlay>
+          {activeCard ? (
+            <KanbanCard card={activeCard} boardId={boardId} onEdit={() => {}} />
+          ) : null}
+        </DragOverlay>
+      </DndContext>
+
+      {modalState && (
+        <CardModal
+          boardId={boardId}
+          columnId={
+            modalState.mode === 'create' ? modalState.columnId : undefined
+          }
+          initial={modalState.mode === 'edit' ? modalState.card : undefined}
+          onClose={() => setModalState(null)}
+        />
+      )}
+    </>
   )
 }

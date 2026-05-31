@@ -109,6 +109,7 @@ type monthlySummaryOut struct {
 type boardDTO struct {
 	ID        string `json:"id"`
 	UserID    string `json:"user_id"`
+	Name      string `json:"name"`
 	CreatedAt string `json:"created_at"`
 }
 
@@ -121,13 +122,25 @@ type columnDTO struct {
 }
 
 type cardDTO struct {
-	ID        string `json:"id"`
-	BoardID   string `json:"board_id"`
-	ColumnID  string `json:"column_id"`
-	Title     string `json:"title"`
-	Content   string `json:"content"`
-	Order     int    `json:"order"`
-	CreatedAt string `json:"created_at"`
+	ID          string   `json:"id"`
+	BoardID     string   `json:"board_id"`
+	ColumnID    string   `json:"column_id"`
+	Title       string   `json:"title"`
+	Content     string   `json:"content"`
+	Description string   `json:"description"`
+	Priority    string   `json:"priority"`
+	DueDate     *string  `json:"due_date,omitempty"`
+	Tags        []string `json:"tags"`
+	Order       int      `json:"order"`
+	CreatedAt   string   `json:"created_at"`
+}
+
+type boardStatsDTO struct {
+	Total      int            `json:"total"`
+	ByColumn   map[string]int `json:"by_column"`
+	ByPriority map[string]int `json:"by_priority"`
+	Overdue    int            `json:"overdue"`
+	NoDueDate  int            `json:"no_due_date"`
 }
 
 type getBoardOut struct {
@@ -137,11 +150,28 @@ type getBoardOut struct {
 }
 
 type createCardIn struct {
-	ColumnID string `json:"column_id" jsonschema:"Target column ID (hex ObjectID) — get it from kanban_get_board"`
-	Title    string `json:"title"     jsonschema:"Card title (required)"`
-	Content  string `json:"content"   jsonschema:"Card body text (optional)"`
+	ColumnID    string  `json:"column_id"    jsonschema:"Target column ID (hex ObjectID) — get it from kanban_get_board"`
+	Title       string  `json:"title"        jsonschema:"Card title (required)"`
+	Content     string  `json:"content"      jsonschema:"Card body text (optional)"`
+	Description string  `json:"description"  jsonschema:"Detailed description (optional)"`
+	Priority    string  `json:"priority"     jsonschema:"Priority: none, low, medium, high, or urgent (default: none)"`
+	DueDate     string  `json:"due_date"     jsonschema:"Due date in YYYY-MM-DD format (optional)"`
+	Tags        []string `json:"tags"        jsonschema:"List of freeform tags (optional)"`
 }
 type createCardOut struct {
+	Card cardDTO `json:"card"`
+}
+
+type updateCardIn struct {
+	CardID      string   `json:"card_id"      jsonschema:"Card ID (hex ObjectID) to update"`
+	Title       string   `json:"title"        jsonschema:"New title (omit to keep current)"`
+	Description string   `json:"description"  jsonschema:"New description (omit to keep current)"`
+	Priority    string   `json:"priority"     jsonschema:"New priority: none, low, medium, high, urgent (omit to keep current)"`
+	DueDate     string   `json:"due_date"     jsonschema:"New due date YYYY-MM-DD, empty string to clear, omit to keep current"`
+	Tags        []string `json:"tags"         jsonschema:"New tags list (omit to keep current, send empty array to clear)"`
+	UpdateFields []string `json:"update_fields" jsonschema:"List of field names to update: title, description, priority, due_date, tags"`
+}
+type updateCardOut struct {
 	Card cardDTO `json:"card"`
 }
 
@@ -159,6 +189,13 @@ type deleteCardIn struct {
 }
 type deleteCardOut struct {
 	Deleted bool `json:"deleted"`
+}
+
+type boardStatsIn struct {
+	BoardID string `json:"board_id" jsonschema:"Board ID (hex ObjectID) — get it from kanban_get_board"`
+}
+type boardStatsOut struct {
+	Stats boardStatsDTO `json:"stats"`
 }
 
 // ---- Registration ---------------------------------------------------------
@@ -198,6 +235,7 @@ func toBoardDTO(b *kanban.Board) boardDTO {
 	return boardDTO{
 		ID:        b.ID.Hex(),
 		UserID:    b.UserID,
+		Name:      b.Name,
 		CreatedAt: b.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 	}
 }
@@ -213,15 +251,31 @@ func toColumnDTO(c *kanban.Column) columnDTO {
 }
 
 func toCardDTO(c *kanban.Card) cardDTO {
-	return cardDTO{
-		ID:        c.ID.Hex(),
-		BoardID:   c.BoardID.Hex(),
-		ColumnID:  c.ColumnID.Hex(),
-		Title:     c.Title,
-		Content:   c.Content,
-		Order:     c.Order,
-		CreatedAt: c.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+	priority := c.Priority
+	if priority == "" {
+		priority = kanban.PriorityNone
 	}
+	tags := c.Tags
+	if tags == nil {
+		tags = []string{}
+	}
+	dto := cardDTO{
+		ID:          c.ID.Hex(),
+		BoardID:     c.BoardID.Hex(),
+		ColumnID:    c.ColumnID.Hex(),
+		Title:       c.Title,
+		Content:     c.Content,
+		Description: c.Description,
+		Priority:    priority,
+		Tags:        tags,
+		Order:       c.Order,
+		CreatedAt:   c.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+	}
+	if c.DueDate != nil {
+		s := c.DueDate.Format("2006-01-02")
+		dto.DueDate = &s
+	}
+	return dto
 }
 
 func registerTools(s *mcp.Server, d Deps) {
@@ -374,12 +428,13 @@ func registerTools(s *mcp.Server, d Deps) {
 	// Kanban
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "kanban_get_board",
-		Description: "Retrieve the full kanban board: board metadata, all columns, and all cards. Auto-creates the board on first call.",
+		Description: "Retrieve the full kanban board: board metadata, all columns, and all cards. Returns the first board (auto-creates one on first call). Use board.id for subsequent calls.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, getBoardOut, error) {
-		board, err := d.KanRepo.GetBoard(ctx, d.FirebaseUID)
+		boards, err := d.KanRepo.ListBoards(ctx, d.FirebaseUID)
 		if err != nil {
-			return nil, getBoardOut{}, fmt.Errorf("get board: %w", err)
+			return nil, getBoardOut{}, fmt.Errorf("list boards: %w", err)
 		}
+		board := boards[0]
 		columns, err := d.KanRepo.GetColumns(ctx, board.ID)
 		if err != nil {
 			return nil, getBoardOut{}, fmt.Errorf("get columns: %w", err)
@@ -420,19 +475,78 @@ func registerTools(s *mcp.Server, d Deps) {
 		if err != nil {
 			return nil, createCardOut{}, fmt.Errorf("invalid column_id %q: %w", in.ColumnID, err)
 		}
-		board, err := d.KanRepo.GetBoard(ctx, d.FirebaseUID)
+		boards, err := d.KanRepo.ListBoards(ctx, d.FirebaseUID)
 		if err != nil {
-			return nil, createCardOut{}, fmt.Errorf("get board: %w", err)
+			return nil, createCardOut{}, fmt.Errorf("list boards: %w", err)
 		}
+		board := boards[0]
+
+		var dueDateStr *string
+		if in.DueDate != "" {
+			dueDateStr = &in.DueDate
+		}
+
+		priority := in.Priority
+		if priority == "" {
+			priority = kanban.PriorityNone
+		}
+
 		card, err := d.KanRepo.CreateCard(ctx, board.ID, colID, kanban.CreateCardInput{
-			ColumnID: in.ColumnID,
-			Title:    in.Title,
-			Content:  in.Content,
+			BoardID:     board.ID.Hex(),
+			ColumnID:    in.ColumnID,
+			Title:       in.Title,
+			Content:     in.Content,
+			Description: in.Description,
+			Priority:    priority,
+			DueDate:     dueDateStr,
+			Tags:        in.Tags,
 		})
 		if err != nil {
 			return nil, createCardOut{}, fmt.Errorf("create card: %w", err)
 		}
 		return nil, createCardOut{Card: toCardDTO(card)}, nil
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "kanban_update_card",
+		Description: "Update card detail fields. Only fields listed in update_fields are changed. Valid field names: title, description, priority, due_date, tags.",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, in updateCardIn) (*mcp.CallToolResult, updateCardOut, error) {
+		cardID, err := primitive.ObjectIDFromHex(in.CardID)
+		if err != nil {
+			return nil, updateCardOut{}, fmt.Errorf("invalid card_id %q: %w", in.CardID, err)
+		}
+		fields := make(map[string]bool, len(in.UpdateFields))
+		for _, f := range in.UpdateFields {
+			fields[f] = true
+		}
+		var input kanban.UpdateCardInput
+		if fields["title"] {
+			input.Title = &in.Title
+		}
+		if fields["description"] {
+			input.Description = &in.Description
+		}
+		if fields["priority"] {
+			if !kanban.ValidPriority(in.Priority) {
+				return nil, updateCardOut{}, fmt.Errorf("invalid priority %q", in.Priority)
+			}
+			input.Priority = &in.Priority
+		}
+		if fields["due_date"] {
+			input.DueDate = &in.DueDate
+		}
+		if fields["tags"] {
+			tags := in.Tags
+			if tags == nil {
+				tags = []string{}
+			}
+			input.Tags = &tags
+		}
+		card, err := d.KanRepo.UpdateCard(ctx, cardID, input)
+		if err != nil {
+			return nil, updateCardOut{}, fmt.Errorf("update card: %w", err)
+		}
+		return nil, updateCardOut{Card: toCardDTO(card)}, nil
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
@@ -464,5 +578,27 @@ func registerTools(s *mcp.Server, d Deps) {
 			return nil, deleteCardOut{}, fmt.Errorf("delete card: %w", err)
 		}
 		return nil, deleteCardOut{Deleted: true}, nil
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "kanban_board_stats",
+		Description: "Get statistics for a board: total cards, cards per column, cards per priority, overdue count, and cards without a due date.",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, in boardStatsIn) (*mcp.CallToolResult, boardStatsOut, error) {
+		boardID, err := primitive.ObjectIDFromHex(in.BoardID)
+		if err != nil {
+			return nil, boardStatsOut{}, fmt.Errorf("invalid board_id %q: %w", in.BoardID, err)
+		}
+		stats, err := d.KanRepo.GetBoardStats(ctx, boardID)
+		if err != nil {
+			return nil, boardStatsOut{}, fmt.Errorf("get stats: %w", err)
+		}
+		dto := boardStatsDTO{
+			Total:      stats.Total,
+			ByColumn:   stats.ByColumn,
+			ByPriority: stats.ByPriority,
+			Overdue:    stats.Overdue,
+			NoDueDate:  stats.NoDueDate,
+		}
+		return nil, boardStatsOut{Stats: dto}, nil
 	})
 }

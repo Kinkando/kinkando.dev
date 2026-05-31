@@ -94,7 +94,8 @@ func (h *Handler) chat(c *fiber.Ctx) error {
 			return w.Flush()
 		}
 
-		if err := h.gemini.ChatStream(streamCtx, history, userMsg, emit); err != nil {
+		usage, err := h.gemini.ChatStream(streamCtx, history, userMsg, emit)
+		if err != nil {
 			if !strings.Contains(err.Error(), "context") {
 				h.logger.Error("AI chat stream error", zap.Error(err))
 			}
@@ -104,8 +105,13 @@ func (h *Handler) chat(c *fiber.Ctx) error {
 			return
 		}
 
-		fmt.Fprint(w, "event: done\ndata: {}\n\n") //nolint:errcheck
-		w.Flush()                                   //nolint:errcheck
+		usageFrame, _ := json.Marshal(map[string]int32{
+			"inputTokens":  usage.InputTokens,
+			"outputTokens": usage.OutputTokens,
+		})
+		fmt.Fprintf(w, "event: usage\ndata: %s\n\n", usageFrame) //nolint:errcheck
+		fmt.Fprint(w, "event: done\ndata: {}\n\n")               //nolint:errcheck
+		w.Flush()                                                  //nolint:errcheck
 	})
 
 	return nil

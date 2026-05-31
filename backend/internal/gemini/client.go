@@ -118,10 +118,17 @@ func (c *Client) Chat(ctx context.Context, userMsg string) (string, error) {
 	return "", errors.New("gemini: tool-call loop exceeded max rounds")
 }
 
+// Usage holds token counts for a ChatStream call, summed across all tool-call rounds.
+// Each round is a separate Gemini API call, so costs accumulate across rounds.
+type Usage struct {
+	InputTokens  int32
+	OutputTokens int32
+}
+
 // ChatStream sends userMsg to Gemini with optional conversation history, streams
 // text tokens through emit as they arrive, executes any tool calls via MCP in a
 // loop, and returns when the model produces its final reply (or on error).
-func (c *Client) ChatStream(ctx context.Context, history []Message, userMsg string, emit func(token string) error) error {
+func (c *Client) ChatStream(ctx context.Context, history []Message, userMsg string, emit func(token string) error) (Usage, error) {
 	msg := fmt.Sprintf("[Today: %s]\n%s", time.Now().Format("2006-01-02"), userMsg)
 
 	// Build history contents for the chat session.
@@ -136,19 +143,25 @@ func (c *Client) ChatStream(ctx context.Context, history []Message, userMsg stri
 
 	chat, err := c.gc.Chats.Create(ctx, c.model, c.config, historyContents)
 	if err != nil {
-		return fmt.Errorf("gemini: create chat: %w", err)
+		return Usage{}, fmt.Errorf("gemini: create chat: %w", err)
 	}
 
 	sendParts := []genai.Part{{Text: msg}}
 
+	var cumulative Usage
+
 	for round := range maxToolRounds {
 		var fcParts []*genai.Part
 		var streamErr error
+		var roundUsage *genai.GenerateContentResponseUsageMetadata
 
 		for resp, err := range chat.SendMessageStream(ctx, sendParts...) {
 			if err != nil {
 				streamErr = fmt.Errorf("gemini: stream: %w", err)
 				break
+			}
+			if resp.UsageMetadata != nil {
+				roundUsage = resp.UsageMetadata
 			}
 			if len(resp.Candidates) == 0 {
 				continue
@@ -156,7 +169,7 @@ func (c *Client) ChatStream(ctx context.Context, history []Message, userMsg stri
 			for _, p := range resp.Candidates[0].Content.Parts {
 				if p.Text != "" {
 					if emitErr := emit(p.Text); emitErr != nil {
-						return emitErr
+						return cumulative, emitErr
 					}
 				}
 				if p.FunctionCall != nil {
@@ -166,24 +179,29 @@ func (c *Client) ChatStream(ctx context.Context, history []Message, userMsg stri
 			}
 		}
 		if streamErr != nil {
-			return streamErr
+			return cumulative, streamErr
+		}
+
+		if roundUsage != nil {
+			cumulative.InputTokens += roundUsage.PromptTokenCount
+			cumulative.OutputTokens += roundUsage.CandidatesTokenCount
 		}
 
 		if len(fcParts) == 0 {
 			// No tool calls — final reply was already streamed.
-			return nil
+			return cumulative, nil
 		}
 
 		// Last round reached with unresolved tool calls.
 		if round == maxToolRounds-1 {
-			return errors.New("gemini: tool-call loop exceeded max rounds")
+			return cumulative, errors.New("gemini: tool-call loop exceeded max rounds")
 		}
 
 		sendParts = c.executeToolCalls(ctx, fcParts)
 	}
 
 	// Unreachable, but satisfies the compiler.
-	return errors.New("gemini: tool-call loop exceeded max rounds")
+	return cumulative, errors.New("gemini: tool-call loop exceeded max rounds")
 }
 
 // executeToolCalls dispatches each function call through MCP and returns the

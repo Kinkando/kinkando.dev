@@ -16,8 +16,15 @@ type Config struct {
 	FirebaseCredentials string `env:"FIREBASE_CREDENTIALS,required"`
 	// MCPUserFirebaseUID and MCPAuthToken enable the /mcp endpoint on the HTTP
 	// server. Both must be set; if either is empty, MCP is disabled.
-	MCPUserFirebaseUID string `env:"MCP_USER_FIREBASE_UID"`
+	// MCPUserFirebaseUID is also used by the LINE webhook to identify the
+	// single app user to write records for.
+	MCPUserFirebaseUID string `env:"MCP_USER_FIREBASE_UID,required"`
 	MCPAuthToken       string `env:"MCP_AUTH_TOKEN"`
+
+	// LINE Messaging API credentials.
+	LineChannelID          string `env:"LINE_CHANNEL_ID,required"`
+	LineChannelSecret      string `env:"LINE_CHANNEL_SECRET,required"`
+	LineChannelAccessToken string `env:"LINE_CHANNEL_ACCESS_TOKEN,required"`
 }
 
 func Load() *Config {

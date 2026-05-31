@@ -25,6 +25,8 @@ import (
 	financeSvc "github.com/kinkando/personal-dashboard/internal/finance/service"
 	kanbanHandler "github.com/kinkando/personal-dashboard/internal/kanban/handler"
 	kanbanRepo "github.com/kinkando/personal-dashboard/internal/kanban/repository"
+	"github.com/kinkando/personal-dashboard/internal/line"
+	lineHandler "github.com/kinkando/personal-dashboard/internal/line/handler"
 	"github.com/kinkando/personal-dashboard/internal/mcpserver"
 	portfolioHandler "github.com/kinkando/personal-dashboard/internal/portfolio/handler"
 	userHandler "github.com/kinkando/personal-dashboard/internal/user/handler"
@@ -121,19 +123,38 @@ func main() {
 	portfolioGroup := api.Group("/portfolio")
 	portH.Register(portfolioGroup)
 
-	if cfg.MCPUserFirebaseUID != "" && cfg.MCPAuthToken != "" {
-		mcpUserUUID, err := usrRepo.GetIDByFirebaseUID(ctx, cfg.MCPUserFirebaseUID)
-		if err != nil {
-			logger.Fatal("could not resolve MCP_USER_FIREBASE_UID",
-				zap.String("uid", cfg.MCPUserFirebaseUID), zap.Error(err))
-		}
-		if mcpUserUUID == (uuid.UUID{}) {
-			logger.Fatal("MCP user not found in users table; sign in via the web app first",
-				zap.String("uid", cfg.MCPUserFirebaseUID))
-		}
+	// Resolve the single app user for LINE webhook (and MCP if enabled).
+	// MCP_USER_FIREBASE_UID is required; the server refuses to start if unresolvable.
+	appUserUUID, err := usrRepo.GetIDByFirebaseUID(ctx, cfg.MCPUserFirebaseUID)
+	if err != nil {
+		logger.Fatal("could not resolve MCP_USER_FIREBASE_UID",
+			zap.String("uid", cfg.MCPUserFirebaseUID), zap.Error(err))
+	}
+	if appUserUUID == (uuid.UUID{}) {
+		logger.Fatal("user not found in users table; sign in via the web app first",
+			zap.String("uid", cfg.MCPUserFirebaseUID))
+	}
+
+	// LINE webhook — no auth middleware; self-authenticated via X-Line-Signature.
+	lineClient := line.NewClient(cfg.LineChannelAccessToken)
+	lineH := lineHandler.New(lineHandler.Deps{
+		ChannelID:     cfg.LineChannelID,
+		ChannelSecret: cfg.LineChannelSecret,
+		Client:        lineClient,
+		FinSvc:        finSvc,
+		KanRepo:       kanRepo,
+		UserUUID:      appUserUUID,
+		FirebaseUID:   cfg.MCPUserFirebaseUID,
+		Logger:        logger,
+	})
+	lineGroup := api.Group("/line")
+	lineH.Register(lineGroup)
+	logger.Info("LINE webhook enabled at /api/v1/line/webhook")
+
+	if cfg.MCPAuthToken != "" {
 		mcpSrv := mcpserver.New(mcpserver.Deps{
 			FinSvc: finSvc, KanRepo: kanRepo,
-			UserUUID: mcpUserUUID, FirebaseUID: cfg.MCPUserFirebaseUID,
+			UserUUID: appUserUUID, FirebaseUID: cfg.MCPUserFirebaseUID,
 		})
 		h := mcp.NewStreamableHTTPHandler(
 			func(*http.Request) *mcp.Server { return mcpSrv },
@@ -142,7 +163,7 @@ func main() {
 		app.All("/mcp", mcpBearerAuth(cfg.MCPAuthToken), adaptor.HTTPHandler(h))
 		logger.Info("MCP enabled at /mcp", zap.String("user", cfg.MCPUserFirebaseUID))
 	} else {
-		logger.Info("MCP disabled (set MCP_USER_FIREBASE_UID and MCP_AUTH_TOKEN to enable)")
+		logger.Info("MCP disabled (set MCP_AUTH_TOKEN to enable)")
 	}
 
 	quit := make(chan os.Signal, 1)

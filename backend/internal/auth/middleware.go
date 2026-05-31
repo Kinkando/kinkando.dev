@@ -10,7 +10,10 @@ import (
 	"google.golang.org/api/option"
 )
 
-const localKeyUserID = "user_id"
+const (
+	localKeyUserID = "user_id"
+	localKeyEmail  = "user_email"
+)
 
 type Middleware struct {
 	client *firebaseauth.Client
@@ -40,6 +43,9 @@ func (m *Middleware) Require() fiber.Handler {
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid or expired token"})
 		}
 		c.Locals(localKeyUserID, token.UID)
+		if email, ok := token.Claims["email"].(string); ok {
+			c.Locals(localKeyEmail, email)
+		}
 		return c.Next()
 	}
 }
@@ -47,4 +53,9 @@ func (m *Middleware) Require() fiber.Handler {
 func GetUserID(c *fiber.Ctx) string {
 	uid, _ := c.Locals(localKeyUserID).(string)
 	return uid
+}
+
+func GetEmail(c *fiber.Ctx) string {
+	email, _ := c.Locals(localKeyEmail).(string)
+	return email
 }

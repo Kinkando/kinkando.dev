@@ -17,12 +17,18 @@ type Service interface {
 	DeleteRecord(ctx context.Context, id uuid.UUID, userID uuid.UUID) error
 }
 
-type Handler struct {
-	svc Service
+// UserResolver resolves a Firebase UID to the internal UUID stored in the users table.
+type UserResolver interface {
+	GetIDByFirebaseUID(ctx context.Context, firebaseUID string) (uuid.UUID, error)
 }
 
-func New(svc Service) *Handler {
-	return &Handler{svc: svc}
+type Handler struct {
+	svc   Service
+	users UserResolver
+}
+
+func New(svc Service, users UserResolver) *Handler {
+	return &Handler{svc: svc, users: users}
 }
 
 func (h *Handler) Register(router fiber.Router) {
@@ -33,7 +39,7 @@ func (h *Handler) Register(router fiber.Router) {
 }
 
 func (h *Handler) listRecords(c *fiber.Ctx) error {
-	userID, err := parseUserID(c)
+	userID, err := h.resolveUserID(c)
 	if err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
 	}
@@ -52,7 +58,7 @@ func (h *Handler) listRecords(c *fiber.Ctx) error {
 }
 
 func (h *Handler) createRecord(c *fiber.Ctx) error {
-	userID, err := parseUserID(c)
+	userID, err := h.resolveUserID(c)
 	if err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
 	}
@@ -74,7 +80,7 @@ func (h *Handler) createRecord(c *fiber.Ctx) error {
 }
 
 func (h *Handler) deleteRecord(c *fiber.Ctx) error {
-	userID, err := parseUserID(c)
+	userID, err := h.resolveUserID(c)
 	if err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
 	}
@@ -92,7 +98,7 @@ func (h *Handler) deleteRecord(c *fiber.Ctx) error {
 }
 
 func (h *Handler) summary(c *fiber.Ctx) error {
-	userID, err := parseUserID(c)
+	userID, err := h.resolveUserID(c)
 	if err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
 	}
@@ -107,6 +113,11 @@ func (h *Handler) summary(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"data": s})
 }
 
-func parseUserID(c *fiber.Ctx) (uuid.UUID, error) {
-	return uuid.Parse(auth.GetUserID(c))
+// resolveUserID looks up the internal UUID for the Firebase UID in the request context.
+func (h *Handler) resolveUserID(c *fiber.Ctx) (uuid.UUID, error) {
+	firebaseUID := auth.GetUserID(c)
+	if firebaseUID == "" {
+		return uuid.UUID{}, fiber.ErrUnauthorized
+	}
+	return h.users.GetIDByFirebaseUID(c.Context(), firebaseUID)
 }

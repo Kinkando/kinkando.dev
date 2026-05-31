@@ -21,6 +21,9 @@ import (
 	kanbanHandler "github.com/kinkando/personal-dashboard/internal/kanban/handler"
 	kanbanRepo "github.com/kinkando/personal-dashboard/internal/kanban/repository"
 	portfolioHandler "github.com/kinkando/personal-dashboard/internal/portfolio/handler"
+	userHandler "github.com/kinkando/personal-dashboard/internal/user/handler"
+	userRepo "github.com/kinkando/personal-dashboard/internal/user/repository"
+	userSvc "github.com/kinkando/personal-dashboard/internal/user/service"
 	"github.com/kinkando/personal-dashboard/pkg/mongo"
 	"github.com/kinkando/personal-dashboard/pkg/postgres"
 	"go.uber.org/zap"
@@ -62,9 +65,13 @@ func main() {
 	}
 
 	// wire modules
+	usrRepo := userRepo.New(pgDB.SQL())
+	usrSvc := userSvc.New(usrRepo)
+	usrH := userHandler.New(usrSvc)
+
 	finRepo := financeRepo.New(pgDB.SQL())
 	finSvc := financeSvc.New(finRepo)
-	finH := financeHandler.New(finSvc)
+	finH := financeHandler.New(finSvc, usrRepo)
 
 	kanRepo := kanbanRepo.New(mongoDB)
 	kanH := kanbanHandler.New(kanRepo)
@@ -94,6 +101,9 @@ func main() {
 	})
 
 	api := app.Group("/api/v1")
+
+	userGroup := api.Group("/users", authMW.Require())
+	usrH.Register(userGroup)
 
 	financeGroup := api.Group("/finance", authMW.Require())
 	finH.Register(financeGroup)

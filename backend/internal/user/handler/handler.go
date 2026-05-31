@@ -21,7 +21,7 @@ func New(svc Service) *Handler {
 }
 
 func (h *Handler) Register(router fiber.Router) {
-	router.Post("/", h.ensureUser)
+	router.Post("", h.ensureUser)
 }
 
 // ensureUser idempotently provisions a users row for the authenticated Firebase

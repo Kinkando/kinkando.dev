@@ -136,16 +136,34 @@ func main() {
 			zap.String("uid", cfg.MCPUserFirebaseUID))
 	}
 
+	// MCP server — used by both the in-process Gemini path and (optionally) the
+	// HTTP /mcp endpoint. Created unconditionally so Gemini always has a session.
+	mcpSrv := mcpserver.New(mcpserver.Deps{
+		FinSvc: finSvc, KanRepo: kanRepo,
+		UserUUID: appUserUUID, FirebaseUID: cfg.MCPUserFirebaseUID,
+	})
+
+	// Wire an in-process MCP client so Gemini can call tools without a network hop.
+	serverT, clientT := mcp.NewInMemoryTransports()
+	mcpServerSession, err := mcpSrv.Connect(context.Background(), serverT, nil)
+	if err != nil {
+		logger.Fatal("mcp server session", zap.Error(err))
+	}
+	defer mcpServerSession.Close() //nolint:errcheck
+	mcpCli := mcp.NewClient(&mcp.Implementation{Name: "kinkando-line", Version: "0.1.0"}, nil)
+	mcpClientSession, err := mcpCli.Connect(context.Background(), clientT, nil)
+	if err != nil {
+		logger.Fatal("mcp client session", zap.Error(err))
+	}
+	defer mcpClientSession.Close() //nolint:errcheck
+
 	// LINE webhook — no auth middleware; self-authenticated via X-Line-Signature.
 	lineClient := line.NewClient(cfg.LineChannelAccessToken)
 
 	geminiClient, err := gemini.New(context.Background(), gemini.Deps{
-		APIKey:      cfg.GeminiAPIKey,
-		Model:       cfg.GeminiModel,
-		FinSvc:      finSvc,
-		KanRepo:     kanRepo,
-		UserUUID:    appUserUUID,
-		FirebaseUID: cfg.MCPUserFirebaseUID,
+		APIKey: cfg.GeminiAPIKey,
+		Model:  cfg.GeminiModel,
+		MCP:    mcpClientSession,
 	})
 	if err != nil {
 		logger.Fatal("gemini init", zap.Error(err))
@@ -157,10 +175,6 @@ func main() {
 		ChannelID:     cfg.LineChannelID,
 		ChannelSecret: cfg.LineChannelSecret,
 		Client:        lineClient,
-		FinSvc:        finSvc,
-		KanRepo:       kanRepo,
-		UserUUID:      appUserUUID,
-		FirebaseUID:   cfg.MCPUserFirebaseUID,
 		Gemini:        geminiClient,
 		Logger:        logger,
 	})
@@ -169,10 +183,6 @@ func main() {
 	logger.Info("LINE webhook enabled at /api/v1/line/webhook")
 
 	if cfg.MCPAuthToken != "" {
-		mcpSrv := mcpserver.New(mcpserver.Deps{
-			FinSvc: finSvc, KanRepo: kanRepo,
-			UserUUID: appUserUUID, FirebaseUID: cfg.MCPUserFirebaseUID,
-		})
 		h := mcp.NewStreamableHTTPHandler(
 			func(*http.Request) *mcp.Server { return mcpSrv },
 			&mcp.StreamableHTTPOptions{Stateless: true, JSONResponse: true},

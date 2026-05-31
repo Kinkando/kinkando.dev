@@ -32,3 +32,7 @@ See `backend/CLAUDE.md` and `frontend/CLAUDE.md` for module-specific guidance.
 - One logical change per commit — don't bundle unrelated changes
 - Never amend a commit unless explicitly asked
 - Never force push to `main`
+
+## Planning
+
+Save finalized implementation plans to `plans/` in the repo root. This directory is gitignored — plans are working artifacts, not committed.

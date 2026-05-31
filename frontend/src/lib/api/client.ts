@@ -1,68 +1,57 @@
-import clientConfig from '$config/client';
-import { getToken } from '$lib/firebase/token';
+import { getIdToken } from '../firebase'
+import env from '../../config/env'
 
 export class ApiError extends Error {
   constructor(
+    public status: number,
     message: string,
-    public readonly status: number
   ) {
-    super(message);
-    this.name = 'ApiError';
+    super(message)
+    this.name = 'ApiError'
   }
 }
 
-type QueryParams = Record<string, string | number | undefined>;
+const BASE = `${env.apiUrl}/api/v1`
 
-function buildQuery(query?: QueryParams): string {
-  if (!query) return '';
-  const params = new URLSearchParams();
-  for (const [k, v] of Object.entries(query)) {
-    if (v !== undefined) params.set(k, String(v));
-  }
-  const qs = params.toString();
-  return qs ? '?' + qs : '';
+type Options = {
+  method?: string
+  body?: unknown
+  auth?: boolean
+  query?: Record<string, string>
 }
-
-const BASE = `${clientConfig.apiUrl}/api/v1`;
 
 export async function apiFetch<T>(
   path: string,
-  {
-    method = 'GET',
-    body,
-    auth = false,
-    query
-  }: {
-    method?: string;
-    body?: unknown;
-    auth?: boolean;
-    query?: QueryParams;
-  } = {}
-): Promise<T> {
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json'
-  };
+  opts: Options = {},
+): Promise<T | undefined> {
+  const { method = 'GET', body, auth = false, query } = opts
+  const headers: HeadersInit = { 'Content-Type': 'application/json' }
 
   if (auth) {
-    const token = await getToken();
-    if (!token) throw new ApiError('Not authenticated', 401);
-    headers['Authorization'] = `Bearer ${token}`;
+    const token = await getIdToken()
+    if (token) headers['Authorization'] = `Bearer ${token}`
   }
 
-  const res = await fetch(`${BASE}${path}${buildQuery(query)}`, {
+  let url = `${BASE}${path}`
+  if (query) {
+    url += `?${new URLSearchParams(query).toString()}`
+  }
+
+  const res = await fetch(url, {
     method,
     headers,
-    body: body !== undefined ? JSON.stringify(body) : undefined
-  });
+    body: body != null ? JSON.stringify(body) : undefined,
+  })
 
-  // 204 No Content (deletes, move)
-  if (res.status === 204) return undefined as T;
+  if (res.status === 204) return undefined
 
-  const json = await res.json().catch(() => null);
-
+  const json = await res.json()
   if (!res.ok) {
-    throw new ApiError(json?.error ?? res.statusText, res.status);
+    throw new ApiError(
+      res.status,
+      (json as { error?: string }).error ?? `HTTP ${res.status}`,
+    )
   }
 
-  return json?.data as T;
+  return (json as { data: T }).data
 }

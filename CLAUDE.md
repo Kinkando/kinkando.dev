@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```
 kinkando.dev/
 ├── backend/       # Go (Fiber v2) — API server
-├── frontend/      # Next.js 14 (App Router) — web client
+├── frontend/      # React + Vite (SPA) — web client
 └── CLAUDE.md      # This file (root-level instructions)
 ```
 

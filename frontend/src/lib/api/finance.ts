@@ -1,18 +1,37 @@
-import { apiFetch } from './client';
-import type { CreateRecordInput, FinanceRecord, FinanceSummary } from './types';
+import { apiFetch } from './client'
+import type { FinanceRecord, CreateRecordInput, MonthlySummary } from './types'
 
-export function listRecords(month: string): Promise<FinanceRecord[]> {
-  return apiFetch<FinanceRecord[]>('/finance/records', { auth: true, query: { month } });
+export function fetchRecords(
+  month: string,
+): Promise<FinanceRecord[] | undefined> {
+  return apiFetch<FinanceRecord[]>('/finance/records', {
+    auth: true,
+    query: { month },
+  })
 }
 
-export function createRecord(input: CreateRecordInput): Promise<FinanceRecord> {
-  return apiFetch<FinanceRecord>('/finance/records', { method: 'POST', auth: true, body: input });
+export function createRecord(
+  input: CreateRecordInput,
+): Promise<FinanceRecord | undefined> {
+  return apiFetch<FinanceRecord>('/finance/records', {
+    method: 'POST',
+    body: input,
+    auth: true,
+  })
 }
 
-export function deleteRecord(id: string): Promise<void> {
-  return apiFetch<void>(`/finance/records/${id}`, { method: 'DELETE', auth: true });
+export function deleteRecord(id: string): Promise<undefined> {
+  return apiFetch<undefined>(`/finance/records/${id}`, {
+    method: 'DELETE',
+    auth: true,
+  })
 }
 
-export function getSummary(month: string): Promise<FinanceSummary> {
-  return apiFetch<FinanceSummary>('/finance/summary', { auth: true, query: { month } });
+export function fetchSummary(
+  month: string,
+): Promise<MonthlySummary | undefined> {
+  return apiFetch<MonthlySummary>('/finance/summary', {
+    auth: true,
+    query: { month },
+  })
 }

@@ -1,6 +1,6 @@
-import { apiFetch } from './client';
-import type { AppUser } from './types';
+import { apiFetch } from './client'
+import type { User } from './types'
 
-export function ensureUser(): Promise<AppUser> {
-  return apiFetch<AppUser>('/users', { method: 'POST', auth: true });
+export function provisionUser(): Promise<User | undefined> {
+  return apiFetch<User>('/users', { method: 'POST', auth: true })
 }

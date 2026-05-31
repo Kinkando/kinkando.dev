@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
 )
@@ -17,7 +18,16 @@ type DB struct {
 }
 
 func New(ctx context.Context, dsn string) (*DB, error) {
-	pool, err := pgxpool.New(ctx, dsn)
+	config, err := pgxpool.ParseConfig(dsn)
+	if err != nil {
+		return nil, fmt.Errorf("pgxpool.ParseConfig: %w", err)
+	}
+
+	// Disable named prepared statements to avoid cache conflicts with go-jet
+	// go-jet generates statement names that can collide when connections are reused
+	config.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeDescribeExec
+
+	pool, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {
 		return nil, fmt.Errorf("pgxpool.New: %w", err)
 	}

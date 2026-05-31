@@ -5,8 +5,23 @@ type Props = {
   isStreaming?: boolean
 }
 
+function ThinkingDots() {
+  return (
+    <span className="flex items-center gap-1.5 py-0.5">
+      {[0, 1, 2].map((i) => (
+        <span
+          key={i}
+          className="inline-block h-2 w-2 animate-bounce rounded-full bg-gray-500"
+          style={{ animationDelay: `${i * 0.15}s`, animationDuration: '0.8s' }}
+        />
+      ))}
+    </span>
+  )
+}
+
 export default function MessageBubble({ message, isStreaming }: Props) {
   const isUser = message.role === 'user'
+  const isThinking = !isUser && isStreaming && !message.content
 
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
@@ -17,9 +32,15 @@ export default function MessageBubble({ message, isStreaming }: Props) {
             : 'border border-gray-700 bg-gray-800 text-gray-100'
         }`}
       >
-        {message.content}
-        {isStreaming && (
-          <span className="ml-1 inline-block h-4 w-2 animate-pulse rounded-sm bg-indigo-400 align-middle" />
+        {isThinking ? (
+          <ThinkingDots />
+        ) : (
+          <>
+            <span className="animate-fade-in">{message.content}</span>
+            {isStreaming && (
+              <span className="ml-1 inline-block h-4 w-2 animate-pulse rounded-sm bg-indigo-400 align-middle" />
+            )}
+          </>
         )}
       </div>
     </div>

@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/generative-ai-go/genai"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"google.golang.org/api/googleapi"
 	"google.golang.org/api/option"
 )
 
@@ -73,6 +74,10 @@ func (c *Client) Chat(ctx context.Context, userMsg string) (string, error) {
 	for round := range maxToolRounds {
 		resp, err := session.SendMessage(ctx, parts...)
 		if err != nil {
+			var gErr *googleapi.Error
+			if errors.As(err, &gErr) {
+				return "", fmt.Errorf("gemini: send message (code=%d body=%s): %w", gErr.Code, gErr.Body, err)
+			}
 			return "", fmt.Errorf("gemini: send message: %w", err)
 		}
 		if len(resp.Candidates) == 0 {

@@ -10,13 +10,15 @@ import (
 // SchemaOf converts a Go struct value (or pointer) to a *genai.Schema.
 // Property names come from json tags; descriptions from jsonschema tags.
 // required explicitly lists which field names must appear in the model's response.
+// Returns an empty object schema (never nil) — Gemini requires an explicit
+// parameters field even for tools that take no arguments.
 func SchemaOf(v any, required ...string) *genai.Schema {
 	t := reflect.TypeOf(v)
-	for t != nil && t.Kind() == reflect.Ptr {
+	for t != nil && t.Kind() == reflect.Pointer {
 		t = t.Elem()
 	}
 	if t == nil || t.Kind() != reflect.Struct || t.NumField() == 0 {
-		return nil
+		return &genai.Schema{Type: genai.TypeObject, Properties: map[string]*genai.Schema{}}
 	}
 	s := objectSchema(t)
 	if len(required) > 0 {

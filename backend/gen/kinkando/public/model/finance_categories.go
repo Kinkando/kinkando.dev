@@ -19,4 +19,5 @@ type FinanceCategories struct {
 	Type      string
 	Color     string
 	CreatedAt time.Time
+	Icon      string
 }

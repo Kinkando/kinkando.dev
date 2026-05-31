@@ -1,4 +1,5 @@
 import type { MonthlySummary } from '../../lib/api/types'
+import { getIcon } from '../../lib/icons'
 
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('en-US', {
@@ -36,17 +37,34 @@ export default function SummaryPanel({ summary }: { summary: MonthlySummary }) {
         <div className="rounded-xl border border-gray-800 bg-gray-900 p-4">
           <p className="mb-3 text-sm font-medium text-gray-300">By category</p>
           <ul className="flex flex-col gap-2">
-            {summary.categories.map((cat, i) => (
-              <li key={i} className="flex items-center justify-between text-sm">
-                <span className="text-gray-400">{cat.category}</span>
-                <span
-                  className={`font-medium ${cat.type === 'income' ? 'text-green-400' : 'text-red-400'}`}
+            {summary.categories.map((cat, i) => {
+              const Icon = cat.icon ? getIcon(cat.icon) : null
+              return (
+                <li
+                  key={i}
+                  className="flex items-center justify-between gap-2 text-sm"
                 >
-                  {cat.type === 'income' ? '+' : '-'}
-                  {formatCurrency(cat.total)}
-                </span>
-              </li>
-            ))}
+                  <span className="flex items-center gap-2 text-gray-400">
+                    {Icon && cat.color && (
+                      <Icon size={13} style={{ color: cat.color }} />
+                    )}
+                    {cat.color && (
+                      <span
+                        className="h-2 w-2 flex-shrink-0 rounded-full"
+                        style={{ backgroundColor: cat.color }}
+                      />
+                    )}
+                    {cat.category}
+                  </span>
+                  <span
+                    className={`font-medium ${cat.type === 'income' ? 'text-green-400' : 'text-red-400'}`}
+                  >
+                    {cat.type === 'income' ? '+' : '-'}
+                    {formatCurrency(cat.total)}
+                  </span>
+                </li>
+              )
+            })}
           </ul>
         </div>
       )}

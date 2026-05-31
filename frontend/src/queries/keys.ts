@@ -3,5 +3,6 @@ export const keys = {
   portfolioSkills: ['portfolio', 'skills'] as const,
   financeRecords: (month: string) => ['finance', 'records', month] as const,
   financeSummary: (month: string) => ['finance', 'summary', month] as const,
+  financeCategories: ['finance', 'categories'] as const,
   kanbanBoard: ['kanban', 'board'] as const,
 }

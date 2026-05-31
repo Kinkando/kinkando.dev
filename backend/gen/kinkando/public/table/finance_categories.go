@@ -23,6 +23,7 @@ type financeCategoriesTable struct {
 	Type      postgres.ColumnString
 	Color     postgres.ColumnString
 	CreatedAt postgres.ColumnTimestampz
+	Icon      postgres.ColumnString
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -70,9 +71,10 @@ func newFinanceCategoriesTableImpl(schemaName, tableName, alias string) financeC
 		TypeColumn      = postgres.StringColumn("type")
 		ColorColumn     = postgres.StringColumn("color")
 		CreatedAtColumn = postgres.TimestampzColumn("created_at")
-		allColumns      = postgres.ColumnList{IDColumn, UserIDColumn, NameColumn, TypeColumn, ColorColumn, CreatedAtColumn}
-		mutableColumns  = postgres.ColumnList{UserIDColumn, NameColumn, TypeColumn, ColorColumn, CreatedAtColumn}
-		defaultColumns  = postgres.ColumnList{IDColumn, ColorColumn, CreatedAtColumn}
+		IconColumn      = postgres.StringColumn("icon")
+		allColumns      = postgres.ColumnList{IDColumn, UserIDColumn, NameColumn, TypeColumn, ColorColumn, CreatedAtColumn, IconColumn}
+		mutableColumns  = postgres.ColumnList{UserIDColumn, NameColumn, TypeColumn, ColorColumn, CreatedAtColumn, IconColumn}
+		defaultColumns  = postgres.ColumnList{IDColumn, ColorColumn, CreatedAtColumn, IconColumn}
 	)
 
 	return financeCategoriesTable{
@@ -85,6 +87,7 @@ func newFinanceCategoriesTableImpl(schemaName, tableName, alias string) financeC
 		Type:      TypeColumn,
 		Color:     ColorColumn,
 		CreatedAt: CreatedAtColumn,
+		Icon:      IconColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,

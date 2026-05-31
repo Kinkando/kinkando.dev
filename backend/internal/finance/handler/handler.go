@@ -11,6 +11,11 @@ import (
 )
 
 type Service interface {
+	CreateCategory(ctx context.Context, userID uuid.UUID, in finance.CreateCategoryInput) (*finance.Category, error)
+	ListCategories(ctx context.Context, userID uuid.UUID) ([]*finance.Category, error)
+	UpdateCategory(ctx context.Context, id uuid.UUID, userID uuid.UUID, in finance.UpdateCategoryInput) (*finance.Category, error)
+	DeleteCategory(ctx context.Context, id uuid.UUID, userID uuid.UUID) error
+
 	CreateRecord(ctx context.Context, userID uuid.UUID, in finance.CreateRecordInput) (*finance.Record, error)
 	ListRecords(ctx context.Context, userID uuid.UUID, month string) ([]*finance.Record, error)
 	MonthlySummary(ctx context.Context, userID uuid.UUID, month string) (*finance.MonthlySummary, error)
@@ -32,11 +37,101 @@ func New(svc Service, users UserResolver) *Handler {
 }
 
 func (h *Handler) Register(router fiber.Router) {
+	router.Get("/categories", h.listCategories)
+	router.Post("/categories", h.createCategory)
+	router.Patch("/categories/:id", h.updateCategory)
+	router.Delete("/categories/:id", h.deleteCategory)
+
 	router.Get("/records", h.listRecords)
 	router.Post("/records", h.createRecord)
 	router.Delete("/records/:id", h.deleteRecord)
 	router.Get("/summary", h.summary)
 }
+
+// ── Category handlers ─────────────────────────────────────────────────────────
+
+func (h *Handler) listCategories(c *fiber.Ctx) error {
+	userID, err := h.resolveUserID(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
+	}
+	cats, err := h.svc.ListCategories(c.Context(), userID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+	if cats == nil {
+		cats = []*finance.Category{}
+	}
+	return c.JSON(fiber.Map{"data": cats})
+}
+
+func (h *Handler) createCategory(c *fiber.Ctx) error {
+	userID, err := h.resolveUserID(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
+	}
+	var in finance.CreateCategoryInput
+	if err := c.BodyParser(&in); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
+	}
+	if strings.TrimSpace(in.Name) == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "name is required"})
+	}
+	if in.Type != finance.RecordTypeIncome && in.Type != finance.RecordTypeExpense {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "type must be income or expense"})
+	}
+	cat, err := h.svc.CreateCategory(c.Context(), userID, in)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"data": cat})
+}
+
+func (h *Handler) updateCategory(c *fiber.Ctx) error {
+	userID, err := h.resolveUserID(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
+	}
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid category id"})
+	}
+	var in finance.UpdateCategoryInput
+	if err := c.BodyParser(&in); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
+	}
+	if strings.TrimSpace(in.Name) == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "name is required"})
+	}
+	cat, err := h.svc.UpdateCategory(c.Context(), id, userID, in)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "category not found"})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+	return c.JSON(fiber.Map{"data": cat})
+}
+
+func (h *Handler) deleteCategory(c *fiber.Ctx) error {
+	userID, err := h.resolveUserID(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
+	}
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid category id"})
+	}
+	if err := h.svc.DeleteCategory(c.Context(), id, userID); err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "category not found"})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+	return c.SendStatus(fiber.StatusNoContent)
+}
+
+// ── Record handlers ───────────────────────────────────────────────────────────
 
 func (h *Handler) listRecords(c *fiber.Ctx) error {
 	userID, err := h.resolveUserID(c)
@@ -72,8 +167,17 @@ func (h *Handler) createRecord(c *fiber.Ctx) error {
 	if in.Amount <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "amount must be positive"})
 	}
+	if in.CategoryID == (uuid.UUID{}) {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "category_id is required"})
+	}
 	rec, err := h.svc.CreateRecord(c.Context(), userID, in)
 	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": err.Error()})
+		}
+		if strings.Contains(err.Error(), "does not match") {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+		}
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"data": rec})

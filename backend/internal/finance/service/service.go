@@ -8,6 +8,12 @@ import (
 )
 
 type Repository interface {
+	CreateCategory(ctx context.Context, userID uuid.UUID, in finance.CreateCategoryInput) (*finance.Category, error)
+	ListCategories(ctx context.Context, userID uuid.UUID) ([]*finance.Category, error)
+	GetCategory(ctx context.Context, id uuid.UUID, userID uuid.UUID) (*finance.Category, error)
+	UpdateCategory(ctx context.Context, id uuid.UUID, userID uuid.UUID, in finance.UpdateCategoryInput) (*finance.Category, error)
+	DeleteCategory(ctx context.Context, id uuid.UUID, userID uuid.UUID) error
+
 	Create(ctx context.Context, userID uuid.UUID, in finance.CreateRecordInput) (*finance.Record, error)
 	List(ctx context.Context, userID uuid.UUID, month string) ([]*finance.Record, error)
 	MonthlySummary(ctx context.Context, userID uuid.UUID, month string) (*finance.MonthlySummary, error)
@@ -20,6 +26,26 @@ type Service struct {
 
 func New(repo Repository) *Service {
 	return &Service{repo: repo}
+}
+
+func (s *Service) CreateCategory(ctx context.Context, userID uuid.UUID, in finance.CreateCategoryInput) (*finance.Category, error) {
+	return s.repo.CreateCategory(ctx, userID, in)
+}
+
+func (s *Service) ListCategories(ctx context.Context, userID uuid.UUID) ([]*finance.Category, error) {
+	return s.repo.ListCategories(ctx, userID)
+}
+
+func (s *Service) GetCategory(ctx context.Context, id uuid.UUID, userID uuid.UUID) (*finance.Category, error) {
+	return s.repo.GetCategory(ctx, id, userID)
+}
+
+func (s *Service) UpdateCategory(ctx context.Context, id uuid.UUID, userID uuid.UUID, in finance.UpdateCategoryInput) (*finance.Category, error) {
+	return s.repo.UpdateCategory(ctx, id, userID, in)
+}
+
+func (s *Service) DeleteCategory(ctx context.Context, id uuid.UUID, userID uuid.UUID) error {
+	return s.repo.DeleteCategory(ctx, id, userID)
 }
 
 func (s *Service) CreateRecord(ctx context.Context, userID uuid.UUID, in finance.CreateRecordInput) (*finance.Record, error) {

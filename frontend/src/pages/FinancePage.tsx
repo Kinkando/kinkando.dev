@@ -2,6 +2,7 @@ import { useState } from 'react'
 import RecordForm from '../components/finance/RecordForm'
 import RecordList from '../components/finance/RecordList'
 import SummaryPanel from '../components/finance/SummaryPanel'
+import CategoryManager from '../components/finance/CategoryManager'
 import { useRecords, useSummary } from '../queries/useFinance'
 
 function currentMonth(): string {
@@ -33,6 +34,7 @@ export default function FinancePage() {
           ) : summary ? (
             <SummaryPanel summary={summary} />
           ) : null}
+          <CategoryManager />
         </div>
         <div className="lg:col-span-2">
           {loadingRecords ? (

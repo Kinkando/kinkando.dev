@@ -17,14 +17,15 @@ type financeRecordsTable struct {
 	postgres.Table
 
 	// Columns
-	ID        postgres.ColumnString
-	UserID    postgres.ColumnString
-	Type      postgres.ColumnString
-	Amount    postgres.ColumnFloat
-	Category  postgres.ColumnString
-	Note      postgres.ColumnString
-	Date      postgres.ColumnDate
-	CreatedAt postgres.ColumnTimestampz
+	ID         postgres.ColumnString
+	UserID     postgres.ColumnString
+	Type       postgres.ColumnString
+	Amount     postgres.ColumnFloat
+	Category   postgres.ColumnString
+	Note       postgres.ColumnString
+	Date       postgres.ColumnDate
+	CreatedAt  postgres.ColumnTimestampz
+	CategoryID postgres.ColumnString
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -66,31 +67,33 @@ func newFinanceRecordsTable(schemaName, tableName, alias string) *FinanceRecords
 
 func newFinanceRecordsTableImpl(schemaName, tableName, alias string) financeRecordsTable {
 	var (
-		IDColumn        = postgres.StringColumn("id")
-		UserIDColumn    = postgres.StringColumn("user_id")
-		TypeColumn      = postgres.StringColumn("type")
-		AmountColumn    = postgres.FloatColumn("amount")
-		CategoryColumn  = postgres.StringColumn("category")
-		NoteColumn      = postgres.StringColumn("note")
-		DateColumn      = postgres.DateColumn("date")
-		CreatedAtColumn = postgres.TimestampzColumn("created_at")
-		allColumns      = postgres.ColumnList{IDColumn, UserIDColumn, TypeColumn, AmountColumn, CategoryColumn, NoteColumn, DateColumn, CreatedAtColumn}
-		mutableColumns  = postgres.ColumnList{UserIDColumn, TypeColumn, AmountColumn, CategoryColumn, NoteColumn, DateColumn, CreatedAtColumn}
-		defaultColumns  = postgres.ColumnList{IDColumn, CategoryColumn, NoteColumn, CreatedAtColumn}
+		IDColumn         = postgres.StringColumn("id")
+		UserIDColumn     = postgres.StringColumn("user_id")
+		TypeColumn       = postgres.StringColumn("type")
+		AmountColumn     = postgres.FloatColumn("amount")
+		CategoryColumn   = postgres.StringColumn("category")
+		NoteColumn       = postgres.StringColumn("note")
+		DateColumn       = postgres.DateColumn("date")
+		CreatedAtColumn  = postgres.TimestampzColumn("created_at")
+		CategoryIDColumn = postgres.StringColumn("category_id")
+		allColumns       = postgres.ColumnList{IDColumn, UserIDColumn, TypeColumn, AmountColumn, CategoryColumn, NoteColumn, DateColumn, CreatedAtColumn, CategoryIDColumn}
+		mutableColumns   = postgres.ColumnList{UserIDColumn, TypeColumn, AmountColumn, CategoryColumn, NoteColumn, DateColumn, CreatedAtColumn, CategoryIDColumn}
+		defaultColumns   = postgres.ColumnList{IDColumn, CategoryColumn, NoteColumn, CreatedAtColumn}
 	)
 
 	return financeRecordsTable{
 		Table: postgres.NewTable(schemaName, tableName, alias, allColumns...),
 
 		//Columns
-		ID:        IDColumn,
-		UserID:    UserIDColumn,
-		Type:      TypeColumn,
-		Amount:    AmountColumn,
-		Category:  CategoryColumn,
-		Note:      NoteColumn,
-		Date:      DateColumn,
-		CreatedAt: CreatedAtColumn,
+		ID:         IDColumn,
+		UserID:     UserIDColumn,
+		Type:       TypeColumn,
+		Amount:     AmountColumn,
+		Category:   CategoryColumn,
+		Note:       NoteColumn,
+		Date:       DateColumn,
+		CreatedAt:  CreatedAtColumn,
+		CategoryID: CategoryIDColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,

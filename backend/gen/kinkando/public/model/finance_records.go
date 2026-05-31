@@ -14,12 +14,13 @@ import (
 )
 
 type FinanceRecords struct {
-	ID        uuid.UUID `sql:"primary_key"`
-	UserID    uuid.UUID
-	Type      string
-	Amount    decimal.Decimal
-	Category  string
-	Note      string
-	Date      time.Time
-	CreatedAt time.Time
+	ID         uuid.UUID `sql:"primary_key"`
+	UserID     uuid.UUID
+	Type       string
+	Amount     decimal.Decimal
+	Category   string
+	Note       string
+	Date       time.Time
+	CreatedAt  time.Time
+	CategoryID *uuid.UUID
 }

@@ -3,6 +3,7 @@ package mcpserver
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/kinkando/personal-dashboard/internal/finance"
@@ -31,14 +32,23 @@ func New(d Deps) *mcp.Server {
 // ---- Finance types --------------------------------------------------------
 
 type recordDTO struct {
-	ID        string  `json:"id"`
-	UserID    string  `json:"user_id"`
-	Type      string  `json:"type"`
-	Amount    float64 `json:"amount"`
-	Category  string  `json:"category"`
-	Note      string  `json:"note"`
-	Date      string  `json:"date"`
-	CreatedAt string  `json:"created_at"`
+	ID           string  `json:"id"`
+	UserID       string  `json:"user_id"`
+	Type         string  `json:"type"`
+	Amount       float64 `json:"amount"`
+	CategoryID   *string `json:"category_id"`
+	CategoryName string  `json:"category_name"`
+	Note         string  `json:"note"`
+	Date         string  `json:"date"`
+	CreatedAt    string  `json:"created_at"`
+}
+
+type categoryDTO struct {
+	ID    string `json:"id"`
+	Name  string `json:"name"`
+	Type  string `json:"type"`
+	Icon  string `json:"icon"`
+	Color string `json:"color"`
 }
 
 type listRecordsIn struct {
@@ -48,10 +58,14 @@ type listRecordsOut struct {
 	Records []recordDTO `json:"records"`
 }
 
+type listCategoriesOut struct {
+	Categories []categoryDTO `json:"categories"`
+}
+
 type createRecordIn struct {
 	Type     string  `json:"type"     jsonschema:"Record type: income or expense"`
 	Amount   float64 `json:"amount"   jsonschema:"Amount (must be a positive number)"`
-	Category string  `json:"category" jsonschema:"Category name"`
+	Category string  `json:"category" jsonschema:"Category name — must match an existing category of the given type (call finance_list_categories first)"`
 	Note     string  `json:"note"     jsonschema:"Optional note"`
 	Date     string  `json:"date"     jsonschema:"Date in YYYY-MM-DD format"`
 }
@@ -133,15 +147,33 @@ type deleteCardOut struct {
 // ---- Registration ---------------------------------------------------------
 
 func toRecordDTO(r *finance.Record) recordDTO {
-	return recordDTO{
-		ID:        r.ID.String(),
-		UserID:    r.UserID.String(),
-		Type:      string(r.Type),
-		Amount:    r.Amount,
-		Category:  r.Category,
-		Note:      r.Note,
-		Date:      r.Date.Format("2006-01-02"),
-		CreatedAt: r.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+	dto := recordDTO{
+		ID:           r.ID.String(),
+		UserID:       r.UserID.String(),
+		Type:         string(r.Type),
+		Amount:       r.Amount,
+		CategoryName: r.CategoryName,
+		Note:         r.Note,
+		Date:         r.Date.Format("2006-01-02"),
+		CreatedAt:    r.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+	}
+	if r.CategoryID != nil {
+		s := r.CategoryID.String()
+		dto.CategoryID = &s
+	}
+	if r.Category != nil {
+		dto.CategoryName = r.Category.Name
+	}
+	return dto
+}
+
+func toCategoryDTO(c *finance.Category) categoryDTO {
+	return categoryDTO{
+		ID:    c.ID.String(),
+		Name:  c.Name,
+		Type:  string(c.Type),
+		Icon:  c.Icon,
+		Color: c.Color,
 	}
 }
 
@@ -191,19 +223,34 @@ func registerTools(s *mcp.Server, d Deps) {
 		if records == nil {
 			records = []*finance.Record{}
 		}
-
-		// Convert to DTOs
-		recordDTOs := make([]recordDTO, len(records))
+		dtos := make([]recordDTO, len(records))
 		for i, rec := range records {
-			recordDTOs[i] = toRecordDTO(rec)
+			dtos[i] = toRecordDTO(rec)
 		}
+		return nil, listRecordsOut{Records: dtos}, nil
+	})
 
-		return nil, listRecordsOut{Records: recordDTOs}, nil
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "finance_list_categories",
+		Description: "List all finance categories (income/expense) for the user. Call this before finance_create_record to get valid category names.",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, listCategoriesOut, error) {
+		cats, err := d.FinSvc.ListCategories(ctx, d.UserUUID)
+		if err != nil {
+			return nil, listCategoriesOut{}, fmt.Errorf("list categories: %w", err)
+		}
+		if cats == nil {
+			cats = []*finance.Category{}
+		}
+		dtos := make([]categoryDTO, len(cats))
+		for i, c := range cats {
+			dtos[i] = toCategoryDTO(c)
+		}
+		return nil, listCategoriesOut{Categories: dtos}, nil
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "finance_create_record",
-		Description: "Create a new income or expense record.",
+		Description: "Create a new income or expense record. The 'category' field must match an existing category name of the given type — call finance_list_categories first to see available names.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, in createRecordIn) (*mcp.CallToolResult, createRecordOut, error) {
 		rt := finance.RecordType(in.Type)
 		if rt != finance.RecordTypeIncome && rt != finance.RecordTypeExpense {
@@ -212,12 +259,29 @@ func registerTools(s *mcp.Server, d Deps) {
 		if in.Amount <= 0 {
 			return nil, createRecordOut{}, fmt.Errorf("amount must be positive, got %v", in.Amount)
 		}
+		// Resolve category name → ID
+		cats, err := d.FinSvc.ListCategories(ctx, d.UserUUID)
+		if err != nil {
+			return nil, createRecordOut{}, fmt.Errorf("list categories: %w", err)
+		}
+		var catID uuid.UUID
+		found := false
+		for _, c := range cats {
+			if strings.EqualFold(c.Name, in.Category) && c.Type == rt {
+				catID = c.ID
+				found = true
+				break
+			}
+		}
+		if !found {
+			return nil, createRecordOut{}, fmt.Errorf("no %s category named %q — call finance_list_categories to see available names", in.Type, in.Category)
+		}
 		rec, err := d.FinSvc.CreateRecord(ctx, d.UserUUID, finance.CreateRecordInput{
-			Type:     rt,
-			Amount:   in.Amount,
-			Category: in.Category,
-			Note:     in.Note,
-			Date:     in.Date,
+			Type:       rt,
+			Amount:     in.Amount,
+			CategoryID: catID,
+			Note:       in.Note,
+			Date:       in.Date,
 		})
 		if err != nil {
 			return nil, createRecordOut{}, fmt.Errorf("create record: %w", err)
@@ -276,8 +340,6 @@ func registerTools(s *mcp.Server, d Deps) {
 		if cards == nil {
 			cards = []*kanban.Card{}
 		}
-
-		// Convert to DTOs
 		columnDTOs := make([]columnDTO, len(columns))
 		for i, col := range columns {
 			columnDTOs[i] = toColumnDTO(col)
@@ -286,7 +348,6 @@ func registerTools(s *mcp.Server, d Deps) {
 		for i, card := range cards {
 			cardDTOs[i] = toCardDTO(card)
 		}
-
 		return nil, getBoardOut{
 			Board:   toBoardDTO(board),
 			Columns: columnDTOs,

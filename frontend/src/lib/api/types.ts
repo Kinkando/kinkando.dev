@@ -7,12 +7,21 @@ export type User = {
 
 export type RecordType = 'income' | 'expense'
 
+export type CategoryRef = {
+  id: string
+  name: string
+  icon: string
+  color: string
+}
+
 export type FinanceRecord = {
   id: string
   user_id: string
   type: RecordType
   amount: number
-  category: string
+  category_id: string | null
+  category: CategoryRef | null
+  category_name: string
   note: string
   date: string
   created_at: string
@@ -21,15 +30,18 @@ export type FinanceRecord = {
 export type CreateRecordInput = {
   type: RecordType
   amount: number
-  category: string
+  category_id: string
   note: string
   date: string
 }
 
 export type CategorySummary = {
+  category_id: string | null
   category: string
   type: RecordType
   total: number
+  icon: string
+  color: string
 }
 
 export type MonthlySummary = {
@@ -38,6 +50,29 @@ export type MonthlySummary = {
   expense: number
   net: number
   categories: CategorySummary[]
+}
+
+export type Category = {
+  id: string
+  user_id: string
+  name: string
+  type: RecordType
+  icon: string
+  color: string
+  created_at: string
+}
+
+export type CreateCategoryInput = {
+  name: string
+  type: RecordType
+  icon: string
+  color: string
+}
+
+export type UpdateCategoryInput = {
+  name: string
+  icon: string
+  color: string
 }
 
 export type Board = {

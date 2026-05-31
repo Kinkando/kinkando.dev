@@ -14,6 +14,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@tanstack/react-query": "^5.64.1",
     "firebase": "^11.2.0",
+    "lucide-react": "^1.17.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-router-dom": "^7.1.1"
@@ -35,6 +36,10 @@
     "*.{ts,tsx}": "prettier --write"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["@firebase/util", "esbuild", "protobufjs"]
+    "onlyBuiltDependencies": [
+      "@firebase/util",
+      "esbuild",
+      "protobufjs"
+    ]
   }
 }

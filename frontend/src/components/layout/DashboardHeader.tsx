@@ -4,15 +4,26 @@ import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/hooks/useAuth';
 
-export function DashboardHeader() {
+interface Props {
+  onMenuClick: () => void;
+}
+
+export function DashboardHeader({ onMenuClick }: Props) {
   const { user, signOut } = useAuth();
 
   return (
-    <header className="flex items-center justify-between border-b border-gray-200 bg-white px-6 py-3">
-      <div />
+    <header className="flex items-center justify-between border-b border-gray-200 bg-white px-4 py-3 sm:px-6">
+      <button
+        type="button"
+        onClick={onMenuClick}
+        aria-label="Open navigation menu"
+        className="-ml-1 rounded p-1 text-2xl leading-none text-gray-600 hover:text-gray-900 md:hidden"
+      >
+        ☰
+      </button>
       <div className="flex items-center gap-3">
         <Avatar src={user?.photoURL} name={user?.displayName} email={user?.email} />
-        <span className="text-sm text-gray-600">{user?.displayName ?? user?.email}</span>
+        <span className="max-w-[40vw] truncate text-sm text-gray-600 sm:max-w-none">{user?.displayName ?? user?.email}</span>
         <Button variant="secondary" onClick={signOut}>
           Sign Out
         </Button>

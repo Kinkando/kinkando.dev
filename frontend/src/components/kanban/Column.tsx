@@ -20,7 +20,7 @@ export function Column({ column, cards, onAddCard, onDeleteCard }: Props) {
   const { setNodeRef, isOver } = useDroppable({ id: column.id });
 
   return (
-    <div className="flex w-72 flex-shrink-0 flex-col rounded-lg bg-gray-50 p-3">
+    <div className="flex w-[85vw] flex-shrink-0 flex-col rounded-lg bg-gray-50 p-3 sm:w-72">
       <h3 className="mb-3 text-sm font-semibold text-gray-700">
         {column.name} <span className="font-normal text-gray-400">({cards.length})</span>
       </h3>

@@ -27,9 +27,9 @@ export default function FinancePage() {
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Finance</h1>
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-3">
           <MonthPicker value={month} onChange={setMonth} />
           <Button onClick={() => setShowForm(true)}>+ Add Record</Button>
         </div>

@@ -25,7 +25,7 @@ export function Modal({ open, onClose, title, children }: ModalProps) {
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       {/* Content */}
-      <div className="relative z-10 w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+      <div className="relative z-10 mx-4 max-h-[90vh] w-full max-w-md overflow-y-auto rounded-lg bg-white p-6 shadow-xl">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold">{title}</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">

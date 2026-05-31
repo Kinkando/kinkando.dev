@@ -8,12 +8,16 @@ import (
 )
 
 type Config struct {
-	Port                    string `env:"PORT" envDefault:"8080"`
-	AppEnv                  string `env:"APP_ENV" envDefault:"development"`
-	PostgresDSN             string `env:"POSTGRES_DSN,required"`
-	MongoURI                string `env:"MONGO_URI,required"`
-	MongoDB                 string `env:"MONGO_DB,required"`
+	Port                string `env:"PORT" envDefault:"8080"`
+	AppEnv              string `env:"APP_ENV" envDefault:"development"`
+	PostgresDSN         string `env:"POSTGRES_DSN,required"`
+	MongoURI            string `env:"MONGO_URI,required"`
+	MongoDB             string `env:"MONGO_DB,required"`
 	FirebaseCredentials string `env:"FIREBASE_CREDENTIALS,required"`
+	// MCPUserFirebaseUID is the Firebase UID of the single user that the MCP
+	// server operates as. Required only when running cmd/mcp; ignored by the
+	// HTTP server.
+	MCPUserFirebaseUID string `env:"MCP_USER_FIREBASE_UID"`
 }
 
 func Load() *Config {

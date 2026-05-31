@@ -49,11 +49,11 @@ export default function ChatInput({ onSend, disabled }: Props) {
   return (
     <form
       onSubmit={handleSubmit}
-      className="relative rounded-xl border border-gray-700 bg-gray-800 transition-colors focus-within:border-indigo-500"
+      className="flex flex-col rounded-xl border border-gray-700 bg-gray-800 transition-colors focus-within:border-indigo-500"
     >
       <textarea
         ref={textareaRef}
-        className="block w-full resize-none bg-transparent px-4 pt-3 pb-12 text-sm text-gray-100 placeholder-gray-500 focus:outline-none disabled:opacity-50"
+        className="block w-full resize-none bg-transparent px-4 pt-3 text-sm text-gray-100 placeholder-gray-500 focus:outline-none disabled:opacity-50"
         style={{ minHeight: 48, maxHeight: MAX_HEIGHT, overflowY: 'auto' }}
         placeholder="Message the assistant… (Enter to send, Shift+Enter for new line)"
         rows={1}
@@ -62,14 +62,16 @@ export default function ChatInput({ onSend, disabled }: Props) {
         onKeyDown={handleKeyDown}
         disabled={disabled}
       />
-      <button
-        type="submit"
-        disabled={disabled || !value.trim()}
-        className="absolute right-2 bottom-2 flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-600 text-white transition hover:bg-indigo-500 disabled:opacity-40"
-        aria-label="Send message"
-      >
-        <SendHorizonal size={16} />
-      </button>
+      <div className="flex justify-end px-2 pb-2">
+        <button
+          type="submit"
+          disabled={disabled || !value.trim()}
+          className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-600 text-white transition hover:bg-indigo-500 disabled:opacity-40"
+          aria-label="Send message"
+        >
+          <SendHorizonal size={16} />
+        </button>
+      </div>
     </form>
   )
 }

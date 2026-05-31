@@ -99,6 +99,7 @@ Copy `.env.example` to `.env` and fill in values:
 - `MONGO_URI` / `MONGO_DB` — MongoDB Atlas URI and database name
 - `FIREBASE_CREDENTIALS` — Firebase service-account JSON (inline, not a file path)
 - `MCP_USER_FIREBASE_UID` — Firebase UID of the single user for the MCP server (see MCP server section below)
+- `MCP_AUTH_TOKEN` — static bearer token for the `/mcp` endpoint; generate with `openssl rand -hex 32`
 
 ## Architecture
 
@@ -124,33 +125,27 @@ Models/types are defined in `internal/<feature>/model.go`.
 
 ### MCP server
 
-A second binary at `cmd/mcp` exposes kanban and finance operations as MCP tools over **stdio** transport. It shares the same `internal/` repositories and services as the HTTP server — no HTTP round-trip, no Firebase JWT needed at runtime.
+MCP tools are served by the main HTTP server at `POST /mcp` (Streamable HTTP, JSON mode). No separate process is needed.
 
-Run it:
-```bash
-go run ./cmd/mcp
-```
+**Enabled when both** `MCP_USER_FIREBASE_UID` and `MCP_AUTH_TOKEN` are set in `.env`. If either is absent, the server starts normally but `/mcp` returns 404.
 
-Build it:
-```bash
-go build -o mcp-server ./cmd/mcp
-```
+**Identity:** `MCP_USER_FIREBASE_UID` is your Firebase UID. The server resolves it to the internal UUID once at startup. The user must have signed into the web app at least once (which provisions the `users` row).
 
-**Identity:** Set `MCP_USER_FIREBASE_UID` in `.env` to your Firebase UID. The binary resolves this once at startup to the internal `uuid.UUID` via the `users` table. The user must have signed into the web app at least once (which provisions the `users` row).
+**Authentication:** all `/mcp` requests require `Authorization: Bearer <MCP_AUTH_TOKEN>`. Generate a token with `openssl rand -hex 32`.
 
 **Tools exposed (8 total):**
 - Finance: `finance_list_records`, `finance_create_record`, `finance_delete_record`, `finance_monthly_summary`
 - Kanban: `kanban_get_board`, `kanban_create_card`, `kanban_move_card`, `kanban_delete_card`
 
-**Logging:** all log output goes to **stderr**; stdout is reserved for the MCP stdio protocol.
-
-**Claude Code config** (example `~/.claude/mcp_servers.json` entry):
+**Claude Code / remote client config example:**
 ```json
 {
   "kinkando": {
-    "command": "go",
-    "args": ["run", "./cmd/mcp"],
-    "cwd": "/path/to/kinkando.dev/backend"
+    "type": "http",
+    "url": "http://localhost:8080/mcp",
+    "headers": {
+      "Authorization": "Bearer <MCP_AUTH_TOKEN>"
+    }
   }
 }
 ```

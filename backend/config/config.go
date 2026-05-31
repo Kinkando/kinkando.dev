@@ -14,10 +14,10 @@ type Config struct {
 	MongoURI            string `env:"MONGO_URI,required"`
 	MongoDB             string `env:"MONGO_DB,required"`
 	FirebaseCredentials string `env:"FIREBASE_CREDENTIALS,required"`
-	// MCPUserFirebaseUID is the Firebase UID of the single user that the MCP
-	// server operates as. Required only when running cmd/mcp; ignored by the
-	// HTTP server.
+	// MCPUserFirebaseUID and MCPAuthToken enable the /mcp endpoint on the HTTP
+	// server. Both must be set; if either is empty, MCP is disabled.
 	MCPUserFirebaseUID string `env:"MCP_USER_FIREBASE_UID"`
+	MCPAuthToken       string `env:"MCP_AUTH_TOKEN"`
 }
 
 func Load() *Config {

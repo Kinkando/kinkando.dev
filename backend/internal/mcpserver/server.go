@@ -1,4 +1,4 @@
-package main
+package mcpserver
 
 import (
 	"context"
@@ -13,12 +13,19 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-// deps bundles the shared dependencies consumed by all MCP tool handlers.
-type deps struct {
-	finSvc      *financeSvc.Service
-	kanRepo     *kanbanRepo.Repository
-	userUUID    uuid.UUID
-	firebaseUID string
+// Deps bundles the shared dependencies consumed by all MCP tool handlers.
+type Deps struct {
+	FinSvc      *financeSvc.Service
+	KanRepo     *kanbanRepo.Repository
+	UserUUID    uuid.UUID
+	FirebaseUID string
+}
+
+// New creates a new MCP server with all tools registered.
+func New(d Deps) *mcp.Server {
+	s := mcp.NewServer(&mcp.Implementation{Name: "kinkando-dashboard", Version: "0.1.0"}, nil)
+	registerTools(s, d)
+	return s
 }
 
 // ---- Finance types --------------------------------------------------------
@@ -90,9 +97,7 @@ type deleteCardOut struct {
 
 // ---- Registration ---------------------------------------------------------
 
-// registerTools adds all kanban and finance MCP tools to the server, binding
-// each handler to the supplied dependencies via closure.
-func registerTools(s *mcp.Server, d deps) {
+func registerTools(s *mcp.Server, d Deps) {
 	// Finance
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "finance_list_records",
@@ -101,7 +106,7 @@ func registerTools(s *mcp.Server, d deps) {
 		if in.Month == "" {
 			return nil, listRecordsOut{}, fmt.Errorf("month is required (YYYY-MM)")
 		}
-		records, err := d.finSvc.ListRecords(ctx, d.userUUID, in.Month)
+		records, err := d.FinSvc.ListRecords(ctx, d.UserUUID, in.Month)
 		if err != nil {
 			return nil, listRecordsOut{}, fmt.Errorf("list records: %w", err)
 		}
@@ -122,7 +127,7 @@ func registerTools(s *mcp.Server, d deps) {
 		if in.Amount <= 0 {
 			return nil, createRecordOut{}, fmt.Errorf("amount must be positive, got %v", in.Amount)
 		}
-		rec, err := d.finSvc.CreateRecord(ctx, d.userUUID, finance.CreateRecordInput{
+		rec, err := d.FinSvc.CreateRecord(ctx, d.UserUUID, finance.CreateRecordInput{
 			Type:     rt,
 			Amount:   in.Amount,
 			Category: in.Category,
@@ -143,7 +148,7 @@ func registerTools(s *mcp.Server, d deps) {
 		if err != nil {
 			return nil, deleteRecordOut{}, fmt.Errorf("invalid record id %q: %w", in.ID, err)
 		}
-		if err := d.finSvc.DeleteRecord(ctx, id, d.userUUID); err != nil {
+		if err := d.FinSvc.DeleteRecord(ctx, id, d.UserUUID); err != nil {
 			return nil, deleteRecordOut{}, fmt.Errorf("delete record: %w", err)
 		}
 		return nil, deleteRecordOut{Deleted: true}, nil
@@ -156,7 +161,7 @@ func registerTools(s *mcp.Server, d deps) {
 		if in.Month == "" {
 			return nil, monthlySummaryOut{}, fmt.Errorf("month is required (YYYY-MM)")
 		}
-		summary, err := d.finSvc.MonthlySummary(ctx, d.userUUID, in.Month)
+		summary, err := d.FinSvc.MonthlySummary(ctx, d.UserUUID, in.Month)
 		if err != nil {
 			return nil, monthlySummaryOut{}, fmt.Errorf("monthly summary: %w", err)
 		}
@@ -168,15 +173,15 @@ func registerTools(s *mcp.Server, d deps) {
 		Name:        "kanban_get_board",
 		Description: "Retrieve the full kanban board: board metadata, all columns, and all cards. Auto-creates the board on first call.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, getBoardOut, error) {
-		board, err := d.kanRepo.GetBoard(ctx, d.firebaseUID)
+		board, err := d.KanRepo.GetBoard(ctx, d.FirebaseUID)
 		if err != nil {
 			return nil, getBoardOut{}, fmt.Errorf("get board: %w", err)
 		}
-		columns, err := d.kanRepo.GetColumns(ctx, board.ID)
+		columns, err := d.KanRepo.GetColumns(ctx, board.ID)
 		if err != nil {
 			return nil, getBoardOut{}, fmt.Errorf("get columns: %w", err)
 		}
-		cards, err := d.kanRepo.GetCards(ctx, board.ID)
+		cards, err := d.KanRepo.GetCards(ctx, board.ID)
 		if err != nil {
 			return nil, getBoardOut{}, fmt.Errorf("get cards: %w", err)
 		}
@@ -200,11 +205,11 @@ func registerTools(s *mcp.Server, d deps) {
 		if err != nil {
 			return nil, createCardOut{}, fmt.Errorf("invalid column_id %q: %w", in.ColumnID, err)
 		}
-		board, err := d.kanRepo.GetBoard(ctx, d.firebaseUID)
+		board, err := d.KanRepo.GetBoard(ctx, d.FirebaseUID)
 		if err != nil {
 			return nil, createCardOut{}, fmt.Errorf("get board: %w", err)
 		}
-		card, err := d.kanRepo.CreateCard(ctx, board.ID, colID, kanban.CreateCardInput{
+		card, err := d.KanRepo.CreateCard(ctx, board.ID, colID, kanban.CreateCardInput{
 			ColumnID: in.ColumnID,
 			Title:    in.Title,
 			Content:  in.Content,
@@ -223,7 +228,7 @@ func registerTools(s *mcp.Server, d deps) {
 		if err != nil {
 			return nil, moveCardOut{}, fmt.Errorf("invalid card_id %q: %w", in.CardID, err)
 		}
-		if err := d.kanRepo.MoveCard(ctx, cardID, kanban.MoveCardInput{
+		if err := d.KanRepo.MoveCard(ctx, cardID, kanban.MoveCardInput{
 			ColumnID: in.ColumnID,
 			Order:    in.Order,
 		}); err != nil {
@@ -240,7 +245,7 @@ func registerTools(s *mcp.Server, d deps) {
 		if err != nil {
 			return nil, deleteCardOut{}, fmt.Errorf("invalid card_id %q: %w", in.CardID, err)
 		}
-		if err := d.kanRepo.DeleteCard(ctx, cardID); err != nil {
+		if err := d.KanRepo.DeleteCard(ctx, cardID); err != nil {
 			return nil, deleteCardOut{}, fmt.Errorf("delete card: %w", err)
 		}
 		return nil, deleteCardOut{Deleted: true}, nil

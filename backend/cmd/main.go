@@ -2,17 +2,22 @@ package main
 
 import (
 	"context"
+	"crypto/subtle"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/gofiber/contrib/fiberzap/v2"
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/adaptor"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/recover"
+	"github.com/google/uuid"
 	"github.com/kinkando/personal-dashboard/config"
 	"github.com/kinkando/personal-dashboard/internal/auth"
 	financeHandler "github.com/kinkando/personal-dashboard/internal/finance/handler"
@@ -20,12 +25,14 @@ import (
 	financeSvc "github.com/kinkando/personal-dashboard/internal/finance/service"
 	kanbanHandler "github.com/kinkando/personal-dashboard/internal/kanban/handler"
 	kanbanRepo "github.com/kinkando/personal-dashboard/internal/kanban/repository"
+	"github.com/kinkando/personal-dashboard/internal/mcpserver"
 	portfolioHandler "github.com/kinkando/personal-dashboard/internal/portfolio/handler"
 	userHandler "github.com/kinkando/personal-dashboard/internal/user/handler"
 	userRepo "github.com/kinkando/personal-dashboard/internal/user/repository"
 	userSvc "github.com/kinkando/personal-dashboard/internal/user/service"
 	"github.com/kinkando/personal-dashboard/pkg/mongo"
 	"github.com/kinkando/personal-dashboard/pkg/postgres"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"go.uber.org/zap"
 )
 
@@ -114,6 +121,30 @@ func main() {
 	portfolioGroup := api.Group("/portfolio")
 	portH.Register(portfolioGroup)
 
+	if cfg.MCPUserFirebaseUID != "" && cfg.MCPAuthToken != "" {
+		mcpUserUUID, err := usrRepo.GetIDByFirebaseUID(ctx, cfg.MCPUserFirebaseUID)
+		if err != nil {
+			logger.Fatal("could not resolve MCP_USER_FIREBASE_UID",
+				zap.String("uid", cfg.MCPUserFirebaseUID), zap.Error(err))
+		}
+		if mcpUserUUID == (uuid.UUID{}) {
+			logger.Fatal("MCP user not found in users table; sign in via the web app first",
+				zap.String("uid", cfg.MCPUserFirebaseUID))
+		}
+		mcpSrv := mcpserver.New(mcpserver.Deps{
+			FinSvc: finSvc, KanRepo: kanRepo,
+			UserUUID: mcpUserUUID, FirebaseUID: cfg.MCPUserFirebaseUID,
+		})
+		h := mcp.NewStreamableHTTPHandler(
+			func(*http.Request) *mcp.Server { return mcpSrv },
+			&mcp.StreamableHTTPOptions{Stateless: true, JSONResponse: true},
+		)
+		app.All("/mcp", mcpBearerAuth(cfg.MCPAuthToken), adaptor.HTTPHandler(h))
+		logger.Info("MCP enabled at /mcp", zap.String("user", cfg.MCPUserFirebaseUID))
+	} else {
+		logger.Info("MCP disabled (set MCP_USER_FIREBASE_UID and MCP_AUTH_TOKEN to enable)")
+	}
+
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 
@@ -131,5 +162,15 @@ func main() {
 	defer shutCancel()
 	if err := app.ShutdownWithContext(shutCtx); err != nil {
 		logger.Error("shutdown error", zap.Error(err))
+	}
+}
+
+func mcpBearerAuth(token string) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		got := strings.TrimPrefix(c.Get("Authorization"), "Bearer ")
+		if subtle.ConstantTimeCompare([]byte(got), []byte(token)) != 1 {
+			return fiber.NewError(fiber.StatusUnauthorized, "invalid MCP token")
+		}
+		return c.Next()
 	}
 }

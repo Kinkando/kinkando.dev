@@ -2,6 +2,7 @@ package gemini
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -111,7 +112,7 @@ func (c *Client) Chat(ctx context.Context, userMsg string) (string, error) {
 			if dispErr != nil {
 				response = map[string]any{"error": dispErr.Error()}
 			} else {
-				response = map[string]any{"result": result}
+				response = map[string]any{"result": toJSONValue(result)}
 			}
 			parts = append(parts, genai.FunctionResponse{
 				Name:     fc.Name,
@@ -288,6 +289,24 @@ func (c *Client) dispatch(ctx context.Context, name string, args map[string]any)
 	default:
 		return nil, fmt.Errorf("unknown tool: %s", name)
 	}
+}
+
+// toJSONValue round-trips v through encoding/json so the result contains only
+// JSON-scalar types (string, float64, bool, nil, map[string]any, []any).
+// The Gemini SDK requires this when building proto.Struct for FunctionResponse.
+func toJSONValue(v any) any {
+	if v == nil {
+		return nil
+	}
+	b, err := json.Marshal(v)
+	if err != nil {
+		return fmt.Sprintf("(marshal error: %v)", err)
+	}
+	var out any
+	if err := json.Unmarshal(b, &out); err != nil {
+		return fmt.Sprintf("(unmarshal error: %v)", err)
+	}
+	return out
 }
 
 func strArg(args map[string]any, key string) string {

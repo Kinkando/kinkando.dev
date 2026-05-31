@@ -59,7 +59,7 @@ export default function KanbanCard({ card, boardId, onEdit }: Props) {
         {/* Drag handle */}
         <div
           {...listeners}
-          className="mt-0.5 flex-shrink-0 cursor-grab text-gray-600 select-none hover:text-gray-400"
+          className="mt-0.5 flex-shrink-0 cursor-grab text-sm text-gray-600 select-none hover:text-gray-400"
         >
           ⠿
         </div>

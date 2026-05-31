@@ -23,9 +23,11 @@ func New(ctx context.Context, dsn string) (*DB, error) {
 		return nil, fmt.Errorf("pgxpool.ParseConfig: %w", err)
 	}
 
-	// Disable named prepared statements to avoid cache conflicts with go-jet
-	// go-jet generates statement names that can collide when connections are reused
-	config.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeDescribeExec
+	// SimpleProtocol embeds parameters as text literals, avoiding unnamed prepared
+	// statements entirely. DescribeExec (the alternative) reuses the unnamed statement
+	// "" per connection; when queries with different parameter counts share a connection
+	// the bind count mismatches, producing SQLSTATE 08P01.
+	config.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol
 
 	pool, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {

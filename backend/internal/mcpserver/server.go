@@ -31,32 +31,32 @@ func New(d Deps) *mcp.Server {
 // ---- Finance types --------------------------------------------------------
 
 type listRecordsIn struct {
-	Month string `json:"month" jsonschema:"description=Month to query in YYYY-MM format (e.g. 2026-05)"`
+	Month string `json:"month" jsonschema:"Month to query in YYYY-MM format (e.g. 2026-05)"`
 }
 type listRecordsOut struct {
 	Records []*finance.Record `json:"records"`
 }
 
 type createRecordIn struct {
-	Type     string  `json:"type"     jsonschema:"description=Record type: income or expense"`
-	Amount   float64 `json:"amount"   jsonschema:"description=Amount (must be a positive number)"`
-	Category string  `json:"category" jsonschema:"description=Category name"`
-	Note     string  `json:"note"     jsonschema:"description=Optional note"`
-	Date     string  `json:"date"     jsonschema:"description=Date in YYYY-MM-DD format"`
+	Type     string  `json:"type"     jsonschema:"Record type: income or expense"`
+	Amount   float64 `json:"amount"   jsonschema:"Amount (must be a positive number)"`
+	Category string  `json:"category" jsonschema:"Category name"`
+	Note     string  `json:"note"     jsonschema:"Optional note"`
+	Date     string  `json:"date"     jsonschema:"Date in YYYY-MM-DD format"`
 }
 type createRecordOut struct {
 	Record *finance.Record `json:"record"`
 }
 
 type deleteRecordIn struct {
-	ID string `json:"id" jsonschema:"description=UUID of the finance record to delete"`
+	ID string `json:"id" jsonschema:"UUID of the finance record to delete"`
 }
 type deleteRecordOut struct {
 	Deleted bool `json:"deleted"`
 }
 
 type monthlySummaryIn struct {
-	Month string `json:"month" jsonschema:"description=Month in YYYY-MM format (e.g. 2026-05)"`
+	Month string `json:"month" jsonschema:"Month in YYYY-MM format (e.g. 2026-05)"`
 }
 type monthlySummaryOut struct {
 	Summary *finance.MonthlySummary `json:"summary"`
@@ -71,25 +71,25 @@ type getBoardOut struct {
 }
 
 type createCardIn struct {
-	ColumnID string `json:"column_id" jsonschema:"description=Target column ID (hex ObjectID) — get it from kanban_get_board"`
-	Title    string `json:"title"     jsonschema:"description=Card title (required)"`
-	Content  string `json:"content"   jsonschema:"description=Card body text (optional)"`
+	ColumnID string `json:"column_id" jsonschema:"Target column ID (hex ObjectID) — get it from kanban_get_board"`
+	Title    string `json:"title"     jsonschema:"Card title (required)"`
+	Content  string `json:"content"   jsonschema:"Card body text (optional)"`
 }
 type createCardOut struct {
 	Card *kanban.Card `json:"card"`
 }
 
 type moveCardIn struct {
-	CardID   string `json:"card_id"   jsonschema:"description=Card ID (hex ObjectID) to move"`
-	ColumnID string `json:"column_id" jsonschema:"description=Target column ID (hex ObjectID)"`
-	Order    int    `json:"order"     jsonschema:"description=New 0-indexed position within the target column"`
+	CardID   string `json:"card_id"   jsonschema:"Card ID (hex ObjectID) to move"`
+	ColumnID string `json:"column_id" jsonschema:"Target column ID (hex ObjectID)"`
+	Order    int    `json:"order"     jsonschema:"New 0-indexed position within the target column"`
 }
 type moveCardOut struct {
 	Moved bool `json:"moved"`
 }
 
 type deleteCardIn struct {
-	CardID string `json:"card_id" jsonschema:"description=Card ID (hex ObjectID) to delete"`
+	CardID string `json:"card_id" jsonschema:"Card ID (hex ObjectID) to delete"`
 }
 type deleteCardOut struct {
 	Deleted bool `json:"deleted"`

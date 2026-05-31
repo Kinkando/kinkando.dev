@@ -4,6 +4,7 @@ import type { CreateRecordInput, RecordType } from '../../lib/api/types'
 import { useCreateRecord, useCategories } from '../../queries/useFinance'
 import { getIcon } from '../../lib/icons'
 import { ChevronDown } from 'lucide-react'
+import { todayDate } from '../../lib/date'
 
 export default function RecordForm({ month }: { month: string }) {
   const mutation = useCreateRecord(month)
@@ -12,10 +13,7 @@ export default function RecordForm({ month }: { month: string }) {
   const [amount, setAmount] = useState('')
   const [categoryID, setCategoryID] = useState('')
   const [note, setNote] = useState('')
-  const [date, setDate] = useState(() => {
-    const d = new Date()
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-  })
+  const [date, setDate] = useState(todayDate)
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
 

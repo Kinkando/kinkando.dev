@@ -4,14 +4,10 @@ import RecordList from '../components/finance/RecordList'
 import SummaryPanel from '../components/finance/SummaryPanel'
 import CategoryManager from '../components/finance/CategoryManager'
 import { useRecords, useSummary } from '../queries/useFinance'
-
-function currentMonth(): string {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-}
+import { todayMonth } from '../lib/date'
 
 export default function FinancePage() {
-  const [month, setMonth] = useState(currentMonth)
+  const [month, setMonth] = useState(todayMonth)
   const { data: records, isLoading: loadingRecords } = useRecords(month)
   const { data: summary, isLoading: loadingSummary } = useSummary(month)
 

@@ -26,7 +26,16 @@ export default function MessageBubble({ message, isStreaming }: Props) {
   const isThinking = !isUser && isStreaming && !message.content
 
   return (
-    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
+    <div
+      className={`flex items-end gap-2 ${isUser ? 'justify-end' : 'justify-start'}`}
+    >
+      {!isUser && (
+        <img
+          src="/chibi.jpg"
+          alt="AI"
+          className="h-8 w-8 shrink-0 rounded-full object-cover"
+        />
+      )}
       <div
         className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
           isUser

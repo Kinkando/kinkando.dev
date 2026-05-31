@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/Input';
 import { useAuth } from '@/hooks/useAuth';
 
 export function RegisterForm() {
-  const { signUp } = useAuth();
+  const { signUp, signInWithGoogle } = useAuth();
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -37,6 +37,19 @@ export function RegisterForm() {
     }
   }
 
+  async function handleGoogle() {
+    setError('');
+    setLoading(true);
+    try {
+      await signInWithGoogle();
+      router.push('/dashboard');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Google sign-in failed');
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-4">
       <h1 className="text-2xl font-bold">Create Account</h1>
@@ -56,6 +69,16 @@ export function RegisterForm() {
 
       <Button type="submit" className="w-full" disabled={loading}>
         {loading ? 'Creating account...' : 'Register'}
+      </Button>
+
+      <div className="flex items-center gap-3">
+        <hr className="flex-1 border-gray-200" />
+        <span className="text-xs text-gray-400">or</span>
+        <hr className="flex-1 border-gray-200" />
+      </div>
+
+      <Button type="button" variant="secondary" className="w-full" disabled={loading} onClick={handleGoogle}>
+        Continue with Google
       </Button>
 
       <p className="text-center text-sm text-gray-600">

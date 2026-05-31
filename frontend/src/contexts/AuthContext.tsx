@@ -11,6 +11,7 @@ interface AuthContextValue {
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -59,11 +60,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const signInWithGoogle = useCallback(async () => {
+    const { GoogleAuthProvider, signInWithPopup } = await import('firebase/auth');
+    const auth = await getFirebaseAuth();
+    await signInWithPopup(auth, new GoogleAuthProvider());
+    // Provision (or update) the backend users row so finance queries resolve correctly.
+    try {
+      await ensureUser();
+    } catch (err) {
+      console.error('ensureUser failed on Google sign-in:', err);
+    }
+  }, []);
+
   const signOut = useCallback(async () => {
     const { signOut: firebaseSignOut } = await import('firebase/auth');
     const auth = await getFirebaseAuth();
     await firebaseSignOut(auth);
   }, []);
 
-  return <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ user, loading, signIn, signUp, signInWithGoogle, signOut }}>{children}</AuthContext.Provider>;
 }

@@ -20,4 +20,6 @@ COPY --from=builder /app/server .
 
 EXPOSE 8080
 
+ENV TZ=Asia/Bangkok
+
 ENTRYPOINT ["./server"]

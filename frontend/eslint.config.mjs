@@ -1,8 +1,7 @@
+import nextConfig from 'eslint-config-next';
 import { dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { FlatCompat } from '@eslint/eslintrc';
 import prettier from 'eslint-config-prettier';
-import js from '@eslint/js';
 import globals from 'globals';
 import ts from 'typescript-eslint';
 import simpleImportSort from 'eslint-plugin-simple-import-sort';
@@ -11,15 +10,13 @@ import unusedImports from 'eslint-plugin-unused-imports';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const compat = new FlatCompat({
-  baseDirectory: __dirname,
-});
-
-export default ts.config(
-  js.configs.recommended,
+export default [
+  {
+    ignores: ['build/', 'dist/', '.svelte-kit/', '.next/', '.open-next/', '*.config.mjs'],
+  },
   ...ts.configs.recommended,
+  ...nextConfig,
   prettier,
-  ...compat.extends('next/core-web-vitals', 'next/typescript'),
   {
     languageOptions: {
       globals: {
@@ -31,9 +28,6 @@ export default ts.config(
         tsconfigRootDir: __dirname,
       },
     },
-  },
-  {
-    ignores: ['build/', 'dist/', '.svelte-kit/', '.next/'],
   },
   {
     plugins: {
@@ -64,4 +58,4 @@ export default ts.config(
       ],
     },
   },
-);
+];

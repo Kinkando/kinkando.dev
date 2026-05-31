@@ -7,7 +7,7 @@ import { Spinner } from '@/components/ui/Spinner';
 import { useKanban } from '@/hooks/useKanban';
 
 export default function KanbanPage() {
-  const { boardData, loading, error, fetchBoard, addCard, removeCard } = useKanban();
+  const { boardData, loading, error, fetchBoard, addCard, moveCard, removeCard } = useKanban();
 
   useEffect(() => {
     fetchBoard();
@@ -26,7 +26,7 @@ export default function KanbanPage() {
           <Spinner className="h-8 w-8" />
         </div>
       ) : boardData ? (
-        <Board data={boardData} onAddCard={addCard} onDeleteCard={removeCard} />
+        <Board data={boardData} onAddCard={addCard} onMoveCard={moveCard} onDeleteCard={removeCard} />
       ) : null}
     </div>
   );

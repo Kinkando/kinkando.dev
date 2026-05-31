@@ -3,6 +3,7 @@
 import type { User } from 'firebase/auth';
 import { createContext, type ReactNode, useCallback, useEffect, useState } from 'react';
 
+import { ensureUser } from '@/lib/api/user';
 import { getFirebaseAuth } from '@/lib/firebase';
 
 interface AuthContextValue {
@@ -38,12 +39,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { signInWithEmailAndPassword } = await import('firebase/auth');
     const auth = await getFirebaseAuth();
     await signInWithEmailAndPassword(auth, email, password);
+    // Provision (or update) the backend users row so finance queries resolve correctly.
+    try {
+      await ensureUser();
+    } catch (err) {
+      console.error('ensureUser failed on sign-in:', err);
+    }
   }, []);
 
   const signUp = useCallback(async (email: string, password: string) => {
     const { createUserWithEmailAndPassword } = await import('firebase/auth');
     const auth = await getFirebaseAuth();
     await createUserWithEmailAndPassword(auth, email, password);
+    // Provision the backend users row for the newly created account.
+    try {
+      await ensureUser();
+    } catch (err) {
+      console.error('ensureUser failed on sign-up:', err);
+    }
   }, []);
 
   const signOut = useCallback(async () => {

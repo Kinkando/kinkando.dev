@@ -1,7 +1,8 @@
+import config from '@/config/config';
 import { getFirebaseAuth } from '@/lib/firebase';
 import type { ApiError, ApiResponse } from '@/types/api';
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+const BASE_URL = config.app.apiHost;
 
 export class ApiRequestError extends Error {
   constructor(

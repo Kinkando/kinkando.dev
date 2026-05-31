@@ -151,7 +151,7 @@ export default function KanbanBoard({ boardId, data }: Props) {
             />
           ))}
         </div>
-        <DragOverlay>
+        <DragOverlay dropAnimation={null}>
           {activeCard ? (
             <KanbanCard card={activeCard} boardId={boardId} onEdit={() => {}} />
           ) : null}

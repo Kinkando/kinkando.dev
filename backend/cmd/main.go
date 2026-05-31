@@ -19,8 +19,8 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/google/uuid"
 	"github.com/kinkando/personal-dashboard/config"
-	"github.com/kinkando/personal-dashboard/internal/auth"
 	aichatHandler "github.com/kinkando/personal-dashboard/internal/aichat/handler"
+	"github.com/kinkando/personal-dashboard/internal/auth"
 	financeHandler "github.com/kinkando/personal-dashboard/internal/finance/handler"
 	financeRepo "github.com/kinkando/personal-dashboard/internal/finance/repository"
 	financeSvc "github.com/kinkando/personal-dashboard/internal/finance/service"
@@ -102,7 +102,7 @@ func main() {
 	app.Use(recover.New())
 	app.Use(fiberzap.New(fiberzap.Config{Logger: logger}))
 	app.Use(cors.New(cors.Config{
-		AllowOrigins: "http://localhost:3000,https://kinkando-dev.pages.dev,https://kinkando.dev",
+		AllowOrigins: "http://localhost:3000,https://kinkando-dev.pages.dev,https://kinkando.dev,https://cronjob.kinkandojester.workers.dev",
 		AllowHeaders: "Origin,Content-Type,Accept,Authorization",
 		AllowMethods: "GET,POST,PUT,PATCH,DELETE,OPTIONS",
 	}))

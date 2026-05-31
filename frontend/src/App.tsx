@@ -2,7 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import NavBar from './components/NavBar'
 import PortfolioPage from './pages/PortfolioPage'
 import LoginPage from './pages/LoginPage'
-import RegisterPage from './pages/RegisterPage'
+// import RegisterPage from './pages/RegisterPage'
 import FinancePage from './pages/FinancePage'
 import KanbanPage from './pages/KanbanPage'
 import ProtectedRoute from './auth/ProtectedRoute'
@@ -15,7 +15,7 @@ export default function App() {
         <Route path="/" element={<Navigate to="/portfolio" replace />} />
         <Route path="/portfolio" element={<PortfolioPage />} />
         <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
+        {/* <Route path="/register" element={<RegisterPage />} /> */}
         <Route
           path="/kanban"
           element={

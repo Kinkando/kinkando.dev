@@ -1,7 +1,7 @@
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
 	"main": ".open-next/worker.js",
-	"name": "frontend",
+	"name": "kinkando-dev",
 	"compatibility_date": "2026-05-31",
 	"compatibility_flags": [
 		"nodejs_compat",

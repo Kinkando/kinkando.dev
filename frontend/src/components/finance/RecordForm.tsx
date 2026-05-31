@@ -121,7 +121,7 @@ export default function RecordForm({ month }: { month: string }) {
             <ChevronDown size={14} className="shrink-0 text-gray-400" />
           </button>
           {dropdownOpen && (
-            <ul className="absolute z-10 mt-1 w-full rounded-lg border border-gray-700 bg-gray-800 py-1 shadow-lg">
+            <ul className="absolute z-10 mt-1 max-h-48 w-full overflow-y-auto rounded-lg border border-gray-700 bg-gray-800 py-1 shadow-lg">
               {filtered.map((cat) => {
                 const Icon = getIcon(cat.icon)
                 return (

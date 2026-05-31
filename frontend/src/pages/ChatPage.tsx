@@ -12,18 +12,32 @@ const MAX_HISTORY = 20
 const INPUT_PRICE_PER_TOKEN = 0.075 / 1_000_000
 const OUTPUT_PRICE_PER_TOKEN = 0.3 / 1_000_000
 
+// Approximate exchange rate — update as needed
+const THB_PER_USD = 33
+
 type SessionUsage = {
   inputTokens: number
   outputTokens: number
 }
 
-function formatCost(usage: SessionUsage): string {
-  const cost =
+function calcCostUSD(usage: SessionUsage): number {
+  return (
     usage.inputTokens * INPUT_PRICE_PER_TOKEN +
     usage.outputTokens * OUTPUT_PRICE_PER_TOKEN
+  )
+}
+
+function formatUSD(cost: number): string {
   if (cost === 0) return '$0'
   if (cost < 0.000001) return '< $0.000001'
   return `$${cost.toFixed(6)}`
+}
+
+function formatTHB(cost: number): string {
+  const baht = cost * THB_PER_USD
+  if (baht === 0) return '฿0'
+  if (baht < 0.00001) return '< ฿0.00001'
+  return `฿${baht.toFixed(5)}`
 }
 
 export default function ChatPage() {
@@ -129,7 +143,13 @@ export default function ChatPage() {
             <span className="text-xs text-gray-500">
               {sessionUsage.inputTokens.toLocaleString()} in ·{' '}
               {sessionUsage.outputTokens.toLocaleString()} out ·{' '}
-              <span className="text-gray-400">{formatCost(sessionUsage)}</span>
+              <span className="text-gray-400">
+                {formatUSD(calcCostUSD(sessionUsage))}
+              </span>
+              <span className="mx-1 text-gray-600">/</span>
+              <span className="text-gray-400">
+                {formatTHB(calcCostUSD(sessionUsage))}
+              </span>
             </span>
           )}
           <button

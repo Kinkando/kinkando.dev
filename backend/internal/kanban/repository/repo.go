@@ -263,9 +263,53 @@ func (r *Repository) MoveCard(ctx context.Context, cardID primitive.ObjectID, in
 	if err != nil {
 		return fmt.Errorf("invalid column_id: %w", err)
 	}
+
+	card, err := r.GetCard(ctx, cardID)
+	if err != nil {
+		return err
+	}
+
+	oldOrder := card.Order
+	newOrder := in.Order
+
+	if card.ColumnID == colID {
+		if oldOrder == newOrder {
+			return nil
+		}
+		if oldOrder < newOrder {
+			_, err = r.cards.UpdateMany(ctx,
+				bson.M{"_id": bson.M{"$ne": cardID}, "column_id": colID, "order": bson.M{"$gt": oldOrder, "$lte": newOrder}},
+				bson.M{"$inc": bson.M{"order": -1}},
+			)
+		} else {
+			_, err = r.cards.UpdateMany(ctx,
+				bson.M{"_id": bson.M{"$ne": cardID}, "column_id": colID, "order": bson.M{"$gte": newOrder, "$lt": oldOrder}},
+				bson.M{"$inc": bson.M{"order": 1}},
+			)
+		}
+		if err != nil {
+			return fmt.Errorf("reorder column: %w", err)
+		}
+	} else {
+		_, err = r.cards.UpdateMany(ctx,
+			bson.M{"column_id": card.ColumnID, "order": bson.M{"$gt": oldOrder}},
+			bson.M{"$inc": bson.M{"order": -1}},
+		)
+		if err != nil {
+			return fmt.Errorf("reorder source column: %w", err)
+		}
+		_, err = r.cards.UpdateMany(ctx,
+			bson.M{"column_id": colID, "order": bson.M{"$gte": newOrder}},
+			bson.M{"$inc": bson.M{"order": 1}},
+		)
+		if err != nil {
+			return fmt.Errorf("reorder target column: %w", err)
+		}
+	}
+
 	_, err = r.cards.UpdateOne(ctx,
 		bson.M{"_id": cardID},
-		bson.M{"$set": bson.M{"column_id": colID, "order": in.Order}},
+		bson.M{"$set": bson.M{"column_id": colID, "order": newOrder}},
 	)
 	return err
 }

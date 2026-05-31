@@ -111,11 +111,37 @@ export function useMoveCard(boardId: string) {
       if (prev) {
         queryClient.setQueryData<KanbanBoard>(key, (old) => {
           if (!old) return old
-          const cards = old.cards.map((c) =>
-            c.id === id
-              ? { ...c, column_id: input.column_id, order: input.order }
-              : c,
-          )
+          const moving = old.cards.find((c) => c.id === id)
+          if (!moving) return old
+          const oldCol = moving.column_id
+          const newCol = input.column_id
+          const oldOrder = moving.order
+          const newOrder = input.order
+          const cards = old.cards.map((c) => {
+            if (c.id === id) return { ...c, column_id: newCol, order: newOrder }
+            if (oldCol === newCol) {
+              if (
+                oldOrder < newOrder &&
+                c.column_id === oldCol &&
+                c.order > oldOrder &&
+                c.order <= newOrder
+              )
+                return { ...c, order: c.order - 1 }
+              if (
+                oldOrder > newOrder &&
+                c.column_id === oldCol &&
+                c.order >= newOrder &&
+                c.order < oldOrder
+              )
+                return { ...c, order: c.order + 1 }
+            } else {
+              if (c.column_id === oldCol && c.order > oldOrder)
+                return { ...c, order: c.order - 1 }
+              if (c.column_id === newCol && c.order >= newOrder)
+                return { ...c, order: c.order + 1 }
+            }
+            return c
+          })
           return { ...old, cards }
         })
       }

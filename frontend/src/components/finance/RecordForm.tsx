@@ -12,7 +12,10 @@ export default function RecordForm({ month }: { month: string }) {
   const [amount, setAmount] = useState('')
   const [categoryID, setCategoryID] = useState('')
   const [note, setNote] = useState('')
-  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10))
+  const [date, setDate] = useState(() => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  })
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
 

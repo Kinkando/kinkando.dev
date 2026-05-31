@@ -7,10 +7,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/google/generative-ai-go/genai"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"google.golang.org/api/googleapi"
-	"google.golang.org/api/option"
+	"google.golang.org/genai"
 )
 
 const defaultModel = "gemini-2.0-flash"
@@ -35,13 +33,14 @@ type Deps struct {
 // Client wraps a Gemini generative model and dispatches tool calls via MCP.
 type Client struct {
 	gc         *genai.Client
-	model      *genai.GenerativeModel
+	model      string
+	config     *genai.GenerateContentConfig
 	mcpSession *mcp.ClientSession
 }
 
 // New creates a Client. Returns an error if the Gemini API key is invalid or unreachable.
 func New(ctx context.Context, d Deps) (*Client, error) {
-	gc, err := genai.NewClient(ctx, option.WithAPIKey(d.APIKey))
+	gc, err := genai.NewClient(ctx, &genai.ClientConfig{APIKey: d.APIKey})
 	if err != nil {
 		return nil, fmt.Errorf("gemini: new client: %w", err)
 	}
@@ -49,35 +48,33 @@ func New(ctx context.Context, d Deps) (*Client, error) {
 	if modelName == "" {
 		modelName = defaultModel
 	}
-	model := gc.GenerativeModel(modelName)
-	model.Tools = []*genai.Tool{{FunctionDeclarations: AllTools()}}
-	model.SystemInstruction = &genai.Content{
-		Parts: []genai.Part{genai.Text(systemInstruction)},
+	config := &genai.GenerateContentConfig{
+		Tools:             []*genai.Tool{{FunctionDeclarations: AllTools()}},
+		SystemInstruction: genai.NewContentFromText(systemInstruction, genai.RoleUser),
 	}
 	return &Client{
 		gc:         gc,
-		model:      model,
+		model:      modelName,
+		config:     config,
 		mcpSession: d.MCP,
 	}, nil
 }
-
-// Close releases resources held by the underlying Gemini API client.
-func (c *Client) Close() error { return c.gc.Close() }
 
 // Chat sends userMsg to Gemini, executes any tool calls via the MCP session in a
 // loop, and returns the final text reply.
 func (c *Client) Chat(ctx context.Context, userMsg string) (string, error) {
 	msg := fmt.Sprintf("[Today: %s]\n%s", time.Now().Format("2006-01-02"), userMsg)
-	session := c.model.StartChat()
-	parts := []genai.Part{genai.Text(msg)}
+
+	chat, err := c.gc.Chats.Create(ctx, c.model, c.config, nil)
+	if err != nil {
+		return "", fmt.Errorf("gemini: create chat: %w", err)
+	}
+
+	sendParts := []genai.Part{{Text: msg}}
 
 	for round := range maxToolRounds {
-		resp, err := session.SendMessage(ctx, parts...)
+		resp, err := chat.SendMessage(ctx, sendParts...)
 		if err != nil {
-			var gErr *googleapi.Error
-			if errors.As(err, &gErr) {
-				return "", fmt.Errorf("gemini: send message (code=%d body=%s): %w", gErr.Code, gErr.Body, err)
-			}
 			return "", fmt.Errorf("gemini: send message: %w", err)
 		}
 		if len(resp.Candidates) == 0 {
@@ -85,17 +82,18 @@ func (c *Client) Chat(ctx context.Context, userMsg string) (string, error) {
 		}
 
 		var text string
-		var calls []genai.FunctionCall
+		// Collect parts that carry a FunctionCall; they also carry ThoughtSignature.
+		var fcParts []*genai.Part
 		for _, p := range resp.Candidates[0].Content.Parts {
-			switch v := p.(type) {
-			case genai.Text:
-				text = string(v)
-			case genai.FunctionCall:
-				calls = append(calls, v)
+			if p.Text != "" {
+				text = p.Text
+			}
+			if p.FunctionCall != nil {
+				fcParts = append(fcParts, p)
 			}
 		}
 
-		if len(calls) == 0 {
+		if len(fcParts) == 0 {
 			return text, nil
 		}
 
@@ -107,8 +105,9 @@ func (c *Client) Chat(ctx context.Context, userMsg string) (string, error) {
 			return "", errors.New("gemini: tool-call loop exceeded max rounds")
 		}
 
-		parts = nil
-		for _, fc := range calls {
+		sendParts = nil
+		for _, p := range fcParts {
+			fc := p.FunctionCall
 			res, callErr := c.mcpSession.CallTool(ctx, &mcp.CallToolParams{
 				Name:      fc.Name,
 				Arguments: fc.Args,
@@ -120,13 +119,15 @@ func (c *Client) Chat(ctx context.Context, userMsg string) (string, error) {
 			case res.IsError:
 				response = map[string]any{"error": contentText(res.Content)}
 			default:
-				// Parse the JSON text from MCP Content (always set by the SDK) to
-				// get JSON-native types (map[string]any etc.) that proto.Struct accepts.
 				response = map[string]any{"result": jsonFromContent(res.Content)}
 			}
-			parts = append(parts, genai.FunctionResponse{
-				Name:     fc.Name,
-				Response: response,
+			// Echo ThoughtSignature back to satisfy thinking-model requirements.
+			sendParts = append(sendParts, genai.Part{
+				FunctionResponse: &genai.FunctionResponse{
+					Name:     fc.Name,
+					Response: response,
+				},
+				ThoughtSignature: p.ThoughtSignature,
 			})
 		}
 	}
@@ -147,9 +148,6 @@ func contentText(contents []mcp.Content) string {
 
 // jsonFromContent JSON-parses the text from the first TextContent into a
 // JSON-native value (map[string]any, []any, string, float64, bool, nil).
-// The MCP SDK always serializes structured output to a TextContent JSON string,
-// so this is equivalent to the old toJSONValue round-trip and produces types
-// that structpb.NewStruct accepts.
 func jsonFromContent(contents []mcp.Content) any {
 	text := contentText(contents)
 	var v any

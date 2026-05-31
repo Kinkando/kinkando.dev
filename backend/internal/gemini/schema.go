@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/google/generative-ai-go/genai"
+	"google.golang.org/genai"
 )
 
 // SchemaOf converts a Go struct value (or pointer) to a *genai.Schema.

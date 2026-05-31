@@ -168,7 +168,6 @@ func main() {
 	if err != nil {
 		logger.Fatal("gemini init", zap.Error(err))
 	}
-	defer geminiClient.Close() //nolint:errcheck
 	logger.Info("Gemini AI routing enabled for LINE webhook", zap.String("model", cfg.GeminiModel))
 
 	lineH := lineHandler.New(lineHandler.Deps{

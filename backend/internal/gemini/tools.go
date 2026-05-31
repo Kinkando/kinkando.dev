@@ -1,7 +1,7 @@
 package gemini
 
 import (
-	"github.com/google/generative-ai-go/genai"
+	"google.golang.org/genai"
 	"github.com/kinkando/personal-dashboard/internal/tools"
 )
 

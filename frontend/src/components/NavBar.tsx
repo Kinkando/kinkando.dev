@@ -40,6 +40,9 @@ export default function NavBar() {
             <Link to="/finance" className={linkClass('/finance')}>
               Finance
             </Link>
+            <Link to="/chat" className={linkClass('/chat')}>
+              Chat
+            </Link>
             <button
               onClick={handleLogout}
               className="text-gray-400 hover:text-gray-100"
@@ -52,9 +55,9 @@ export default function NavBar() {
             <Link to="/login" className={linkClass('/login')}>
               Login
             </Link>
-            <Link to="/register" className={linkClass('/register')}>
+            {/* <Link to="/register" className={linkClass('/register')}>
               Register
-            </Link>
+            </Link> */}
           </>
         )}
       </div>

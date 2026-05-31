@@ -152,6 +152,11 @@ export type BoardStats = {
   no_due_date: number
 }
 
+export type ChatMessage = {
+  role: 'user' | 'assistant'
+  content: string
+}
+
 export type PortfolioProject = {
   name: string
   description: string

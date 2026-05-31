@@ -20,6 +20,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/kinkando/personal-dashboard/config"
 	"github.com/kinkando/personal-dashboard/internal/auth"
+	aichatHandler "github.com/kinkando/personal-dashboard/internal/aichat/handler"
 	financeHandler "github.com/kinkando/personal-dashboard/internal/finance/handler"
 	financeRepo "github.com/kinkando/personal-dashboard/internal/finance/repository"
 	financeSvc "github.com/kinkando/personal-dashboard/internal/finance/service"
@@ -180,6 +181,12 @@ func main() {
 	lineGroup := api.Group("/line")
 	lineH.Register(lineGroup)
 	logger.Info("LINE webhook enabled at /api/v1/line/webhook")
+
+	// AI chat — authenticated web-app endpoint; reuses the same Gemini+MCP pipeline.
+	aiChatH := aichatHandler.New(aichatHandler.Deps{Gemini: geminiClient, Logger: logger})
+	aiChatGroup := api.Group("/ai-chat", authMW.Require())
+	aiChatH.Register(aiChatGroup)
+	logger.Info("AI chat enabled at /api/v1/ai-chat")
 
 	if cfg.MCPAuthToken != "" {
 		h := mcp.NewStreamableHTTPHandler(

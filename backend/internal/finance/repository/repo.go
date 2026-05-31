@@ -38,7 +38,7 @@ func (r *Repository) Create(ctx context.Context, userID uuid.UUID, in finance.Cr
 		table.FinanceRecords.Note,
 		table.FinanceRecords.Date,
 	).VALUES(
-		userID.String(),
+		postgres.UUID(userID),
 		string(in.Type),
 		decimal.NewFromFloat(in.Amount),
 		in.Category,
@@ -64,7 +64,7 @@ func (r *Repository) List(ctx context.Context, userID uuid.UUID, month string) (
 	stmt := postgres.SELECT(table.FinanceRecords.AllColumns).
 		FROM(table.FinanceRecords).
 		WHERE(
-			table.FinanceRecords.UserID.EQ(postgres.String(userID.String())).
+			table.FinanceRecords.UserID.EQ(postgres.UUID(userID)).
 				AND(table.FinanceRecords.Date.GT_EQ(postgres.Date(start.Year(), start.Month(), start.Day()))).
 				AND(table.FinanceRecords.Date.LT(postgres.Date(end.Year(), end.Month(), end.Day()))),
 		).
@@ -90,7 +90,7 @@ func (r *Repository) MonthlySummary(ctx context.Context, userID uuid.UUID, month
 		return nil, err
 	}
 
-	whereClause := table.FinanceRecords.UserID.EQ(postgres.String(userID.String())).
+	whereClause := table.FinanceRecords.UserID.EQ(postgres.UUID(userID)).
 		AND(table.FinanceRecords.Date.GT_EQ(postgres.Date(start.Year(), start.Month(), start.Day()))).
 		AND(table.FinanceRecords.Date.LT(postgres.Date(end.Year(), end.Month(), end.Day())))
 
@@ -143,8 +143,8 @@ func (r *Repository) MonthlySummary(ctx context.Context, userID uuid.UUID, month
 
 func (r *Repository) Delete(ctx context.Context, id uuid.UUID, userID uuid.UUID) error {
 	stmt := table.FinanceRecords.DELETE().WHERE(
-		table.FinanceRecords.ID.EQ(postgres.String(id.String())).
-			AND(table.FinanceRecords.UserID.EQ(postgres.String(userID.String()))),
+		table.FinanceRecords.ID.EQ(postgres.UUID(id)).
+			AND(table.FinanceRecords.UserID.EQ(postgres.UUID(userID))),
 	)
 
 	res, err := stmt.ExecContext(ctx, r.db)

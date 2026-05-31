@@ -41,6 +41,12 @@ import (
 )
 
 func main() {
+	loc, err := time.LoadLocation("Asia/Bangkok")
+	if err != nil {
+		log.Fatalf("load timezone: %v", err)
+	}
+	time.Local = loc
+
 	cfg := config.Load()
 
 	logger, err := zap.NewProduction()

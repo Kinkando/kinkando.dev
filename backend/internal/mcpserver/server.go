@@ -64,10 +64,34 @@ type monthlySummaryOut struct {
 
 // ---- Kanban types ---------------------------------------------------------
 
+type boardDTO struct {
+	ID        string `json:"id"`
+	UserID    string `json:"user_id"`
+	CreatedAt string `json:"created_at"`
+}
+
+type columnDTO struct {
+	ID        string `json:"id"`
+	BoardID   string `json:"board_id"`
+	Name      string `json:"name"`
+	Order     int    `json:"order"`
+	CreatedAt string `json:"created_at"`
+}
+
+type cardDTO struct {
+	ID        string `json:"id"`
+	BoardID   string `json:"board_id"`
+	ColumnID  string `json:"column_id"`
+	Title     string `json:"title"`
+	Content   string `json:"content"`
+	Order     int    `json:"order"`
+	CreatedAt string `json:"created_at"`
+}
+
 type getBoardOut struct {
-	Board   *kanban.Board    `json:"board"`
-	Columns []*kanban.Column `json:"columns"`
-	Cards   []*kanban.Card   `json:"cards"`
+	Board   boardDTO    `json:"board"`
+	Columns []columnDTO `json:"columns"`
+	Cards   []cardDTO   `json:"cards"`
 }
 
 type createCardIn struct {
@@ -76,7 +100,7 @@ type createCardIn struct {
 	Content  string `json:"content"   jsonschema:"Card body text (optional)"`
 }
 type createCardOut struct {
-	Card *kanban.Card `json:"card"`
+	Card cardDTO `json:"card"`
 }
 
 type moveCardIn struct {
@@ -96,6 +120,36 @@ type deleteCardOut struct {
 }
 
 // ---- Registration ---------------------------------------------------------
+
+func toBoardDTO(b *kanban.Board) boardDTO {
+	return boardDTO{
+		ID:        b.ID.Hex(),
+		UserID:    b.UserID,
+		CreatedAt: b.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+	}
+}
+
+func toColumnDTO(c *kanban.Column) columnDTO {
+	return columnDTO{
+		ID:        c.ID.Hex(),
+		BoardID:   c.BoardID.Hex(),
+		Name:      c.Name,
+		Order:     c.Order,
+		CreatedAt: c.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+	}
+}
+
+func toCardDTO(c *kanban.Card) cardDTO {
+	return cardDTO{
+		ID:        c.ID.Hex(),
+		BoardID:   c.BoardID.Hex(),
+		ColumnID:  c.ColumnID.Hex(),
+		Title:     c.Title,
+		Content:   c.Content,
+		Order:     c.Order,
+		CreatedAt: c.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+	}
+}
 
 func registerTools(s *mcp.Server, d Deps) {
 	// Finance
@@ -191,7 +245,22 @@ func registerTools(s *mcp.Server, d Deps) {
 		if cards == nil {
 			cards = []*kanban.Card{}
 		}
-		return nil, getBoardOut{Board: board, Columns: columns, Cards: cards}, nil
+
+		// Convert to DTOs
+		columnDTOs := make([]columnDTO, len(columns))
+		for i, col := range columns {
+			columnDTOs[i] = toColumnDTO(col)
+		}
+		cardDTOs := make([]cardDTO, len(cards))
+		for i, card := range cards {
+			cardDTOs[i] = toCardDTO(card)
+		}
+
+		return nil, getBoardOut{
+			Board:   toBoardDTO(board),
+			Columns: columnDTOs,
+			Cards:   cardDTOs,
+		}, nil
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
@@ -217,7 +286,7 @@ func registerTools(s *mcp.Server, d Deps) {
 		if err != nil {
 			return nil, createCardOut{}, fmt.Errorf("create card: %w", err)
 		}
-		return nil, createCardOut{Card: card}, nil
+		return nil, createCardOut{Card: toCardDTO(card)}, nil
 	})
 
 	mcp.AddTool(s, &mcp.Tool{

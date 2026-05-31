@@ -29,7 +29,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         provisioned.current = true
         try {
           await provisionUser()
-        } catch {
+        } catch (err) {
+          console.error('Failed to provision user:', err)
           // idempotent; finance will surface errors if the row is truly missing
         }
       }

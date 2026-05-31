@@ -8,6 +8,7 @@ import {
   useDeleteCategory,
 } from '../../queries/useFinance'
 import { getIcon, ICON_NAMES } from '../../lib/icons'
+import { ChevronDown } from 'lucide-react'
 
 const DEFAULT_COLORS = [
   '#6366f1',
@@ -202,70 +203,88 @@ function CategoryForm({
 
 export default function CategoryManager() {
   const { data: categories, isLoading } = useCategories()
+  const [expanded, setExpanded] = useState(false)
   const [adding, setAdding] = useState<RecordType | null>(null)
   const [editing, setEditing] = useState<Category | null>(null)
 
   const income = (categories ?? []).filter((c) => c.type === 'income')
   const expense = (categories ?? []).filter((c) => c.type === 'expense')
 
-  if (isLoading) {
-    return <p className="text-sm text-gray-500">Loading categories…</p>
-  }
-
   return (
-    <div className="flex flex-col gap-4 rounded-xl border border-gray-800 bg-gray-900 p-5">
-      <h2 className="text-sm font-semibold text-gray-300">Categories</h2>
+    <div className="flex flex-col rounded-xl border border-gray-800 bg-gray-900">
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        className="flex items-center justify-between px-5 py-4 text-left"
+      >
+        <h2 className="text-sm font-semibold text-gray-300">Categories</h2>
+        <ChevronDown
+          size={16}
+          className={`text-gray-500 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`}
+        />
+      </button>
 
-      {(['income', 'expense'] as RecordType[]).map((t) => {
-        const list = t === 'income' ? income : expense
-        return (
-          <div key={t} className="flex flex-col gap-2">
-            <div className="flex items-center justify-between">
-              <span
-                className={`text-xs font-medium ${t === 'income' ? 'text-green-400' : 'text-red-400'}`}
-              >
-                {t.charAt(0).toUpperCase() + t.slice(1)}
-              </span>
-              {adding !== t && editing?.type !== t && (
-                <button
-                  onClick={() => setAdding(t)}
-                  className="text-xs text-gray-500 hover:text-indigo-400"
-                >
-                  + Add
-                </button>
-              )}
-            </div>
+      {expanded && (
+        <div className="flex flex-col gap-4 border-t border-gray-800 px-5 pt-4 pb-5">
+          {isLoading ? (
+            <p className="text-sm text-gray-500">Loading categories…</p>
+          ) : (
+            (['income', 'expense'] as RecordType[]).map((t) => {
+              const list = t === 'income' ? income : expense
+              return (
+                <div key={t} className="flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <span
+                      className={`text-xs font-medium ${t === 'income' ? 'text-green-400' : 'text-red-400'}`}
+                    >
+                      {t.charAt(0).toUpperCase() + t.slice(1)}
+                    </span>
+                    {adding !== t && editing?.type !== t && (
+                      <button
+                        onClick={() => setAdding(t)}
+                        className="text-xs text-gray-500 hover:text-indigo-400"
+                      >
+                        + Add
+                      </button>
+                    )}
+                  </div>
 
-            {list.length > 0 && (
-              <ul className="flex flex-col gap-1.5">
-                {list.map((cat) =>
-                  editing?.id === cat.id ? (
+                  {list.length > 0 && (
+                    <ul className="flex flex-col gap-1.5">
+                      {list.map((cat) =>
+                        editing?.id === cat.id ? (
+                          <CategoryForm
+                            key={cat.id}
+                            initial={cat}
+                            typeDefault={t}
+                            onDone={() => setEditing(null)}
+                          />
+                        ) : (
+                          <CategoryRow
+                            key={cat.id}
+                            cat={cat}
+                            onEdit={(c) => {
+                              setAdding(null)
+                              setEditing(c)
+                            }}
+                          />
+                        ),
+                      )}
+                    </ul>
+                  )}
+
+                  {adding === t && (
                     <CategoryForm
-                      key={cat.id}
-                      initial={cat}
                       typeDefault={t}
-                      onDone={() => setEditing(null)}
+                      onDone={() => setAdding(null)}
                     />
-                  ) : (
-                    <CategoryRow
-                      key={cat.id}
-                      cat={cat}
-                      onEdit={(c) => {
-                        setAdding(null)
-                        setEditing(c)
-                      }}
-                    />
-                  ),
-                )}
-              </ul>
-            )}
-
-            {adding === t && (
-              <CategoryForm typeDefault={t} onDone={() => setAdding(null)} />
-            )}
-          </div>
-        )
-      })}
+                  )}
+                </div>
+              )
+            })
+          )}
+        </div>
+      )}
     </div>
   )
 }

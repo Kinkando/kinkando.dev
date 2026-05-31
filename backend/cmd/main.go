@@ -91,7 +91,7 @@ func main() {
 	app.Use(recover.New())
 	app.Use(fiberzap.New(fiberzap.Config{Logger: logger}))
 	app.Use(cors.New(cors.Config{
-		AllowOrigins: "http://localhost:3000,https://*.pages.dev",
+		AllowOrigins: "http://localhost:3000,https://kinkando-dev.pages.dev,https://kinkando.dev",
 		AllowHeaders: "Origin,Content-Type,Accept,Authorization",
 		AllowMethods: "GET,POST,PUT,PATCH,DELETE,OPTIONS",
 	}))

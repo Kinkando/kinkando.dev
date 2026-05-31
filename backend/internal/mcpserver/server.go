@@ -62,6 +62,16 @@ type listCategoriesOut struct {
 	Categories []categoryDTO `json:"categories"`
 }
 
+type createCategoryIn struct {
+	Name  string `json:"name"  jsonschema:"Category name (required)"`
+	Type  string `json:"type"  jsonschema:"Category type: income or expense"`
+	Icon  string `json:"icon"  jsonschema:"Lucide icon name (e.g. ShoppingCart, Utensils, Home, Car, Briefcase, Gift, HeartPulse, Plane, Wallet, PiggyBank, Coffee, Gamepad2, Zap, TrendingUp, CircleDollarSign)"`
+	Color string `json:"color" jsonschema:"Hex color code (e.g. #6366f1)"`
+}
+type createCategoryOut struct {
+	Category categoryDTO `json:"category"`
+}
+
 type createRecordIn struct {
 	Type     string  `json:"type"     jsonschema:"Record type: income or expense"`
 	Amount   float64 `json:"amount"   jsonschema:"Amount (must be a positive number)"`
@@ -71,6 +81,13 @@ type createRecordIn struct {
 }
 type createRecordOut struct {
 	Record recordDTO `json:"record"`
+}
+
+type deleteCategoryIn struct {
+	ID string `json:"id" jsonschema:"UUID of the finance category to delete"`
+}
+type deleteCategoryOut struct {
+	Deleted bool `json:"deleted"`
 }
 
 type deleteRecordIn struct {
@@ -246,6 +263,43 @@ func registerTools(s *mcp.Server, d Deps) {
 			dtos[i] = toCategoryDTO(c)
 		}
 		return nil, listCategoriesOut{Categories: dtos}, nil
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "finance_create_category",
+		Description: "Create a new finance category. Icon must be a valid lucide-react icon name from the registry (e.g. ShoppingCart, Utensils, Home, Car, Briefcase, Gift, HeartPulse, Plane, Wallet, PiggyBank, Coffee, Gamepad2, Zap, TrendingUp, CircleDollarSign).",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, in createCategoryIn) (*mcp.CallToolResult, createCategoryOut, error) {
+		rt := finance.RecordType(in.Type)
+		if rt != finance.RecordTypeIncome && rt != finance.RecordTypeExpense {
+			return nil, createCategoryOut{}, fmt.Errorf("type must be %q or %q, got %q", finance.RecordTypeIncome, finance.RecordTypeExpense, in.Type)
+		}
+		if in.Name == "" {
+			return nil, createCategoryOut{}, fmt.Errorf("name is required")
+		}
+		cat, err := d.FinSvc.CreateCategory(ctx, d.UserUUID, finance.CreateCategoryInput{
+			Name:  in.Name,
+			Type:  rt,
+			Icon:  in.Icon,
+			Color: in.Color,
+		})
+		if err != nil {
+			return nil, createCategoryOut{}, fmt.Errorf("create category: %w", err)
+		}
+		return nil, createCategoryOut{Category: toCategoryDTO(cat)}, nil
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "finance_delete_category",
+		Description: "Delete a finance category by its UUID.",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, in deleteCategoryIn) (*mcp.CallToolResult, deleteCategoryOut, error) {
+		id, err := uuid.Parse(in.ID)
+		if err != nil {
+			return nil, deleteCategoryOut{}, fmt.Errorf("invalid category id %q: %w", in.ID, err)
+		}
+		if err := d.FinSvc.DeleteCategory(ctx, id, d.UserUUID); err != nil {
+			return nil, deleteCategoryOut{}, fmt.Errorf("delete category: %w", err)
+		}
+		return nil, deleteCategoryOut{Deleted: true}, nil
 	})
 
 	mcp.AddTool(s, &mcp.Tool{

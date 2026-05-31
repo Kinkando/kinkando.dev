@@ -10,6 +10,7 @@ import (
 	financeSvc "github.com/kinkando/personal-dashboard/internal/finance/service"
 	"github.com/kinkando/personal-dashboard/internal/kanban"
 	kanbanRepo "github.com/kinkando/personal-dashboard/internal/kanban/repository"
+	"github.com/kinkando/personal-dashboard/internal/tools"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
@@ -29,7 +30,7 @@ func New(d Deps) *mcp.Server {
 	return s
 }
 
-// ---- Finance types --------------------------------------------------------
+// ---- Finance output types ---------------------------------------------------
 
 type recordDTO struct {
 	ID           string  `json:"id"`
@@ -51,9 +52,6 @@ type categoryDTO struct {
 	Color string `json:"color"`
 }
 
-type listRecordsIn struct {
-	Month string `json:"month" jsonschema:"Month to query in YYYY-MM format (e.g. 2026-05)"`
-}
 type listRecordsOut struct {
 	Records []recordDTO `json:"records"`
 }
@@ -62,49 +60,27 @@ type listCategoriesOut struct {
 	Categories []categoryDTO `json:"categories"`
 }
 
-type createCategoryIn struct {
-	Name  string `json:"name"  jsonschema:"Category name (required)"`
-	Type  string `json:"type"  jsonschema:"Category type: income or expense"`
-	Icon  string `json:"icon"  jsonschema:"Lucide icon name (e.g. ShoppingCart, Utensils, Home, Car, Briefcase, Gift, HeartPulse, Plane, Wallet, PiggyBank, Coffee, Gamepad2, Zap, TrendingUp, CircleDollarSign)"`
-	Color string `json:"color" jsonschema:"Hex color code (e.g. #6366f1)"`
-}
 type createCategoryOut struct {
 	Category categoryDTO `json:"category"`
 }
 
-type createRecordIn struct {
-	Type     string  `json:"type"     jsonschema:"Record type: income or expense"`
-	Amount   float64 `json:"amount"   jsonschema:"Amount (must be a positive number)"`
-	Category string  `json:"category" jsonschema:"Category name — must match an existing category of the given type (call finance_list_categories first)"`
-	Note     string  `json:"note"     jsonschema:"Optional note"`
-	Date     string  `json:"date"     jsonschema:"Date in YYYY-MM-DD format"`
-}
 type createRecordOut struct {
 	Record recordDTO `json:"record"`
 }
 
-type deleteCategoryIn struct {
-	ID string `json:"id" jsonschema:"UUID of the finance category to delete"`
-}
 type deleteCategoryOut struct {
 	Deleted bool `json:"deleted"`
 }
 
-type deleteRecordIn struct {
-	ID string `json:"id" jsonschema:"UUID of the finance record to delete"`
-}
 type deleteRecordOut struct {
 	Deleted bool `json:"deleted"`
 }
 
-type monthlySummaryIn struct {
-	Month string `json:"month" jsonschema:"Month in YYYY-MM format (e.g. 2026-05)"`
-}
 type monthlySummaryOut struct {
 	Summary *finance.MonthlySummary `json:"summary"`
 }
 
-// ---- Kanban types ---------------------------------------------------------
+// ---- Kanban output types ----------------------------------------------------
 
 type boardDTO struct {
 	ID        string `json:"id"`
@@ -149,56 +125,27 @@ type getBoardOut struct {
 	Cards   []cardDTO   `json:"cards"`
 }
 
-type createCardIn struct {
-	ColumnID    string  `json:"column_id"    jsonschema:"Target column ID (hex ObjectID) — get it from kanban_get_board"`
-	Title       string  `json:"title"        jsonschema:"Card title (required)"`
-	Content     string  `json:"content"      jsonschema:"Card body text (optional)"`
-	Description string  `json:"description"  jsonschema:"Detailed description (optional)"`
-	Priority    string  `json:"priority"     jsonschema:"Priority: none, low, medium, high, or urgent (default: none)"`
-	DueDate     string  `json:"due_date"     jsonschema:"Due date in YYYY-MM-DD format (optional)"`
-	Tags        []string `json:"tags"        jsonschema:"List of freeform tags (optional)"`
-}
 type createCardOut struct {
 	Card cardDTO `json:"card"`
 }
 
-type updateCardIn struct {
-	CardID      string   `json:"card_id"      jsonschema:"Card ID (hex ObjectID) to update"`
-	Title       string   `json:"title"        jsonschema:"New title (omit to keep current)"`
-	Description string   `json:"description"  jsonschema:"New description (omit to keep current)"`
-	Priority    string   `json:"priority"     jsonschema:"New priority: none, low, medium, high, urgent (omit to keep current)"`
-	DueDate     string   `json:"due_date"     jsonschema:"New due date YYYY-MM-DD, empty string to clear, omit to keep current"`
-	Tags        []string `json:"tags"         jsonschema:"New tags list (omit to keep current, send empty array to clear)"`
-	UpdateFields []string `json:"update_fields" jsonschema:"List of field names to update: title, description, priority, due_date, tags"`
-}
 type updateCardOut struct {
 	Card cardDTO `json:"card"`
 }
 
-type moveCardIn struct {
-	CardID   string `json:"card_id"   jsonschema:"Card ID (hex ObjectID) to move"`
-	ColumnID string `json:"column_id" jsonschema:"Target column ID (hex ObjectID)"`
-	Order    int    `json:"order"     jsonschema:"New 0-indexed position within the target column"`
-}
 type moveCardOut struct {
 	Moved bool `json:"moved"`
 }
 
-type deleteCardIn struct {
-	CardID string `json:"card_id" jsonschema:"Card ID (hex ObjectID) to delete"`
-}
 type deleteCardOut struct {
 	Deleted bool `json:"deleted"`
 }
 
-type boardStatsIn struct {
-	BoardID string `json:"board_id" jsonschema:"Board ID (hex ObjectID) — get it from kanban_get_board"`
-}
 type boardStatsOut struct {
 	Stats boardStatsDTO `json:"stats"`
 }
 
-// ---- Registration ---------------------------------------------------------
+// ---- DTO helpers ------------------------------------------------------------
 
 func toRecordDTO(r *finance.Record) recordDTO {
 	dto := recordDTO{
@@ -278,12 +225,14 @@ func toCardDTO(c *kanban.Card) cardDTO {
 	return dto
 }
 
+// ---- Tool registration ------------------------------------------------------
+
 func registerTools(s *mcp.Server, d Deps) {
 	// Finance
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "finance_list_records",
-		Description: "List all finance records (income/expense) for a given month.",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, in listRecordsIn) (*mcp.CallToolResult, listRecordsOut, error) {
+		Name:        tools.FinanceListRecords.Name,
+		Description: tools.FinanceListRecords.Description,
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.ListRecordsIn) (*mcp.CallToolResult, listRecordsOut, error) {
 		if in.Month == "" {
 			return nil, listRecordsOut{}, fmt.Errorf("month is required (YYYY-MM)")
 		}
@@ -302,8 +251,8 @@ func registerTools(s *mcp.Server, d Deps) {
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "finance_list_categories",
-		Description: "List all finance categories (income/expense) for the user. Call this before finance_create_record to get valid category names.",
+		Name:        tools.FinanceListCategories.Name,
+		Description: tools.FinanceListCategories.Description,
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, listCategoriesOut, error) {
 		cats, err := d.FinSvc.ListCategories(ctx, d.UserUUID)
 		if err != nil {
@@ -320,9 +269,9 @@ func registerTools(s *mcp.Server, d Deps) {
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "finance_create_category",
-		Description: "Create a new finance category. Icon must be a valid lucide-react icon name from the registry (e.g. ShoppingCart, Utensils, Home, Car, Briefcase, Gift, HeartPulse, Plane, Wallet, PiggyBank, Coffee, Gamepad2, Zap, TrendingUp, CircleDollarSign).",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, in createCategoryIn) (*mcp.CallToolResult, createCategoryOut, error) {
+		Name:        tools.FinanceCreateCategory.Name,
+		Description: tools.FinanceCreateCategory.Description,
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.CreateCategoryIn) (*mcp.CallToolResult, createCategoryOut, error) {
 		rt := finance.RecordType(in.Type)
 		if rt != finance.RecordTypeIncome && rt != finance.RecordTypeExpense {
 			return nil, createCategoryOut{}, fmt.Errorf("type must be %q or %q, got %q", finance.RecordTypeIncome, finance.RecordTypeExpense, in.Type)
@@ -343,9 +292,9 @@ func registerTools(s *mcp.Server, d Deps) {
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "finance_delete_category",
-		Description: "Delete a finance category by its UUID.",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, in deleteCategoryIn) (*mcp.CallToolResult, deleteCategoryOut, error) {
+		Name:        tools.FinanceDeleteCategory.Name,
+		Description: tools.FinanceDeleteCategory.Description,
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.DeleteCategoryIn) (*mcp.CallToolResult, deleteCategoryOut, error) {
 		id, err := uuid.Parse(in.ID)
 		if err != nil {
 			return nil, deleteCategoryOut{}, fmt.Errorf("invalid category id %q: %w", in.ID, err)
@@ -357,9 +306,9 @@ func registerTools(s *mcp.Server, d Deps) {
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "finance_create_record",
-		Description: "Create a new income or expense record. The 'category' field must match an existing category name of the given type — call finance_list_categories first to see available names.",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, in createRecordIn) (*mcp.CallToolResult, createRecordOut, error) {
+		Name:        tools.FinanceCreateRecord.Name,
+		Description: tools.FinanceCreateRecord.Description,
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.CreateRecordIn) (*mcp.CallToolResult, createRecordOut, error) {
 		rt := finance.RecordType(in.Type)
 		if rt != finance.RecordTypeIncome && rt != finance.RecordTypeExpense {
 			return nil, createRecordOut{}, fmt.Errorf("type must be %q or %q, got %q", finance.RecordTypeIncome, finance.RecordTypeExpense, in.Type)
@@ -367,7 +316,6 @@ func registerTools(s *mcp.Server, d Deps) {
 		if in.Amount <= 0 {
 			return nil, createRecordOut{}, fmt.Errorf("amount must be positive, got %v", in.Amount)
 		}
-		// Resolve category name → ID
 		cats, err := d.FinSvc.ListCategories(ctx, d.UserUUID)
 		if err != nil {
 			return nil, createRecordOut{}, fmt.Errorf("list categories: %w", err)
@@ -398,9 +346,9 @@ func registerTools(s *mcp.Server, d Deps) {
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "finance_delete_record",
-		Description: "Delete a finance record by its UUID.",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, in deleteRecordIn) (*mcp.CallToolResult, deleteRecordOut, error) {
+		Name:        tools.FinanceDeleteRecord.Name,
+		Description: tools.FinanceDeleteRecord.Description,
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.DeleteRecordIn) (*mcp.CallToolResult, deleteRecordOut, error) {
 		id, err := uuid.Parse(in.ID)
 		if err != nil {
 			return nil, deleteRecordOut{}, fmt.Errorf("invalid record id %q: %w", in.ID, err)
@@ -412,9 +360,9 @@ func registerTools(s *mcp.Server, d Deps) {
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "finance_monthly_summary",
-		Description: "Get a monthly summary of income, expenses, net, and per-category breakdown.",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, in monthlySummaryIn) (*mcp.CallToolResult, monthlySummaryOut, error) {
+		Name:        tools.FinanceMonthlySummary.Name,
+		Description: tools.FinanceMonthlySummary.Description,
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.MonthlySummaryIn) (*mcp.CallToolResult, monthlySummaryOut, error) {
 		if in.Month == "" {
 			return nil, monthlySummaryOut{}, fmt.Errorf("month is required (YYYY-MM)")
 		}
@@ -427,8 +375,8 @@ func registerTools(s *mcp.Server, d Deps) {
 
 	// Kanban
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "kanban_get_board",
-		Description: "Retrieve the full kanban board: board metadata, all columns, and all cards. Returns the first board (auto-creates one on first call). Use board.id for subsequent calls.",
+		Name:        tools.KanbanGetBoard.Name,
+		Description: tools.KanbanGetBoard.Description,
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, getBoardOut, error) {
 		boards, err := d.KanRepo.ListBoards(ctx, d.FirebaseUID)
 		if err != nil {
@@ -465,9 +413,9 @@ func registerTools(s *mcp.Server, d Deps) {
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "kanban_create_card",
-		Description: "Create a new card in a column. Use kanban_get_board to get column IDs first.",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, in createCardIn) (*mcp.CallToolResult, createCardOut, error) {
+		Name:        tools.KanbanCreateCard.Name,
+		Description: tools.KanbanCreateCard.Description,
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.CreateCardIn) (*mcp.CallToolResult, createCardOut, error) {
 		if in.Title == "" {
 			return nil, createCardOut{}, fmt.Errorf("title is required")
 		}
@@ -508,9 +456,9 @@ func registerTools(s *mcp.Server, d Deps) {
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "kanban_update_card",
-		Description: "Update card detail fields. Only fields listed in update_fields are changed. Valid field names: title, description, priority, due_date, tags.",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, in updateCardIn) (*mcp.CallToolResult, updateCardOut, error) {
+		Name:        tools.KanbanUpdateCard.Name,
+		Description: tools.KanbanUpdateCard.Description,
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.UpdateCardIn) (*mcp.CallToolResult, updateCardOut, error) {
 		cardID, err := primitive.ObjectIDFromHex(in.CardID)
 		if err != nil {
 			return nil, updateCardOut{}, fmt.Errorf("invalid card_id %q: %w", in.CardID, err)
@@ -550,9 +498,9 @@ func registerTools(s *mcp.Server, d Deps) {
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "kanban_move_card",
-		Description: "Move a card to a different column and/or position.",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, in moveCardIn) (*mcp.CallToolResult, moveCardOut, error) {
+		Name:        tools.KanbanMoveCard.Name,
+		Description: tools.KanbanMoveCard.Description,
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.MoveCardIn) (*mcp.CallToolResult, moveCardOut, error) {
 		cardID, err := primitive.ObjectIDFromHex(in.CardID)
 		if err != nil {
 			return nil, moveCardOut{}, fmt.Errorf("invalid card_id %q: %w", in.CardID, err)
@@ -567,9 +515,9 @@ func registerTools(s *mcp.Server, d Deps) {
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "kanban_delete_card",
-		Description: "Delete a kanban card by its ID.",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, in deleteCardIn) (*mcp.CallToolResult, deleteCardOut, error) {
+		Name:        tools.KanbanDeleteCard.Name,
+		Description: tools.KanbanDeleteCard.Description,
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.DeleteCardIn) (*mcp.CallToolResult, deleteCardOut, error) {
 		cardID, err := primitive.ObjectIDFromHex(in.CardID)
 		if err != nil {
 			return nil, deleteCardOut{}, fmt.Errorf("invalid card_id %q: %w", in.CardID, err)
@@ -581,9 +529,9 @@ func registerTools(s *mcp.Server, d Deps) {
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "kanban_board_stats",
-		Description: "Get statistics for a board: total cards, cards per column, cards per priority, overdue count, and cards without a due date.",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, in boardStatsIn) (*mcp.CallToolResult, boardStatsOut, error) {
+		Name:        tools.KanbanBoardStats.Name,
+		Description: tools.KanbanBoardStats.Description,
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.BoardStatsIn) (*mcp.CallToolResult, boardStatsOut, error) {
 		boardID, err := primitive.ObjectIDFromHex(in.BoardID)
 		if err != nil {
 			return nil, boardStatsOut{}, fmt.Errorf("invalid board_id %q: %w", in.BoardID, err)

@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/kinkando/personal-dashboard/internal/finance"
 	financeSvc "github.com/kinkando/personal-dashboard/internal/finance/service"
+	"github.com/kinkando/personal-dashboard/internal/gemini"
 	"github.com/kinkando/personal-dashboard/internal/kanban"
 	kanbanRepo "github.com/kinkando/personal-dashboard/internal/kanban/repository"
 	linepkg "github.com/kinkando/personal-dashboard/internal/line"
@@ -31,8 +32,9 @@ type Deps struct {
 	Client        *linepkg.Client
 	FinSvc        *financeSvc.Service
 	KanRepo       *kanbanRepo.Repository
-	UserUUID      uuid.UUID // finance user
-	FirebaseUID   string    // kanban user
+	UserUUID      uuid.UUID      // finance user
+	FirebaseUID   string         // kanban user
+	Gemini        *gemini.Client // optional; nil disables AI routing
 	Logger        *zap.Logger
 }
 
@@ -45,6 +47,7 @@ type Handler struct {
 	kanRepo       *kanbanRepo.Repository
 	userUUID      uuid.UUID
 	firebaseUID   string
+	gemini        *gemini.Client
 	logger        *zap.Logger
 }
 
@@ -58,6 +61,7 @@ func New(d Deps) *Handler {
 		kanRepo:       d.KanRepo,
 		userUUID:      d.UserUUID,
 		firebaseUID:   d.FirebaseUID,
+		gemini:        d.Gemini,
 		logger:        d.Logger,
 	}
 }
@@ -100,6 +104,15 @@ func (h *Handler) webhook(c *fiber.Ctx) error {
 // handleText routes the message text to the correct feature handler and returns
 // a human-readable reply string.
 func (h *Handler) handleText(ctx context.Context, text string) string {
+	if h.gemini != nil {
+		reply, err := h.gemini.Chat(ctx, text)
+		if err != nil {
+			h.logger.Error("Gemini chat failed", zap.Error(err))
+		} else {
+			return reply
+		}
+	}
+
 	text = strings.TrimSpace(text)
 	idx := strings.IndexByte(text, ' ')
 

@@ -21,6 +21,10 @@ type Config struct {
 	MCPUserFirebaseUID string `env:"MCP_USER_FIREBASE_UID,required"`
 	MCPAuthToken       string `env:"MCP_AUTH_TOKEN"`
 
+	// Gemini API — powers natural-language processing in the LINE webhook.
+	GeminiAPIKey string `env:"GEMINI_API_KEY,required"`
+	GeminiModel  string `env:"GEMINI_MODEL" envDefault:"gemini-2.0-flash"`
+
 	// LINE Messaging API credentials.
 	LineChannelID          string `env:"LINE_CHANNEL_ID,required"`
 	LineChannelSecret      string `env:"LINE_CHANNEL_SECRET,required"`

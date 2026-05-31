@@ -23,6 +23,7 @@ import (
 	financeHandler "github.com/kinkando/personal-dashboard/internal/finance/handler"
 	financeRepo "github.com/kinkando/personal-dashboard/internal/finance/repository"
 	financeSvc "github.com/kinkando/personal-dashboard/internal/finance/service"
+	"github.com/kinkando/personal-dashboard/internal/gemini"
 	kanbanHandler "github.com/kinkando/personal-dashboard/internal/kanban/handler"
 	kanbanRepo "github.com/kinkando/personal-dashboard/internal/kanban/repository"
 	"github.com/kinkando/personal-dashboard/internal/line"
@@ -137,6 +138,21 @@ func main() {
 
 	// LINE webhook — no auth middleware; self-authenticated via X-Line-Signature.
 	lineClient := line.NewClient(cfg.LineChannelAccessToken)
+
+	geminiClient, err := gemini.New(context.Background(), gemini.Deps{
+		APIKey:      cfg.GeminiAPIKey,
+		Model:       cfg.GeminiModel,
+		FinSvc:      finSvc,
+		KanRepo:     kanRepo,
+		UserUUID:    appUserUUID,
+		FirebaseUID: cfg.MCPUserFirebaseUID,
+	})
+	if err != nil {
+		logger.Fatal("gemini init", zap.Error(err))
+	}
+	defer geminiClient.Close() //nolint:errcheck
+	logger.Info("Gemini AI routing enabled for LINE webhook", zap.String("model", cfg.GeminiModel))
+
 	lineH := lineHandler.New(lineHandler.Deps{
 		ChannelID:     cfg.LineChannelID,
 		ChannelSecret: cfg.LineChannelSecret,
@@ -145,6 +161,7 @@ func main() {
 		KanRepo:       kanRepo,
 		UserUUID:      appUserUUID,
 		FirebaseUID:   cfg.MCPUserFirebaseUID,
+		Gemini:        geminiClient,
 		Logger:        logger,
 	})
 	lineGroup := api.Group("/line")

@@ -29,6 +29,11 @@ func New(ctx context.Context, dsn string) (*DB, error) {
 	// the bind count mismatches, producing SQLSTATE 08P01.
 	config.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol
 
+	config.AfterConnect = func(ctx context.Context, conn *pgx.Conn) error {
+		_, err := conn.Exec(ctx, "SET TIME ZONE 'Asia/Bangkok'")
+		return err
+	}
+
 	pool, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {
 		return nil, fmt.Errorf("pgxpool.New: %w", err)

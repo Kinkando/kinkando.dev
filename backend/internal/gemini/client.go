@@ -2,6 +2,7 @@ package gemini
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -114,7 +115,9 @@ func (c *Client) Chat(ctx context.Context, userMsg string) (string, error) {
 			case res.IsError:
 				response = map[string]any{"error": contentText(res.Content)}
 			default:
-				response = map[string]any{"result": res.StructuredContent}
+				// Parse the JSON text from MCP Content (always set by the SDK) to
+				// get JSON-native types (map[string]any etc.) that proto.Struct accepts.
+				response = map[string]any{"result": jsonFromContent(res.Content)}
 			}
 			parts = append(parts, genai.FunctionResponse{
 				Name:     fc.Name,
@@ -135,4 +138,18 @@ func contentText(contents []mcp.Content) string {
 		}
 	}
 	return "tool error"
+}
+
+// jsonFromContent JSON-parses the text from the first TextContent into a
+// JSON-native value (map[string]any, []any, string, float64, bool, nil).
+// The MCP SDK always serializes structured output to a TextContent JSON string,
+// so this is equivalent to the old toJSONValue round-trip and produces types
+// that structpb.NewStruct accepts.
+func jsonFromContent(contents []mcp.Content) any {
+	text := contentText(contents)
+	var v any
+	if err := json.Unmarshal([]byte(text), &v); err != nil {
+		return text // fallback: return as plain string
+	}
+	return v
 }

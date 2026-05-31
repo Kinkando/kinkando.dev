@@ -1,4 +1,10 @@
-import { useState, type FormEvent, type KeyboardEvent } from 'react'
+import {
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type KeyboardEvent,
+} from 'react'
 import { SendHorizonal } from 'lucide-react'
 
 type Props = {
@@ -8,6 +14,12 @@ type Props = {
 
 export default function ChatInput({ onSend, disabled }: Props) {
   const [value, setValue] = useState('')
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  // Restore focus when the AI finishes responding.
+  useEffect(() => {
+    if (!disabled) textareaRef.current?.focus()
+  }, [disabled])
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -27,6 +39,7 @@ export default function ChatInput({ onSend, disabled }: Props) {
   return (
     <form onSubmit={handleSubmit} className="flex items-end gap-2">
       <textarea
+        ref={textareaRef}
         className="max-h-40 min-h-[48px] flex-1 resize-none rounded-xl border border-gray-700 bg-gray-800 px-4 py-3 text-sm text-gray-100 placeholder-gray-500 focus:border-indigo-500 focus:outline-none disabled:opacity-50"
         placeholder="Message the assistant… (Enter to send, Shift+Enter for new line)"
         rows={1}

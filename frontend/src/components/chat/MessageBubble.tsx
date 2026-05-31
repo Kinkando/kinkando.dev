@@ -1,3 +1,5 @@
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import type { ChatMessage } from '../../lib/api/types'
 
 type Props = {
@@ -26,7 +28,7 @@ export default function MessageBubble({ message, isStreaming }: Props) {
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
       <div
-        className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap ${
+        className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
           isUser
             ? 'bg-indigo-600 text-white'
             : 'border border-gray-700 bg-gray-800 text-gray-100'
@@ -34,13 +36,21 @@ export default function MessageBubble({ message, isStreaming }: Props) {
       >
         {isThinking ? (
           <ThinkingDots />
+        ) : isUser ? (
+          <span className="animate-fade-in whitespace-pre-wrap">
+            {message.content}
+          </span>
         ) : (
-          <>
-            <span className="animate-fade-in">{message.content}</span>
+          <div className="animate-fade-in">
+            <div className="prose prose-invert prose-sm max-w-none">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {message.content}
+              </ReactMarkdown>
+            </div>
             {isStreaming && (
-              <span className="ml-1 inline-block h-4 w-2 animate-pulse rounded-sm bg-indigo-400 align-middle" />
+              <span className="mt-1 block h-1.5 w-4 animate-pulse rounded-full bg-indigo-400" />
             )}
-          </>
+          </div>
         )}
       </div>
     </div>

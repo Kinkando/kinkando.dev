@@ -427,6 +427,14 @@ type createPresetOut struct {
 	Preset workoutPresetDetailDTO `json:"preset"`
 }
 
+type updatePresetOut struct {
+	Preset workoutPresetDetailDTO `json:"preset"`
+}
+
+type deletePresetOut struct {
+	Deleted bool `json:"deleted"`
+}
+
 // ---- Workout DTO helpers ----------------------------------------------------
 
 var dayNames = [7]string{"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"}
@@ -1222,5 +1230,84 @@ func registerTools(s *mcp.Server, d Deps) {
 			return nil, createPresetOut{}, fmt.Errorf("create preset: %w", err)
 		}
 		return nil, createPresetOut{Preset: toWorkoutPresetDetailDTO(preset)}, nil
+	}))
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        tools.WorkoutUpdatePreset.Name,
+		Description: tools.WorkoutUpdatePreset.Description,
+	}, withLog(d.Logger, tools.WorkoutUpdatePreset.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.WorkoutUpdatePresetIn) (*mcp.CallToolResult, updatePresetOut, error) {
+		presetID, err := uuid.Parse(in.PresetID)
+		if err != nil {
+			return nil, updatePresetOut{}, fmt.Errorf("invalid preset_id %q: %w", in.PresetID, err)
+		}
+		if strings.TrimSpace(in.Name) == "" {
+			return nil, updatePresetOut{}, fmt.Errorf("name is required")
+		}
+		t := workout.Type(in.Type)
+		switch t {
+		case workout.TypeWeightTraining, workout.TypeBodyWeight, workout.TypeRunning,
+			workout.TypeWalking, workout.TypeCardio, workout.TypeMobility, workout.TypeCustom:
+		default:
+			return nil, updatePresetOut{}, fmt.Errorf("invalid type %q", in.Type)
+		}
+		exInputs := make([]workout.PresetExerciseInput, len(in.Exercises))
+		for i, ex := range in.Exercises {
+			section := workout.Section(ex.Section)
+			if section == "" {
+				section = workout.SectionMain
+			}
+			exIn := workout.PresetExerciseInput{Section: section, Name: ex.Name}
+			if ex.TargetMuscles != "" {
+				exIn.TargetMuscles = &ex.TargetMuscles
+			}
+			if ex.Instructions != "" {
+				exIn.Instructions = &ex.Instructions
+			}
+			if ex.Sets > 0 {
+				exIn.Sets = &ex.Sets
+			}
+			if ex.Reps > 0 {
+				exIn.Reps = &ex.Reps
+			}
+			if ex.DurationSeconds > 0 {
+				exIn.DurationSeconds = &ex.DurationSeconds
+			}
+			if ex.RestSeconds > 0 {
+				exIn.RestSeconds = &ex.RestSeconds
+			}
+			if ex.WeightKg > 0 {
+				exIn.WeightKg = &ex.WeightKg
+			}
+			if ex.Equipment != "" {
+				exIn.Equipment = &ex.Equipment
+			}
+			if ex.Notes != "" {
+				exIn.Notes = &ex.Notes
+			}
+			exInputs[i] = exIn
+		}
+		input := workout.UpdatePresetInput{Name: in.Name, Type: t, Exercises: exInputs}
+		if in.Description != "" {
+			input.Description = &in.Description
+		}
+		preset, err := d.WkSvc.UpdatePreset(ctx, presetID, d.UserUUID, input)
+		if err != nil {
+			return nil, updatePresetOut{}, fmt.Errorf("update preset: %w", err)
+		}
+		return nil, updatePresetOut{Preset: toWorkoutPresetDetailDTO(preset)}, nil
+	}))
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        tools.WorkoutDeletePreset.Name,
+		Description: tools.WorkoutDeletePreset.Description,
+	}, withLog(d.Logger, tools.WorkoutDeletePreset.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.WorkoutDeletePresetIn) (*mcp.CallToolResult, deletePresetOut, error) {
+		presetID, err := uuid.Parse(in.PresetID)
+		if err != nil {
+			return nil, deletePresetOut{}, fmt.Errorf("invalid preset_id %q: %w", in.PresetID, err)
+		}
+		if err := d.WkSvc.DeletePreset(ctx, presetID, d.UserUUID); err != nil {
+			return nil, deletePresetOut{}, fmt.Errorf("delete preset: %w", err)
+		}
+		return nil, deletePresetOut{Deleted: true}, nil
 	}))
 }

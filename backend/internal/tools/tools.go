@@ -38,6 +38,8 @@ func All() []ToolDef {
 		WorkoutListPresets,
 		WorkoutGetSchedule,
 		WorkoutCreatePreset,
+		WorkoutUpdatePreset,
+		WorkoutDeletePreset,
 		WorkoutStartSession,
 		WorkoutUpdateSession,
 		WorkoutLogExercise,
@@ -293,6 +295,20 @@ var WorkoutCreatePreset = ToolDef{
 	Required:    []string{"name", "type"},
 }
 
+var WorkoutUpdatePreset = ToolDef{
+	Name:        "workout_update_preset",
+	Description: "Replace all fields of an existing workout preset (name, type, description, and full exercise list). Call workout_list_presets first to get the preset ID.",
+	Input:       WorkoutUpdatePresetIn{},
+	Required:    []string{"preset_id", "name", "type"},
+}
+
+var WorkoutDeletePreset = ToolDef{
+	Name:        "workout_delete_preset",
+	Description: "Delete a workout preset by its UUID. Call workout_list_presets first to get the preset ID.",
+	Input:       WorkoutDeletePresetIn{},
+	Required:    []string{"preset_id"},
+}
+
 type WorkoutListSessionsIn struct {
 	From string `json:"from" jsonschema:"Start date YYYY-MM-DD (default: 30 days ago)"`
 	To   string `json:"to"   jsonschema:"End date YYYY-MM-DD (default: today)"`
@@ -352,4 +368,16 @@ type WorkoutCreatePresetIn struct {
 	Type        string                    `json:"type"        jsonschema:"Workout type: weight_training, body_weight, running, walking, cardio, mobility, or custom"`
 	Description string                    `json:"description" jsonschema:"Optional description"`
 	Exercises   []WorkoutPresetExerciseIn `json:"exercises"   jsonschema:"Ordered list of exercises in the preset"`
+}
+
+type WorkoutUpdatePresetIn struct {
+	PresetID    string                    `json:"preset_id"   jsonschema:"UUID of the preset to update — get from workout_list_presets"`
+	Name        string                    `json:"name"        jsonschema:"Preset name (required)"`
+	Type        string                    `json:"type"        jsonschema:"Workout type: weight_training, body_weight, running, walking, cardio, mobility, or custom"`
+	Description string                    `json:"description" jsonschema:"Optional description"`
+	Exercises   []WorkoutPresetExerciseIn `json:"exercises"   jsonschema:"Full exercise list to replace existing exercises"`
+}
+
+type WorkoutDeletePresetIn struct {
+	PresetID string `json:"preset_id" jsonschema:"UUID of the preset to delete — get from workout_list_presets"`
 }

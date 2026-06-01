@@ -24,6 +24,17 @@ go test ./internal/finance/...
 golangci-lint run
 ```
 
+## Schema Change Rule
+
+**Every time you modify the PostgreSQL schema** (new table, altered column, dropped index — anything in `migrations/`), you MUST run these two commands before writing or updating any repository code:
+
+```bash
+make run-db-migrations        # apply the migration
+make gen-sql-builder-windows  # regenerate gen/kinkando/public/ (use gen-sql-builder-macos on macOS/Linux)
+```
+
+The repository layer imports generated types from `gen/kinkando/public/model` and `gen/kinkando/public/table`. If you skip codegen the build will fail with `undefined: table.XxxYyy` errors.
+
 ## Database Migrations
 
 Migrations are managed with **[dbmate](https://github.com/amacneil/dbmate)** and live in `migrations/`.

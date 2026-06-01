@@ -423,6 +423,10 @@ type workoutPresetDetailDTO struct {
 	Exercises   []presetExerciseDTO `json:"exercises"`
 }
 
+type getPresetOut struct {
+	Preset workoutPresetDetailDTO `json:"preset"`
+}
+
 type createPresetOut struct {
 	Preset workoutPresetDetailDTO `json:"preset"`
 }
@@ -992,6 +996,21 @@ func registerTools(s *mcp.Server, d Deps) {
 			dtos[i] = toWorkoutPresetDTO(p)
 		}
 		return nil, listPresetsOut{Presets: dtos}, nil
+	}))
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        tools.WorkoutGetPreset.Name,
+		Description: tools.WorkoutGetPreset.Description,
+	}, withLog(d.Logger, tools.WorkoutGetPreset.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.WorkoutGetPresetIn) (*mcp.CallToolResult, getPresetOut, error) {
+		presetID, err := uuid.Parse(in.PresetID)
+		if err != nil {
+			return nil, getPresetOut{}, fmt.Errorf("invalid preset_id %q: %w", in.PresetID, err)
+		}
+		preset, err := d.WkSvc.GetPreset(ctx, presetID, d.UserUUID)
+		if err != nil {
+			return nil, getPresetOut{}, fmt.Errorf("get preset: %w", err)
+		}
+		return nil, getPresetOut{Preset: toWorkoutPresetDetailDTO(preset)}, nil
 	}))
 
 	mcp.AddTool(s, &mcp.Tool{

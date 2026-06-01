@@ -36,6 +36,7 @@ func All() []ToolDef {
 		KanbanListArchivedCards,
 		WorkoutListSessions,
 		WorkoutListPresets,
+		WorkoutGetPreset,
 		WorkoutGetSchedule,
 		WorkoutCreatePreset,
 		WorkoutUpdatePreset,
@@ -253,7 +254,14 @@ var WorkoutListSessions = ToolDef{
 
 var WorkoutListPresets = ToolDef{
 	Name:        "workout_list_presets",
-	Description: "List all saved workout preset templates. Returns preset name, type, description, and exercise list. Call before workout_start_session to get a valid preset name.",
+	Description: "List all saved workout preset templates. Returns preset name, type, description, and exercise count. Call before workout_start_session to get a valid preset name.",
+}
+
+var WorkoutGetPreset = ToolDef{
+	Name:        "workout_get_preset",
+	Description: "Get a single workout preset by ID with its full exercise list (sets, reps, duration, rest, target muscles, equipment, notes). Call workout_list_presets first to get the preset ID.",
+	Input:       WorkoutGetPresetIn{},
+	Required:    []string{"preset_id"},
 }
 
 var WorkoutGetSchedule = ToolDef{
@@ -347,6 +355,10 @@ type WorkoutAddExerciseIn struct {
 	TargetReps            int    `json:"target_reps"             jsonschema:"Target reps per set (0 = no target)"`
 	TargetDurationSeconds int    `json:"target_duration_seconds" jsonschema:"Target duration in seconds (0 = no target)"`
 	RestSeconds           int    `json:"rest_seconds"            jsonschema:"Rest between sets in seconds (0 = no target)"`
+}
+
+type WorkoutGetPresetIn struct {
+	PresetID string `json:"preset_id" jsonschema:"UUID of the preset to retrieve — get from workout_list_presets"`
 }
 
 type WorkoutPresetExerciseIn struct {

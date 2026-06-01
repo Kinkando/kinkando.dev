@@ -161,22 +161,9 @@ export default function ChatPage() {
       style={{ height: 'calc(100vh - 57px)' }}
     >
       {/* Header */}
-      <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-xl font-semibold text-gray-100">AI Assistant</h1>
-        <div className="flex flex-wrap items-center gap-3">
-          {hasUsage && (
-            <span className="text-xs text-gray-500">
-              {sessionUsage.inputTokens.toLocaleString()} in ·{' '}
-              {sessionUsage.outputTokens.toLocaleString()} out ·{' '}
-              <span className="text-gray-400">
-                {formatUSD(calcCostUSD(sessionUsage))}
-              </span>
-              <span className="mx-1 text-gray-600">/</span>
-              <span className="text-gray-400">
-                {formatTHB(calcCostUSD(sessionUsage))}
-              </span>
-            </span>
-          )}
+      <div className="mb-6 flex flex-col gap-1.5">
+        <div className="flex items-center justify-between">
+          <h1 className="text-xl font-semibold text-gray-100">AI Assistant</h1>
           <button
             onClick={handleNewSession}
             className="flex items-center gap-1.5 rounded-lg border border-gray-700 px-3 py-1.5 text-xs text-gray-400 transition hover:border-gray-500 hover:text-gray-200"
@@ -185,6 +172,19 @@ export default function ChatPage() {
             New session
           </button>
         </div>
+        {hasUsage && (
+          <span className="text-xs text-gray-500">
+            {sessionUsage.inputTokens.toLocaleString()} in ·{' '}
+            {sessionUsage.outputTokens.toLocaleString()} out ·{' '}
+            <span className="text-gray-400">
+              {formatUSD(calcCostUSD(sessionUsage))}
+            </span>
+            <span className="mx-1 text-gray-600">/</span>
+            <span className="text-gray-400">
+              {formatTHB(calcCostUSD(sessionUsage))}
+            </span>
+          </span>
+        )}
       </div>
 
       {/* Message list */}

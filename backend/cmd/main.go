@@ -13,11 +13,11 @@ import (
 	"time"
 	_ "time/tzdata"
 
-	"github.com/gofiber/contrib/fiberzap/v2"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/adaptor"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/recover"
+	"github.com/kinkando/personal-dashboard/pkg/middleware"
 	"github.com/google/uuid"
 	"github.com/kinkando/personal-dashboard/config"
 	aichatHandler "github.com/kinkando/personal-dashboard/internal/aichat/handler"
@@ -114,7 +114,7 @@ func main() {
 	})
 
 	app.Use(recover.New())
-	app.Use(fiberzap.New(fiberzap.Config{Logger: logger}))
+	app.Use(middleware.RequestLogger(logger))
 	app.Use(cors.New(cors.Config{
 		AllowOrigins: "http://localhost:3000,https://kinkando-dev.pages.dev,https://kinkando.dev,https://cronjob.kinkandojester.workers.dev",
 		AllowHeaders: "Origin,Content-Type,Accept,Authorization",
@@ -159,6 +159,7 @@ func main() {
 	mcpSrv := mcpserver.New(mcpserver.Deps{
 		FinSvc: finSvc, KanRepo: kanRepo,
 		UserUUID: appUserUUID, FirebaseUID: cfg.MCPUserFirebaseUID,
+		Logger: logger,
 	})
 
 	// Wire an in-process MCP client so Gemini can call tools without a network hop.

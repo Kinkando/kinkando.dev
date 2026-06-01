@@ -2,8 +2,10 @@ package mcpserver
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/kinkando/personal-dashboard/internal/finance"
@@ -13,6 +15,7 @@ import (
 	"github.com/kinkando/personal-dashboard/internal/tools"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.uber.org/zap"
 )
 
 // Deps bundles the shared dependencies consumed by all MCP tool handlers.
@@ -21,6 +24,35 @@ type Deps struct {
 	KanRepo     *kanbanRepo.Repository
 	UserUUID    uuid.UUID
 	FirebaseUID string
+	Logger      *zap.Logger
+}
+
+// withLog wraps an MCP tool handler with structured logging (input, output, latency, errors).
+func withLog[In, Out any](logger *zap.Logger, name string, fn func(context.Context, *mcp.CallToolRequest, In) (*mcp.CallToolResult, Out, error)) func(context.Context, *mcp.CallToolRequest, In) (*mcp.CallToolResult, Out, error) {
+	return func(ctx context.Context, req *mcp.CallToolRequest, in In) (*mcp.CallToolResult, Out, error) {
+		start := time.Now()
+		inJSON, _ := json.Marshal(in)
+		result, out, err := fn(ctx, req, in)
+		latency := time.Since(start)
+		args := []zap.Field{
+			zap.String("tool", name),
+			zap.Duration("latency", latency),
+		}
+		if len(inJSON) > 0 {
+			args = append(args, zap.Any("input", in))
+		}
+		if err != nil {
+			args = append(args, zap.Error(err))
+			logger.Error("mcp", args...)
+		} else {
+			outJSON, _ := json.Marshal(out)
+			if len(outJSON) > 0 {
+				args = append(args, zap.Any("output", out))
+			}
+			logger.Info("mcp", args...)
+		}
+		return result, out, err
+	}
 }
 
 // New creates a new MCP server with all tools registered.
@@ -255,7 +287,7 @@ func registerTools(s *mcp.Server, d Deps) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        tools.FinanceListRecords.Name,
 		Description: tools.FinanceListRecords.Description,
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.ListRecordsIn) (*mcp.CallToolResult, listRecordsOut, error) {
+	}, withLog(d.Logger, tools.FinanceListRecords.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.ListRecordsIn) (*mcp.CallToolResult, listRecordsOut, error) {
 		if in.Month == "" {
 			return nil, listRecordsOut{}, fmt.Errorf("month is required (YYYY-MM)")
 		}
@@ -271,12 +303,12 @@ func registerTools(s *mcp.Server, d Deps) {
 			dtos[i] = toRecordDTO(rec)
 		}
 		return nil, listRecordsOut{Records: dtos}, nil
-	})
+	}))
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        tools.FinanceListCategories.Name,
 		Description: tools.FinanceListCategories.Description,
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, listCategoriesOut, error) {
+	}, withLog(d.Logger, tools.FinanceListCategories.Name, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, listCategoriesOut, error) {
 		cats, err := d.FinSvc.ListCategories(ctx, d.UserUUID)
 		if err != nil {
 			return nil, listCategoriesOut{}, fmt.Errorf("list categories: %w", err)
@@ -289,12 +321,12 @@ func registerTools(s *mcp.Server, d Deps) {
 			dtos[i] = toCategoryDTO(c)
 		}
 		return nil, listCategoriesOut{Categories: dtos}, nil
-	})
+	}))
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        tools.FinanceCreateCategory.Name,
 		Description: tools.FinanceCreateCategory.Description,
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.CreateCategoryIn) (*mcp.CallToolResult, createCategoryOut, error) {
+	}, withLog(d.Logger, tools.FinanceCreateCategory.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.CreateCategoryIn) (*mcp.CallToolResult, createCategoryOut, error) {
 		rt := finance.RecordType(in.Type)
 		if rt != finance.RecordTypeIncome && rt != finance.RecordTypeExpense {
 			return nil, createCategoryOut{}, fmt.Errorf("type must be %q or %q, got %q", finance.RecordTypeIncome, finance.RecordTypeExpense, in.Type)
@@ -312,12 +344,12 @@ func registerTools(s *mcp.Server, d Deps) {
 			return nil, createCategoryOut{}, fmt.Errorf("create category: %w", err)
 		}
 		return nil, createCategoryOut{Category: toCategoryDTO(cat)}, nil
-	})
+	}))
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        tools.FinanceDeleteCategory.Name,
 		Description: tools.FinanceDeleteCategory.Description,
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.DeleteCategoryIn) (*mcp.CallToolResult, deleteCategoryOut, error) {
+	}, withLog(d.Logger, tools.FinanceDeleteCategory.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.DeleteCategoryIn) (*mcp.CallToolResult, deleteCategoryOut, error) {
 		id, err := uuid.Parse(in.ID)
 		if err != nil {
 			return nil, deleteCategoryOut{}, fmt.Errorf("invalid category id %q: %w", in.ID, err)
@@ -326,12 +358,12 @@ func registerTools(s *mcp.Server, d Deps) {
 			return nil, deleteCategoryOut{}, fmt.Errorf("delete category: %w", err)
 		}
 		return nil, deleteCategoryOut{Deleted: true}, nil
-	})
+	}))
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        tools.FinanceCreateRecord.Name,
 		Description: tools.FinanceCreateRecord.Description,
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.CreateRecordIn) (*mcp.CallToolResult, createRecordOut, error) {
+	}, withLog(d.Logger, tools.FinanceCreateRecord.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.CreateRecordIn) (*mcp.CallToolResult, createRecordOut, error) {
 		rt := finance.RecordType(in.Type)
 		if rt != finance.RecordTypeIncome && rt != finance.RecordTypeExpense {
 			return nil, createRecordOut{}, fmt.Errorf("type must be %q or %q, got %q", finance.RecordTypeIncome, finance.RecordTypeExpense, in.Type)
@@ -366,12 +398,12 @@ func registerTools(s *mcp.Server, d Deps) {
 			return nil, createRecordOut{}, fmt.Errorf("create record: %w", err)
 		}
 		return nil, createRecordOut{Record: toRecordDTO(rec)}, nil
-	})
+	}))
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        tools.FinanceDeleteRecord.Name,
 		Description: tools.FinanceDeleteRecord.Description,
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.DeleteRecordIn) (*mcp.CallToolResult, deleteRecordOut, error) {
+	}, withLog(d.Logger, tools.FinanceDeleteRecord.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.DeleteRecordIn) (*mcp.CallToolResult, deleteRecordOut, error) {
 		id, err := uuid.Parse(in.ID)
 		if err != nil {
 			return nil, deleteRecordOut{}, fmt.Errorf("invalid record id %q: %w", in.ID, err)
@@ -380,12 +412,12 @@ func registerTools(s *mcp.Server, d Deps) {
 			return nil, deleteRecordOut{}, fmt.Errorf("delete record: %w", err)
 		}
 		return nil, deleteRecordOut{Deleted: true}, nil
-	})
+	}))
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        tools.FinanceMonthlySummary.Name,
 		Description: tools.FinanceMonthlySummary.Description,
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.MonthlySummaryIn) (*mcp.CallToolResult, monthlySummaryOut, error) {
+	}, withLog(d.Logger, tools.FinanceMonthlySummary.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.MonthlySummaryIn) (*mcp.CallToolResult, monthlySummaryOut, error) {
 		if in.Month == "" {
 			return nil, monthlySummaryOut{}, fmt.Errorf("month is required (YYYY-MM)")
 		}
@@ -394,13 +426,13 @@ func registerTools(s *mcp.Server, d Deps) {
 			return nil, monthlySummaryOut{}, fmt.Errorf("monthly summary: %w", err)
 		}
 		return nil, monthlySummaryOut{Summary: summary}, nil
-	})
+	}))
 
 	// Kanban
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        tools.KanbanGetBoard.Name,
 		Description: tools.KanbanGetBoard.Description,
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, getBoardOut, error) {
+	}, withLog(d.Logger, tools.KanbanGetBoard.Name, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, getBoardOut, error) {
 		boards, err := d.KanRepo.ListBoards(ctx, d.FirebaseUID)
 		if err != nil {
 			return nil, getBoardOut{}, fmt.Errorf("list boards: %w", err)
@@ -433,12 +465,12 @@ func registerTools(s *mcp.Server, d Deps) {
 			Columns: columnDTOs,
 			Cards:   cardDTOs,
 		}, nil
-	})
+	}))
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        tools.KanbanCreateCard.Name,
 		Description: tools.KanbanCreateCard.Description,
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.CreateCardIn) (*mcp.CallToolResult, createCardOut, error) {
+	}, withLog(d.Logger, tools.KanbanCreateCard.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.CreateCardIn) (*mcp.CallToolResult, createCardOut, error) {
 		if in.Title == "" {
 			return nil, createCardOut{}, fmt.Errorf("title is required")
 		}
@@ -476,12 +508,12 @@ func registerTools(s *mcp.Server, d Deps) {
 			return nil, createCardOut{}, fmt.Errorf("create card: %w", err)
 		}
 		return nil, createCardOut{Card: toCardDTO(card)}, nil
-	})
+	}))
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        tools.KanbanUpdateCard.Name,
 		Description: tools.KanbanUpdateCard.Description,
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.UpdateCardIn) (*mcp.CallToolResult, updateCardOut, error) {
+	}, withLog(d.Logger, tools.KanbanUpdateCard.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.UpdateCardIn) (*mcp.CallToolResult, updateCardOut, error) {
 		cardID, err := primitive.ObjectIDFromHex(in.CardID)
 		if err != nil {
 			return nil, updateCardOut{}, fmt.Errorf("invalid card_id %q: %w", in.CardID, err)
@@ -518,12 +550,12 @@ func registerTools(s *mcp.Server, d Deps) {
 			return nil, updateCardOut{}, fmt.Errorf("update card: %w", err)
 		}
 		return nil, updateCardOut{Card: toCardDTO(card)}, nil
-	})
+	}))
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        tools.KanbanMoveCard.Name,
 		Description: tools.KanbanMoveCard.Description,
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.MoveCardIn) (*mcp.CallToolResult, moveCardOut, error) {
+	}, withLog(d.Logger, tools.KanbanMoveCard.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.MoveCardIn) (*mcp.CallToolResult, moveCardOut, error) {
 		cardID, err := primitive.ObjectIDFromHex(in.CardID)
 		if err != nil {
 			return nil, moveCardOut{}, fmt.Errorf("invalid card_id %q: %w", in.CardID, err)
@@ -535,12 +567,12 @@ func registerTools(s *mcp.Server, d Deps) {
 			return nil, moveCardOut{}, fmt.Errorf("move card: %w", err)
 		}
 		return nil, moveCardOut{Moved: true}, nil
-	})
+	}))
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        tools.KanbanDeleteCard.Name,
 		Description: tools.KanbanDeleteCard.Description,
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.DeleteCardIn) (*mcp.CallToolResult, deleteCardOut, error) {
+	}, withLog(d.Logger, tools.KanbanDeleteCard.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.DeleteCardIn) (*mcp.CallToolResult, deleteCardOut, error) {
 		cardID, err := primitive.ObjectIDFromHex(in.CardID)
 		if err != nil {
 			return nil, deleteCardOut{}, fmt.Errorf("invalid card_id %q: %w", in.CardID, err)
@@ -549,12 +581,12 @@ func registerTools(s *mcp.Server, d Deps) {
 			return nil, deleteCardOut{}, fmt.Errorf("delete card: %w", err)
 		}
 		return nil, deleteCardOut{Deleted: true}, nil
-	})
+	}))
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        tools.KanbanBoardStats.Name,
 		Description: tools.KanbanBoardStats.Description,
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.BoardStatsIn) (*mcp.CallToolResult, boardStatsOut, error) {
+	}, withLog(d.Logger, tools.KanbanBoardStats.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.BoardStatsIn) (*mcp.CallToolResult, boardStatsOut, error) {
 		boardID, err := primitive.ObjectIDFromHex(in.BoardID)
 		if err != nil {
 			return nil, boardStatsOut{}, fmt.Errorf("invalid board_id %q: %w", in.BoardID, err)
@@ -571,12 +603,12 @@ func registerTools(s *mcp.Server, d Deps) {
 			NoDueDate:  stats.NoDueDate,
 		}
 		return nil, boardStatsOut{Stats: dto}, nil
-	})
+	}))
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        tools.KanbanArchiveCard.Name,
 		Description: tools.KanbanArchiveCard.Description,
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.ArchiveCardIn) (*mcp.CallToolResult, archiveCardOut, error) {
+	}, withLog(d.Logger, tools.KanbanArchiveCard.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.ArchiveCardIn) (*mcp.CallToolResult, archiveCardOut, error) {
 		cardID, err := primitive.ObjectIDFromHex(in.CardID)
 		if err != nil {
 			return nil, archiveCardOut{}, fmt.Errorf("invalid card_id %q: %w", in.CardID, err)
@@ -589,12 +621,12 @@ func registerTools(s *mcp.Server, d Deps) {
 			return nil, archiveCardOut{}, fmt.Errorf("archive card: %w", err)
 		}
 		return nil, archiveCardOut{Card: toCardDTO(card)}, nil
-	})
+	}))
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        tools.KanbanUnarchiveCard.Name,
 		Description: tools.KanbanUnarchiveCard.Description,
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.UnarchiveCardIn) (*mcp.CallToolResult, unarchiveCardOut, error) {
+	}, withLog(d.Logger, tools.KanbanUnarchiveCard.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.UnarchiveCardIn) (*mcp.CallToolResult, unarchiveCardOut, error) {
 		cardID, err := primitive.ObjectIDFromHex(in.CardID)
 		if err != nil {
 			return nil, unarchiveCardOut{}, fmt.Errorf("invalid card_id %q: %w", in.CardID, err)
@@ -604,12 +636,12 @@ func registerTools(s *mcp.Server, d Deps) {
 			return nil, unarchiveCardOut{}, fmt.Errorf("unarchive card: %w", err)
 		}
 		return nil, unarchiveCardOut{Card: toCardDTO(card)}, nil
-	})
+	}))
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        tools.KanbanListArchivedCards.Name,
 		Description: tools.KanbanListArchivedCards.Description,
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.ListArchivedCardsIn) (*mcp.CallToolResult, listArchivedCardsOut, error) {
+	}, withLog(d.Logger, tools.KanbanListArchivedCards.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.ListArchivedCardsIn) (*mcp.CallToolResult, listArchivedCardsOut, error) {
 		boardID, err := primitive.ObjectIDFromHex(in.BoardID)
 		if err != nil {
 			return nil, listArchivedCardsOut{}, fmt.Errorf("invalid board_id %q: %w", in.BoardID, err)
@@ -630,5 +662,5 @@ func registerTools(s *mcp.Server, d Deps) {
 			dtos[i] = toCardDTO(card)
 		}
 		return nil, listArchivedCardsOut{Cards: dtos}, nil
-	})
+	}))
 }

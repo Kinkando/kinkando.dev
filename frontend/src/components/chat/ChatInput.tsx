@@ -25,6 +25,7 @@ export default function ChatInput({ onSend, disabled, onError }: Props) {
   const streamRef = useRef<MediaStream | null>(null)
   const chunksRef = useRef<Blob[]>([])
   const transcribeAbortRef = useRef<AbortController | null>(null)
+  const cancelRecordingRef = useRef(false)
 
   // Auto-expand height to fit content, capped at MAX_HEIGHT.
   useEffect(() => {
@@ -42,6 +43,7 @@ export default function ChatInput({ onSend, disabled, onError }: Props) {
   // Stop recording and cancel any in-flight transcription on unmount.
   useEffect(() => {
     return () => {
+      cancelRecordingRef.current = true
       recorderRef.current?.stop()
       streamRef.current?.getTracks().forEach((t) => t.stop())
       transcribeAbortRef.current?.abort()
@@ -93,6 +95,13 @@ export default function ChatInput({ onSend, disabled, onError }: Props) {
         streamRef.current = null
         setRecording(false)
 
+        // User cancelled — discard audio without transcribing.
+        if (cancelRecordingRef.current) {
+          cancelRecordingRef.current = false
+          chunksRef.current = []
+          return
+        }
+
         const blob = new Blob(chunksRef.current, { type: recorder.mimeType })
         chunksRef.current = []
 
@@ -119,6 +128,11 @@ export default function ChatInput({ onSend, disabled, onError }: Props) {
     } catch {
       onError?.('Microphone access denied or unavailable.')
     }
+  }
+
+  function handleCancelRecording() {
+    cancelRecordingRef.current = true
+    recorderRef.current?.stop()
   }
 
   const micBusy = recording || transcribing
@@ -174,6 +188,15 @@ export default function ChatInput({ onSend, disabled, onError }: Props) {
             <span className="flex items-center gap-1.5 text-xs text-red-400">
               <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-red-500" />
               Recording…
+              <button
+                type="button"
+                onClick={handleCancelRecording}
+                disabled={disabled}
+                className="flex h-5 w-5 items-center justify-center rounded hover:bg-red-950 disabled:opacity-40"
+                aria-label="Cancel recording"
+              >
+                <X size={12} />
+              </button>
             </span>
           )}
           {transcribing && (

@@ -91,8 +91,9 @@ export default function NavBar() {
         {/* Brand */}
         <Link
           to="/portfolio"
-          className="text-lg font-bold tracking-tight text-indigo-400"
+          className="flex items-center gap-2 text-lg font-bold tracking-tight text-indigo-400"
         >
+          <img src="/logo.png" alt="" className="h-7 w-auto" />
           kinkando.dev
         </Link>
 

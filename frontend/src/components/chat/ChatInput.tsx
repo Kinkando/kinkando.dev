@@ -5,7 +5,7 @@ import {
   type FormEvent,
   type KeyboardEvent,
 } from 'react'
-import { Loader2, Mic, SendHorizonal, Square } from 'lucide-react'
+import { Mic, SendHorizonal, Square, X } from 'lucide-react'
 import { transcribeAudio } from '../../lib/api/chat'
 
 type Props = {
@@ -24,6 +24,7 @@ export default function ChatInput({ onSend, disabled, onError }: Props) {
   const recorderRef = useRef<MediaRecorder | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const chunksRef = useRef<Blob[]>([])
+  const transcribeAbortRef = useRef<AbortController | null>(null)
 
   // Auto-expand height to fit content, capped at MAX_HEIGHT.
   useEffect(() => {
@@ -38,11 +39,12 @@ export default function ChatInput({ onSend, disabled, onError }: Props) {
     if (!disabled) textareaRef.current?.focus()
   }, [disabled])
 
-  // Stop recording and clean up the stream on unmount.
+  // Stop recording and cancel any in-flight transcription on unmount.
   useEffect(() => {
     return () => {
       recorderRef.current?.stop()
       streamRef.current?.getTracks().forEach((t) => t.stop())
+      transcribeAbortRef.current?.abort()
     }
   }, [])
 
@@ -62,6 +64,11 @@ export default function ChatInput({ onSend, disabled, onError }: Props) {
   }
 
   async function handleMicClick() {
+    if (transcribing) {
+      transcribeAbortRef.current?.abort()
+      return
+    }
+
     if (recording) {
       // Stop recording — onstop will handle transcription.
       recorderRef.current?.stop()
@@ -89,15 +96,20 @@ export default function ChatInput({ onSend, disabled, onError }: Props) {
         const blob = new Blob(chunksRef.current, { type: recorder.mimeType })
         chunksRef.current = []
 
+        const abort = new AbortController()
+        transcribeAbortRef.current = abort
         setTranscribing(true)
         try {
-          const text = await transcribeAudio(blob)
+          const text = await transcribeAudio(blob, abort.signal)
           if (text) {
             setValue((prev) => (prev ? `${prev} ${text}` : text))
           }
-        } catch {
-          onError?.('Transcription failed. Please try again.')
+        } catch (err: unknown) {
+          if ((err as { name?: string }).name !== 'AbortError') {
+            onError?.('Transcription failed. Please try again.')
+          }
         } finally {
+          transcribeAbortRef.current = null
           setTranscribing(false)
         }
       }
@@ -126,7 +138,7 @@ export default function ChatInput({ onSend, disabled, onError }: Props) {
         value={value}
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={handleKeyDown}
-        disabled={disabled || transcribing}
+        disabled={disabled}
       />
       <div className="flex items-center justify-between px-2 pb-2">
         {/* Mic button */}
@@ -134,16 +146,24 @@ export default function ChatInput({ onSend, disabled, onError }: Props) {
           <button
             type="button"
             onClick={handleMicClick}
-            disabled={disabled || transcribing}
+            disabled={disabled}
             className={`flex h-8 w-8 items-center justify-center rounded-lg transition ${
               recording
                 ? 'bg-red-600 text-white hover:bg-red-500'
-                : 'text-gray-400 hover:bg-gray-700 hover:text-gray-200'
+                : transcribing
+                  ? 'text-gray-400 hover:bg-gray-700 hover:text-gray-200'
+                  : 'text-gray-400 hover:bg-gray-700 hover:text-gray-200'
             } disabled:opacity-40`}
-            aria-label={recording ? 'Stop recording' : 'Start voice input'}
+            aria-label={
+              transcribing
+                ? 'Cancel transcription'
+                : recording
+                  ? 'Stop recording'
+                  : 'Start voice input'
+            }
           >
             {transcribing ? (
-              <Loader2 size={16} className="animate-spin" />
+              <X size={16} />
             ) : recording ? (
               <Square size={16} />
             ) : (

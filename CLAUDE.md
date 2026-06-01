@@ -1,49 +1,34 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
 ## Project Structure
 
 ```
 kinkando.dev/
 ├── backend/       # Go (Fiber v2) — API server
 ├── frontend/      # React + Vite (SPA) — web client
-└── CLAUDE.md      # This file (root-level instructions)
+├── docs/          # Extended reference docs
+└── plans/         # Gitignored working plans
 ```
 
-See `backend/CLAUDE.md` and `frontend/CLAUDE.md` for module-specific guidance.
+## Docs Index
 
-## Commit Policy
+- [Commit Policy](docs/commit-policy.md)
+- [Git Conventions](docs/git-conventions.md)
+- [Response Style](docs/response-style.md)
+- [Backend Commands](docs/backend-commands.md)
+- [Backend Architecture](docs/backend-architecture.md)
+- [Backend Database & Migrations](docs/backend-database.md)
+- [Backend Environment Variables](docs/backend-env.md)
+- [Frontend Stack & Dev Server](docs/frontend-stack.md)
+- [Frontend Environment Variables](docs/frontend-env.md)
+- [Frontend Directory Layout](docs/frontend-structure.md)
+- [Frontend Rules](docs/frontend-rules.md)
 
-**Always commit when an edit is completed.** After finishing any task that changes files:
+## Module CLAUDE.md files
 
-1. Stage only the files relevant to the change — never use `git add -A` or `git add .`
-2. Never commit files that contain secrets (`.env`, credentials, API keys, connection strings)
-3. Write a concise commit message: start with a verb (`feat:`, `fix:`, `refactor:`, `docs:`, `chore:`), explain the *why* in 1-2 sentences
-4. End every commit message with:
-   ```
-   Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
-   ```
-5. Do **not** push unless explicitly asked
-
-## Git Conventions
-
-- Branch naming: `feat/<name>`, `fix/<name>`, `chore/<name>`
-- One logical change per commit — don't bundle unrelated changes
-- Never amend a commit unless explicitly asked
-- Never force push to `main`
+- [backend/CLAUDE.md](backend/CLAUDE.md)
+- [frontend/CLAUDE.md](frontend/CLAUDE.md)
 
 ## Planning
 
-Save finalized implementation plans to `plans/` in the repo root. This directory is gitignored — plans are working artifacts, not committed.
-
-## Response Style
-
-- Answer briefly and directly.
-- Do not add disclaimers.
-- Do not add conclusions or summaries.
-- Do not suggest next steps unless explicitly asked.
-- Do not explain reasoning unless requested.
-- Prefer short bullet points.
-- Avoid conversational filler.
-- Answer only what was asked.
+Save finalized plans to `plans/` — gitignored, not committed.

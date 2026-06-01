@@ -5,6 +5,7 @@ import LoginPage from './pages/LoginPage'
 // import RegisterPage from './pages/RegisterPage'
 import FinancePage from './pages/FinancePage'
 import KanbanPage from './pages/KanbanPage'
+import KanbanArchivePage from './pages/KanbanArchivePage'
 import ChatPage from './pages/ChatPage'
 import ProtectedRoute from './auth/ProtectedRoute'
 
@@ -22,6 +23,14 @@ export default function App() {
           element={
             <ProtectedRoute>
               <KanbanPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/kanban/archive"
+          element={
+            <ProtectedRoute>
+              <KanbanArchivePage />
             </ProtectedRoute>
           }
         />

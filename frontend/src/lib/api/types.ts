@@ -77,6 +77,10 @@ export type UpdateCategoryInput = {
 
 export type Priority = 'none' | 'low' | 'medium' | 'high' | 'urgent'
 
+export type ColumnType = 'todo' | 'in_progress' | 'done' | 'custom'
+
+export type ArchiveReason = 'completed' | 'cancelled' | 'duplicate' | 'stale'
+
 export type Board = {
   id: string
   user_id: string
@@ -88,6 +92,8 @@ export type Column = {
   id: string
   board_id: string
   name: string
+  type: ColumnType
+  is_system: boolean
   order: number
   created_at: string
 }
@@ -103,6 +109,9 @@ export type Card = {
   due_date?: string
   tags: string[]
   order: number
+  completed_at?: string
+  archived_at?: string
+  archive_reason?: ArchiveReason
   created_at: string
 }
 
@@ -112,6 +121,28 @@ export type CreateBoardInput = {
 
 export type UpdateBoardInput = {
   name: string
+}
+
+export type CreateColumnInput = {
+  board_id: string
+  name: string
+}
+
+export type UpdateColumnInput = {
+  name: string
+}
+
+export type ReorderColumnsInput = {
+  column_ids: string[]
+}
+
+export type DeleteColumnInput = {
+  action: 'move' | 'archive'
+  target_column_id?: string
+}
+
+export type ArchiveCardInput = {
+  reason?: 'cancelled' | 'duplicate' | 'stale'
 }
 
 export type CreateCardInput = {
@@ -150,6 +181,12 @@ export type BoardStats = {
   by_priority: Record<string, number>
   overdue: number
   no_due_date: number
+}
+
+export type ArchiveFilter = {
+  reason?: 'completed' | 'general'
+  month?: number
+  year?: number
 }
 
 export type ChatMessage = {

@@ -6,19 +6,32 @@ import {
   deleteBoard,
   fetchBoard,
   fetchBoardStats,
+  fetchArchive,
+  createColumn,
+  updateColumn,
+  reorderColumns,
+  deleteColumn,
   createCard,
   updateCard,
   moveCard,
   deleteCard,
+  archiveCard,
+  unarchiveCard,
 } from '../lib/api/kanban'
 import type {
+  ArchiveCardInput,
+  ArchiveFilter,
   Board,
   CreateBoardInput,
-  UpdateBoardInput,
   CreateCardInput,
-  UpdateCardInput,
-  MoveCardInput,
+  CreateColumnInput,
+  DeleteColumnInput,
   KanbanBoard,
+  MoveCardInput,
+  ReorderColumnsInput,
+  UpdateBoardInput,
+  UpdateCardInput,
+  UpdateColumnInput,
 } from '../lib/api/types'
 import { keys } from './keys'
 
@@ -41,6 +54,14 @@ export function useBoardStats(boardId: string) {
   return useQuery({
     queryKey: keys.kanbanStats(boardId),
     queryFn: () => fetchBoardStats(boardId),
+    enabled: !!boardId,
+  })
+}
+
+export function useArchive(boardId: string, filter: ArchiveFilter = {}) {
+  return useQuery({
+    queryKey: keys.kanbanArchive(boardId, filter),
+    queryFn: () => fetchArchive(boardId, filter),
     enabled: !!boardId,
   })
 }
@@ -72,6 +93,52 @@ export function useDeleteBoard() {
     mutationFn: (id: string) => deleteBoard(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: keys.kanbanBoards })
+    },
+  })
+}
+
+export function useCreateColumn(boardId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (input: CreateColumnInput) => createColumn(input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: keys.kanbanBoard(boardId) })
+    },
+  })
+}
+
+export function useUpdateColumn(boardId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: UpdateColumnInput }) =>
+      updateColumn(id, input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: keys.kanbanBoard(boardId) })
+    },
+  })
+}
+
+export function useReorderColumns(boardId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (input: ReorderColumnsInput) => reorderColumns(boardId, input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: keys.kanbanBoard(boardId) })
+    },
+  })
+}
+
+export function useDeleteColumn(boardId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: DeleteColumnInput }) =>
+      deleteColumn(id, input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: keys.kanbanBoard(boardId) })
+      queryClient.invalidateQueries({ queryKey: keys.kanbanStats(boardId) })
+      queryClient.invalidateQueries({
+        queryKey: ['kanban', 'archive', boardId],
+      })
     },
   })
 }
@@ -164,6 +231,35 @@ export function useDeleteCard(boardId: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: keys.kanbanBoard(boardId) })
       queryClient.invalidateQueries({ queryKey: keys.kanbanStats(boardId) })
+    },
+  })
+}
+
+export function useArchiveCard(boardId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: ArchiveCardInput }) =>
+      archiveCard(id, input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: keys.kanbanBoard(boardId) })
+      queryClient.invalidateQueries({ queryKey: keys.kanbanStats(boardId) })
+      queryClient.invalidateQueries({
+        queryKey: ['kanban', 'archive', boardId],
+      })
+    },
+  })
+}
+
+export function useUnarchiveCard(boardId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => unarchiveCard(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: keys.kanbanBoard(boardId) })
+      queryClient.invalidateQueries({ queryKey: keys.kanbanStats(boardId) })
+      queryClient.invalidateQueries({
+        queryKey: ['kanban', 'archive', boardId],
+      })
     },
   })
 }

@@ -1,3 +1,5 @@
+import type { ArchiveFilter } from '../lib/api/types'
+
 export const keys = {
   portfolioProjects: ['portfolio', 'projects'] as const,
   portfolioSkills: ['portfolio', 'skills'] as const,
@@ -7,4 +9,6 @@ export const keys = {
   kanbanBoards: ['kanban', 'boards'] as const,
   kanbanBoard: (id: string) => ['kanban', 'board', id] as const,
   kanbanStats: (id: string) => ['kanban', 'stats', id] as const,
+  kanbanArchive: (id: string, filter?: ArchiveFilter) =>
+    ['kanban', 'archive', id, filter] as const,
 }

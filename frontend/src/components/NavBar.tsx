@@ -43,6 +43,13 @@ export default function NavBar() {
             Kanban
           </Link>
           <Link
+            to="/kanban/archive"
+            className={linkClass('/kanban/archive')}
+            onClick={() => setOpen(false)}
+          >
+            Archive
+          </Link>
+          <Link
             to="/finance"
             className={linkClass('/finance')}
             onClick={() => setOpen(false)}

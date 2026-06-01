@@ -107,8 +107,25 @@ type deleteRecordOut struct {
 	Deleted bool `json:"deleted"`
 }
 
+type categorySummaryDTO struct {
+	CategoryID string  `json:"category_id"`
+	Category   string  `json:"category"`
+	Type       string  `json:"type"`
+	Total      float64 `json:"total"`
+	Icon       string  `json:"icon"`
+	Color      string  `json:"color"`
+}
+
+type monthlySummaryDTO struct {
+	Month      string               `json:"month"`
+	Income     float64              `json:"income"`
+	Expense    float64              `json:"expense"`
+	Net        float64              `json:"net"`
+	Categories []categorySummaryDTO `json:"categories"`
+}
+
 type monthlySummaryOut struct {
-	Summary *finance.MonthlySummary `json:"summary"`
+	Summary *monthlySummaryDTO `json:"summary"`
 }
 
 // ---- Kanban output types ----------------------------------------------------
@@ -240,6 +257,33 @@ func toColumnDTO(c *kanban.Column) columnDTO {
 		IsSystem:  c.IsSystem,
 		Order:     c.Order,
 		CreatedAt: c.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+	}
+}
+
+func toMonthlySummaryDTO(s *finance.MonthlySummary) *monthlySummaryDTO {
+	if s == nil {
+		return nil
+	}
+	cats := make([]categorySummaryDTO, 0, len(s.Categories))
+	for _, c := range s.Categories {
+		dto := categorySummaryDTO{
+			Category: c.Category,
+			Type:     string(c.Type),
+			Total:    c.Total,
+			Icon:     c.Icon,
+			Color:    c.Color,
+		}
+		if c.CategoryID != nil {
+			dto.CategoryID = c.CategoryID.String()
+		}
+		cats = append(cats, dto)
+	}
+	return &monthlySummaryDTO{
+		Month:      s.Month,
+		Income:     s.Income,
+		Expense:    s.Expense,
+		Net:        s.Net,
+		Categories: cats,
 	}
 }
 
@@ -425,7 +469,7 @@ func registerTools(s *mcp.Server, d Deps) {
 		if err != nil {
 			return nil, monthlySummaryOut{}, fmt.Errorf("monthly summary: %w", err)
 		}
-		return nil, monthlySummaryOut{Summary: summary}, nil
+		return nil, monthlySummaryOut{Summary: toMonthlySummaryDTO(summary)}, nil
 	}))
 
 	// Kanban

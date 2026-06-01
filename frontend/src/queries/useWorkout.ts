@@ -14,6 +14,8 @@ import {
   updateSession,
   updateSessionExercise,
   deleteSession,
+  addSessionExercise,
+  deleteSessionExercise,
 } from '../lib/api/workout'
 import type {
   CreatePresetInput,
@@ -21,6 +23,7 @@ import type {
   SetScheduleInput,
   UpdateSessionInput,
   UpdateSessionExerciseInput,
+  AddSessionExerciseInput,
 } from '../lib/api/types'
 import { keys } from './keys'
 
@@ -129,8 +132,12 @@ export function useGenerateSession() {
 export function useCreateSession() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (input: { preset_id: string; date?: string; name?: string }) =>
-      createSession(input),
+    mutationFn: (input: {
+      preset_id?: string
+      type?: string
+      date?: string
+      name?: string
+    }) => createSession(input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['workout', 'sessions'] })
     },
@@ -175,6 +182,39 @@ export function useDeleteSession() {
   return useMutation({
     mutationFn: (id: string) => deleteSession(id),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['workout', 'sessions'] })
+    },
+  })
+}
+
+export function useAddSessionExercise() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      sessionId,
+      input,
+    }: {
+      sessionId: string
+      input: AddSessionExerciseInput
+    }) => addSessionExercise(sessionId, input),
+    onSuccess: (_data, { sessionId }) => {
+      queryClient.invalidateQueries({
+        queryKey: keys.workoutSession(sessionId),
+      })
+      queryClient.invalidateQueries({ queryKey: ['workout', 'sessions'] })
+    },
+  })
+}
+
+export function useDeleteSessionExercise() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ sessionId, exId }: { sessionId: string; exId: string }) =>
+      deleteSessionExercise(sessionId, exId),
+    onSuccess: (_data, { sessionId }) => {
+      queryClient.invalidateQueries({
+        queryKey: keys.workoutSession(sessionId),
+      })
       queryClient.invalidateQueries({ queryKey: ['workout', 'sessions'] })
     },
   })

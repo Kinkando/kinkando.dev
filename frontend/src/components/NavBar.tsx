@@ -176,7 +176,7 @@ export default function NavBar() {
         </Link>
 
         {/* Desktop menu */}
-        <div className="hidden items-center gap-6 text-sm lg:flex">
+        <div className="hidden items-center gap-6 text-sm xl:flex">
           {navLinks}
           {user && (
             <div ref={avatarRef} className="relative">
@@ -233,7 +233,7 @@ export default function NavBar() {
 
         {/* Hamburger */}
         <button
-          className="flex items-center justify-center rounded-md p-1.5 text-gray-400 hover:text-gray-100 lg:hidden"
+          className="flex items-center justify-center rounded-md p-1.5 text-gray-400 hover:text-gray-100 xl:hidden"
           onClick={() => setOpen((o) => !o)}
           aria-label="Toggle menu"
         >
@@ -273,7 +273,7 @@ export default function NavBar() {
 
       {/* Mobile drawer */}
       {open && (
-        <div className="flex flex-col gap-4 border-t border-gray-800 px-6 py-4 text-sm lg:hidden">
+        <div className="flex flex-col gap-4 border-t border-gray-800 px-6 py-4 text-sm xl:hidden">
           {navLinks}
           {user && (
             <>

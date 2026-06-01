@@ -9,6 +9,7 @@ import type {
   WorkoutSessionExercise,
   UpdateSessionInput,
   UpdateSessionExerciseInput,
+  AddSessionExerciseInput,
 } from './types'
 
 // ── Presets ────────────────────────────────────────────────────────────────────
@@ -92,7 +93,8 @@ export function generateSession(
 }
 
 export function createSession(input: {
-  preset_id: string
+  preset_id?: string
+  type?: string
   date?: string
   name?: string
 }): Promise<WorkoutSession | undefined> {
@@ -101,6 +103,33 @@ export function createSession(input: {
     body: input,
     auth: true,
   })
+}
+
+export function addSessionExercise(
+  sessionId: string,
+  input: AddSessionExerciseInput,
+): Promise<WorkoutSessionExercise | undefined> {
+  return apiFetch<WorkoutSessionExercise>(
+    `/workout/sessions/${sessionId}/exercises`,
+    {
+      method: 'POST',
+      body: input,
+      auth: true,
+    },
+  )
+}
+
+export function deleteSessionExercise(
+  sessionId: string,
+  exId: string,
+): Promise<undefined> {
+  return apiFetch<undefined>(
+    `/workout/sessions/${sessionId}/exercises/${exId}`,
+    {
+      method: 'DELETE',
+      auth: true,
+    },
+  )
 }
 
 export function updateSession(

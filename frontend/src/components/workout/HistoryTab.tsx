@@ -5,11 +5,7 @@ import type {
   ExerciseSection,
 } from '../../lib/api/types'
 import { useSession } from '../../queries/useWorkout'
-
-const TYPE_LABELS = {
-  weight_training: 'Weight Training',
-  body_weight: 'Body Weight',
-} as const
+import { WORKOUT_TYPE_LABELS } from '../../lib/workout'
 
 const SECTION_LABELS: Record<ExerciseSection, string> = {
   warmup: '🔥 Warm-up',
@@ -156,7 +152,7 @@ export default function HistoryTab({ sessions }: Props) {
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <span className="rounded bg-indigo-900/50 px-2 py-0.5 text-xs text-indigo-400">
-                    {TYPE_LABELS[session.type]}
+                    {WORKOUT_TYPE_LABELS[session.type]}
                   </span>
                   <span className="truncate text-sm font-medium text-gray-100">
                     {session.name}

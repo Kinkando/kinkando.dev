@@ -22,3 +22,7 @@ kinkando.dev/
 ## Planning
 
 Save finalized plans to `plans/` — gitignored, not committed.
+
+## Committing
+
+After completing any task, always create a git commit without waiting to be asked.

@@ -6,6 +6,7 @@ import type {
   WorkoutPresetExerciseInput,
   CreatePresetInput,
 } from '../../lib/api/types'
+import { PRESET_TYPES, WORKOUT_TYPE_LABELS } from '../../lib/workout'
 
 type Props = {
   preset?: WorkoutPreset
@@ -195,8 +196,11 @@ export default function PresetForm({
             value={type}
             onChange={(e) => setType(e.target.value as WorkoutType)}
           >
-            <option value="weight_training">Weight Training</option>
-            <option value="body_weight">Body Weight</option>
+            {PRESET_TYPES.map((t) => (
+              <option key={t} value={t}>
+                {WORKOUT_TYPE_LABELS[t]}
+              </option>
+            ))}
           </select>
         </div>
         <div className="sm:col-span-2">

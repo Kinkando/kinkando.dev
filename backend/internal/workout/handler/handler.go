@@ -29,6 +29,8 @@ type Service interface {
 	UpdateSession(ctx context.Context, id uuid.UUID, userID uuid.UUID, in workout.UpdateSessionInput) (*workout.Session, error)
 	UpdateSessionExercise(ctx context.Context, id uuid.UUID, sessionID uuid.UUID, userID uuid.UUID, in workout.UpdateSessionExerciseInput) (*workout.SessionExercise, error)
 	DeleteSession(ctx context.Context, id uuid.UUID, userID uuid.UUID) error
+	AddSessionExercise(ctx context.Context, sessionID uuid.UUID, userID uuid.UUID, in workout.AddSessionExerciseInput) (*workout.SessionExercise, error)
+	DeleteSessionExercise(ctx context.Context, exID uuid.UUID, sessionID uuid.UUID, userID uuid.UUID) error
 }
 
 // UserResolver resolves a Firebase UID to the internal UUID stored in the users table.
@@ -64,7 +66,9 @@ func (h *Handler) Register(router fiber.Router) {
 	router.Post("/sessions", h.createSession)
 	router.Get("/sessions/:id", h.getSession)
 	router.Patch("/sessions/:id", h.updateSession)
+	router.Post("/sessions/:id/exercises", h.addSessionExercise)
 	router.Patch("/sessions/:id/exercises/:exId", h.updateSessionExercise)
+	router.Delete("/sessions/:id/exercises/:exId", h.deleteSessionExercise)
 	router.Delete("/sessions/:id", h.deleteSession)
 }
 
@@ -285,8 +289,14 @@ func (h *Handler) createSession(c *fiber.Ctx) error {
 	if err := c.BodyParser(&in); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
 	}
+	// Quick start: no preset required, but type must be supplied and valid.
 	if in.PresetID == nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "preset_id is required"})
+		if in.Type == nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "preset_id or type is required"})
+		}
+		if !isValidType(*in.Type) {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid workout type"})
+		}
 	}
 	session, err := h.svc.CreateSession(c.Context(), userID, in)
 	if err != nil {
@@ -299,6 +309,62 @@ func (h *Handler) createSession(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"data": session})
+}
+
+func (h *Handler) addSessionExercise(c *fiber.Ctx) error {
+	userID, err := h.resolveUserID(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
+	}
+	sessionID, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid session id"})
+	}
+	var in workout.AddSessionExerciseInput
+	if err := c.BodyParser(&in); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
+	}
+	if strings.TrimSpace(in.Name) == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "exercise name is required"})
+	}
+	if in.Section == "" {
+		in.Section = workout.SectionMain
+	}
+	switch in.Section {
+	case workout.SectionWarmup, workout.SectionMain, workout.SectionCooldown:
+	default:
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "exercise section must be warmup, main, or cooldown"})
+	}
+	ex, err := h.svc.AddSessionExercise(c.Context(), sessionID, userID, in)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": err.Error()})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"data": ex})
+}
+
+func (h *Handler) deleteSessionExercise(c *fiber.Ctx) error {
+	userID, err := h.resolveUserID(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
+	}
+	sessionID, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid session id"})
+	}
+	exID, err := uuid.Parse(c.Params("exId"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid exercise id"})
+	}
+	if err := h.svc.DeleteSessionExercise(c.Context(), exID, sessionID, userID); err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "session exercise not found"})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+	return c.SendStatus(fiber.StatusNoContent)
 }
 
 func (h *Handler) getSession(c *fiber.Ctx) error {
@@ -402,16 +468,28 @@ func (h *Handler) resolveUserID(c *fiber.Ctx) (uuid.UUID, error) {
 	return h.users.GetIDByFirebaseUID(c.Context(), firebaseUID)
 }
 
+// isValidType reports whether t is a known workout type.
+func isValidType(t workout.Type) bool {
+	switch t {
+	case workout.TypeWeightTraining, workout.TypeBodyWeight, workout.TypeRunning,
+		workout.TypeWalking, workout.TypeCardio, workout.TypeMobility, workout.TypeCustom:
+		return true
+	}
+	return false
+}
+
 // validatePresetInput checks name, type enum, and per-exercise section enum.
 // It also defaults empty section values to SectionMain in place.
+// custom is excluded from presets (it is a quick-start-only type).
 func validatePresetInput(name string, typ workout.Type, exercises []workout.PresetExerciseInput) error {
 	if strings.TrimSpace(name) == "" {
 		return fmt.Errorf("name is required")
 	}
 	switch typ {
-	case workout.TypeWeightTraining, workout.TypeBodyWeight:
+	case workout.TypeWeightTraining, workout.TypeBodyWeight, workout.TypeRunning,
+		workout.TypeWalking, workout.TypeCardio, workout.TypeMobility:
 	default:
-		return fmt.Errorf("type must be weight_training or body_weight")
+		return fmt.Errorf("invalid preset type")
 	}
 	for i, ex := range exercises {
 		if strings.TrimSpace(ex.Name) == "" {

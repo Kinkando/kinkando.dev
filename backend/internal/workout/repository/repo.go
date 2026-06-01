@@ -431,10 +431,6 @@ func (r *Repository) GenerateSession(ctx context.Context, userID uuid.UUID, date
 }
 
 func (r *Repository) CreateSession(ctx context.Context, userID uuid.UUID, in workout.CreateSessionInput) (*workout.Session, error) {
-	if in.PresetID == nil {
-		return nil, fmt.Errorf("preset_id is required")
-	}
-
 	date := time.Now().UTC().Truncate(24 * time.Hour)
 	if in.Date != "" {
 		t, err := time.Parse("2006-01-02", in.Date)
@@ -444,7 +440,12 @@ func (r *Repository) CreateSession(ctx context.Context, userID uuid.UUID, in wor
 		date = t
 	}
 
-	// Fetch preset (must belong to the user).
+	// Quick start: no preset — create a standalone empty session.
+	if in.PresetID == nil {
+		return r.createQuickSession(ctx, userID, *in.Type, in.Name, date)
+	}
+
+	// Start from preset: fetch and copy.
 	presetStmt := postgres.SELECT(table.WorkoutPresets.AllColumns).
 		FROM(table.WorkoutPresets).
 		WHERE(
@@ -466,6 +467,161 @@ func (r *Repository) CreateSession(ctx context.Context, userID uuid.UUID, in wor
 	}
 
 	return r.createSessionFromPreset(ctx, userID, presetRow, presetExRows, date, in.Name)
+}
+
+// createQuickSession inserts a standalone workout_sessions row with no preset and no exercises.
+func (r *Repository) createQuickSession(
+	ctx context.Context,
+	userID uuid.UUID,
+	typ workout.Type,
+	nameOverride *string,
+	date time.Time,
+) (*workout.Session, error) {
+	sessionName := string(typ)
+	if nameOverride != nil && *nameOverride != "" {
+		sessionName = *nameOverride
+	}
+
+	insertStmt := table.WorkoutSessions.INSERT(
+		table.WorkoutSessions.UserID,
+		table.WorkoutSessions.Name,
+		table.WorkoutSessions.Type,
+		table.WorkoutSessions.PerformedAt,
+	).VALUES(
+		postgres.UUID(userID),
+		sessionName,
+		string(typ),
+		postgres.DateT(date),
+	).RETURNING(table.WorkoutSessions.AllColumns)
+
+	var sessionRow model.WorkoutSessions
+	if err := insertStmt.QueryContext(ctx, r.db, &sessionRow); err != nil {
+		return nil, fmt.Errorf("create quick session: %w", err)
+	}
+
+	return toSession(sessionRow, nil), nil
+}
+
+func (r *Repository) AddSessionExercise(ctx context.Context, sessionID uuid.UUID, userID uuid.UUID, in workout.AddSessionExerciseInput) (*workout.SessionExercise, error) {
+	// Verify the session exists and belongs to this user.
+	checkStmt := postgres.SELECT(table.WorkoutSessions.ID).
+		FROM(table.WorkoutSessions).
+		WHERE(
+			table.WorkoutSessions.ID.EQ(postgres.UUID(sessionID)).
+				AND(table.WorkoutSessions.UserID.EQ(postgres.UUID(userID))),
+		)
+	var check model.WorkoutSessions
+	if err := checkStmt.QueryContext(ctx, r.db, &check); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("session not found")
+		}
+		return nil, fmt.Errorf("verify session: %w", err)
+	}
+
+	// Compute next order_index.
+	type maxRow struct {
+		Max *int32
+	}
+	maxStmt := postgres.SELECT(
+		postgres.COALESCE(
+			postgres.MAX(table.WorkoutSessionExercises.OrderIndex),
+			postgres.Int32(-1),
+		).AS("max"),
+	).FROM(table.WorkoutSessionExercises).
+		WHERE(table.WorkoutSessionExercises.SessionID.EQ(postgres.UUID(sessionID)))
+
+	var mr maxRow
+	if err := maxStmt.QueryContext(ctx, r.db, &mr); err != nil {
+		return nil, fmt.Errorf("compute order_index: %w", err)
+	}
+	nextIndex := int32(0)
+	if mr.Max != nil {
+		nextIndex = *mr.Max + 1
+	}
+
+	section := string(in.Section)
+	if section == "" {
+		section = string(workout.SectionMain)
+	}
+
+	var targetSets *int32
+	if in.TargetSets != nil {
+		s := int32(*in.TargetSets)
+		targetSets = &s
+	}
+	var targetReps *int32
+	if in.TargetReps != nil {
+		rp := int32(*in.TargetReps)
+		targetReps = &rp
+	}
+	var targetDuration *int32
+	if in.TargetDurationSeconds != nil {
+		d := int32(*in.TargetDurationSeconds)
+		targetDuration = &d
+	}
+	var restSeconds *int32
+	if in.RestSeconds != nil {
+		rs := int32(*in.RestSeconds)
+		restSeconds = &rs
+	}
+
+	insertStmt := table.WorkoutSessionExercises.INSERT(
+		table.WorkoutSessionExercises.SessionID,
+		table.WorkoutSessionExercises.Section,
+		table.WorkoutSessionExercises.OrderIndex,
+		table.WorkoutSessionExercises.Name,
+		table.WorkoutSessionExercises.TargetMuscles,
+		table.WorkoutSessionExercises.Instructions,
+		table.WorkoutSessionExercises.TargetSets,
+		table.WorkoutSessionExercises.TargetReps,
+		table.WorkoutSessionExercises.TargetDurationSeconds,
+		table.WorkoutSessionExercises.RestSeconds,
+	).VALUES(
+		postgres.UUID(sessionID),
+		section,
+		nextIndex,
+		in.Name,
+		in.TargetMuscles,
+		in.Instructions,
+		targetSets,
+		targetReps,
+		targetDuration,
+		restSeconds,
+	).RETURNING(table.WorkoutSessionExercises.AllColumns)
+
+	var dest model.WorkoutSessionExercises
+	if err := insertStmt.QueryContext(ctx, r.db, &dest); err != nil {
+		return nil, fmt.Errorf("add session exercise: %w", err)
+	}
+
+	ex := toSessionExercise(dest)
+	return &ex, nil
+}
+
+func (r *Repository) DeleteSessionExercise(ctx context.Context, exID uuid.UUID, sessionID uuid.UUID, userID uuid.UUID) error {
+	stmt := table.WorkoutSessionExercises.DELETE().
+		WHERE(
+			table.WorkoutSessionExercises.ID.EQ(postgres.UUID(exID)).
+				AND(
+					table.WorkoutSessionExercises.SessionID.IN(
+						postgres.SELECT(table.WorkoutSessions.ID).
+							FROM(table.WorkoutSessions).
+							WHERE(
+								table.WorkoutSessions.ID.EQ(postgres.UUID(sessionID)).
+									AND(table.WorkoutSessions.UserID.EQ(postgres.UUID(userID))),
+							),
+					),
+				),
+		)
+	res, err := stmt.ExecContext(ctx, r.db)
+	if err != nil {
+		return fmt.Errorf("delete session exercise: %w", err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil || n == 0 {
+		return fmt.Errorf("session exercise not found")
+	}
+	return nil
 }
 
 func (r *Repository) UpdateSession(ctx context.Context, id uuid.UUID, userID uuid.UUID, in workout.UpdateSessionInput) (*workout.Session, error) {

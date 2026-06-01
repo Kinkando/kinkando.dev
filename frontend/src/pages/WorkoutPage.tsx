@@ -64,12 +64,17 @@ export default function WorkoutPage() {
         <TodayTab
           todaySessions={todaySessionsQuery.data ?? undefined}
           schedule={scheduleQuery.data ?? undefined}
-          presets={presetsQuery.data ?? undefined}
           onSessionChange={refreshSessions}
         />
       )}
       {tab === 'presets' && (
-        <PresetsTab presets={presetsQuery.data ?? undefined} />
+        <PresetsTab
+          presets={presetsQuery.data ?? undefined}
+          onStarted={() => {
+            refreshSessions()
+            setTab('today')
+          }}
+        />
       )}
       {tab === 'schedule' && (
         <ScheduleTab

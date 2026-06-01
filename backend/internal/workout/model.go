@@ -13,6 +13,11 @@ type Type string
 const (
 	TypeWeightTraining Type = "weight_training"
 	TypeBodyWeight     Type = "body_weight"
+	TypeRunning        Type = "running"
+	TypeWalking        Type = "walking"
+	TypeCardio         Type = "cardio"
+	TypeMobility       Type = "mobility"
+	TypeCustom         Type = "custom"
 )
 
 type Section string
@@ -143,8 +148,22 @@ type GenerateSessionInput struct {
 
 type CreateSessionInput struct {
 	PresetID *uuid.UUID `json:"preset_id"`
+	Type     *Type      `json:"type"` // required when preset_id is nil (quick start)
 	Date     string     `json:"date"` // YYYY-MM-DD, optional
 	Name     *string    `json:"name"` // overrides preset name if provided
+}
+
+// ── Session exercise DTOs ──────────────────────────────────────────────────────
+
+type AddSessionExerciseInput struct {
+	Section               Section `json:"section"`
+	Name                  string  `json:"name"`
+	TargetMuscles         *string `json:"target_muscles"`
+	Instructions          *string `json:"instructions"`
+	TargetSets            *int    `json:"target_sets"`
+	TargetReps            *int    `json:"target_reps"`
+	TargetDurationSeconds *int    `json:"target_duration_seconds"`
+	RestSeconds           *int    `json:"rest_seconds"`
 }
 
 type UpdateSessionInput struct {

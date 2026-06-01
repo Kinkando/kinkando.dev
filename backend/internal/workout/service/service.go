@@ -25,6 +25,8 @@ type Repository interface {
 	UpdateSession(ctx context.Context, id uuid.UUID, userID uuid.UUID, in workout.UpdateSessionInput) (*workout.Session, error)
 	UpdateSessionExercise(ctx context.Context, id uuid.UUID, sessionID uuid.UUID, userID uuid.UUID, in workout.UpdateSessionExerciseInput) (*workout.SessionExercise, error)
 	DeleteSession(ctx context.Context, id uuid.UUID, userID uuid.UUID) error
+	AddSessionExercise(ctx context.Context, sessionID uuid.UUID, userID uuid.UUID, in workout.AddSessionExerciseInput) (*workout.SessionExercise, error)
+	DeleteSessionExercise(ctx context.Context, exID uuid.UUID, sessionID uuid.UUID, userID uuid.UUID) error
 }
 
 type Service struct {
@@ -89,4 +91,12 @@ func (s *Service) UpdateSessionExercise(ctx context.Context, id uuid.UUID, sessi
 
 func (s *Service) DeleteSession(ctx context.Context, id uuid.UUID, userID uuid.UUID) error {
 	return s.repo.DeleteSession(ctx, id, userID)
+}
+
+func (s *Service) AddSessionExercise(ctx context.Context, sessionID uuid.UUID, userID uuid.UUID, in workout.AddSessionExerciseInput) (*workout.SessionExercise, error) {
+	return s.repo.AddSessionExercise(ctx, sessionID, userID, in)
+}
+
+func (s *Service) DeleteSessionExercise(ctx context.Context, exID uuid.UUID, sessionID uuid.UUID, userID uuid.UUID) error {
+	return s.repo.DeleteSessionExercise(ctx, exID, sessionID, userID)
 }

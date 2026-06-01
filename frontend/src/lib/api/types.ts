@@ -274,7 +274,14 @@ export type UpdateExerciseInput = CreateExerciseInput
 
 // ---- Workout
 
-export type WorkoutType = 'weight_training' | 'body_weight'
+export type WorkoutType =
+  | 'weight_training'
+  | 'body_weight'
+  | 'running'
+  | 'walking'
+  | 'cardio'
+  | 'mobility'
+  | 'custom'
 
 export type ExerciseSection = 'warmup' | 'main' | 'cooldown'
 
@@ -384,6 +391,17 @@ export type UpdateSessionExerciseInput = {
   weight_kg: number | null
   completed: boolean
   notes: string | null
+}
+
+export type AddSessionExerciseInput = {
+  section: ExerciseSection
+  name: string
+  target_muscles: string | null
+  instructions: string | null
+  target_sets: number | null
+  target_reps: number | null
+  target_duration_seconds: number | null
+  rest_seconds: number | null
 }
 
 export type UpdateSessionInput = {

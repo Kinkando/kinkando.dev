@@ -2,10 +2,10 @@ import { useState } from 'react'
 import type {
   WorkoutSession,
   WorkoutScheduleEntry,
-  WorkoutPreset,
   WorkoutSessionExercise,
   ExerciseSection,
   UpdateSessionExerciseInput,
+  AddSessionExerciseInput,
 } from '../../lib/api/types'
 import {
   useGenerateSession,
@@ -13,7 +13,10 @@ import {
   useUpdateSessionExercise,
   useUpdateSession,
   useDeleteSession,
+  useAddSessionExercise,
+  useDeleteSessionExercise,
 } from '../../queries/useWorkout'
+import { WORKOUT_TYPE_LABELS, QUICK_START_TYPES } from '../../lib/workout'
 
 const inputClass =
   'w-full rounded-md border border-gray-700 bg-gray-800 px-2 py-1.5 text-xs text-gray-100 placeholder-gray-500 focus:border-indigo-500 focus:outline-none'
@@ -24,10 +27,7 @@ const SECTION_LABELS: Record<ExerciseSection, string> = {
   cooldown: '❄️ Cool-down',
 }
 
-const TYPE_LABELS = {
-  weight_training: 'Weight Training',
-  body_weight: 'Body Weight',
-} as const
+const SECTIONS: ExerciseSection[] = ['warmup', 'main', 'cooldown']
 
 const DAY_NAMES = [
   'Sunday',
@@ -71,9 +71,11 @@ function exToState(ex: WorkoutSessionExercise): ExerciseLogState {
 function ExerciseLogRow({
   exercise: ex,
   sessionId,
+  onDelete,
 }: {
   exercise: WorkoutSessionExercise
   sessionId: string
+  onDelete: (exId: string) => void
 }) {
   const [state, setState] = useState<ExerciseLogState>(exToState(ex))
   const [saving, setSaving] = useState(false)
@@ -115,20 +117,29 @@ function ExerciseLogRow({
       }`}
     >
       <div className="mb-2">
-        <div className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={state.completed}
-            onChange={(e) =>
-              setState({ ...state, completed: e.target.checked })
-            }
-            className="h-4 w-4 accent-indigo-500"
-          />
-          <span
-            className={`text-sm font-medium ${state.completed ? 'text-gray-500 line-through' : 'text-gray-100'}`}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={state.completed}
+              onChange={(e) =>
+                setState({ ...state, completed: e.target.checked })
+              }
+              className="h-4 w-4 accent-indigo-500"
+            />
+            <span
+              className={`text-sm font-medium ${state.completed ? 'text-gray-500 line-through' : 'text-gray-100'}`}
+            >
+              {ex.name}
+            </span>
+          </div>
+          <button
+            onClick={() => onDelete(ex.id)}
+            className="shrink-0 text-xs text-gray-600 hover:text-red-400"
+            title="Remove exercise"
           >
-            {ex.name}
-          </span>
+            ✕
+          </button>
         </div>
         {ex.target_muscles && (
           <p className="mt-0.5 pl-6 text-xs text-gray-500">
@@ -244,20 +255,198 @@ function ExerciseLogRow({
   )
 }
 
+// ── Add-exercise form (inline, collapsed by default) ──────────────────────────
+
+type AddExerciseFormState = {
+  section: ExerciseSection
+  name: string
+  target_sets: string
+  target_reps: string
+  target_duration_seconds: string
+  rest_seconds: string
+}
+
+const defaultAddForm = (): AddExerciseFormState => ({
+  section: 'main',
+  name: '',
+  target_sets: '',
+  target_reps: '',
+  target_duration_seconds: '',
+  rest_seconds: '',
+})
+
+function AddExerciseForm({
+  sessionId,
+  onAdded,
+}: {
+  sessionId: string
+  onAdded: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [form, setForm] = useState<AddExerciseFormState>(defaultAddForm())
+  const [error, setError] = useState('')
+  const addExercise = useAddSessionExercise()
+
+  function reset() {
+    setForm(defaultAddForm())
+    setError('')
+    setOpen(false)
+  }
+
+  async function handleAdd() {
+    setError('')
+    if (!form.name.trim()) {
+      setError('Exercise name is required.')
+      return
+    }
+    const input: AddSessionExerciseInput = {
+      section: form.section,
+      name: form.name.trim(),
+      target_muscles: null,
+      instructions: null,
+      target_sets: form.target_sets ? parseInt(form.target_sets, 10) : null,
+      target_reps: form.target_reps ? parseInt(form.target_reps, 10) : null,
+      target_duration_seconds: form.target_duration_seconds
+        ? parseInt(form.target_duration_seconds, 10)
+        : null,
+      rest_seconds: form.rest_seconds ? parseInt(form.rest_seconds, 10) : null,
+    }
+    try {
+      await addExercise.mutateAsync({ sessionId, input })
+      reset()
+      onAdded()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to add exercise.')
+    }
+  }
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="mt-2 w-full rounded-lg border border-dashed border-gray-700 py-2 text-xs font-medium text-gray-500 hover:border-gray-500 hover:text-gray-300"
+      >
+        + Add exercise
+      </button>
+    )
+  }
+
+  return (
+    <div className="mt-2 rounded-lg border border-gray-700 bg-gray-800/50 p-3">
+      <p className="mb-3 text-xs font-medium text-gray-300">New exercise</p>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div className="col-span-2">
+          <label className="mb-1 block text-xs text-gray-500">Name *</label>
+          <input
+            className={inputClass}
+            placeholder="e.g. Push-up"
+            value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs text-gray-500">Section</label>
+          <select
+            className={inputClass}
+            value={form.section}
+            onChange={(e) =>
+              setForm({ ...form, section: e.target.value as ExerciseSection })
+            }
+          >
+            {SECTIONS.map((s) => (
+              <option key={s} value={s}>
+                {SECTION_LABELS[s]}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="mb-1 block text-xs text-gray-500">Sets</label>
+          <input
+            className={inputClass}
+            type="number"
+            min="1"
+            placeholder="3"
+            value={form.target_sets}
+            onChange={(e) => setForm({ ...form, target_sets: e.target.value })}
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs text-gray-500">Reps</label>
+          <input
+            className={inputClass}
+            type="number"
+            min="1"
+            placeholder="10"
+            value={form.target_reps}
+            onChange={(e) => setForm({ ...form, target_reps: e.target.value })}
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs text-gray-500">
+            Duration (sec)
+          </label>
+          <input
+            className={inputClass}
+            type="number"
+            min="1"
+            placeholder="60"
+            value={form.target_duration_seconds}
+            onChange={(e) =>
+              setForm({ ...form, target_duration_seconds: e.target.value })
+            }
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs text-gray-500">Rest (sec)</label>
+          <input
+            className={inputClass}
+            type="number"
+            min="0"
+            placeholder="60"
+            value={form.rest_seconds}
+            onChange={(e) => setForm({ ...form, rest_seconds: e.target.value })}
+          />
+        </div>
+      </div>
+      {error && <p className="mt-2 text-xs text-red-400">{error}</p>}
+      <div className="mt-3 flex gap-2">
+        <button
+          onClick={handleAdd}
+          disabled={addExercise.isPending}
+          className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
+        >
+          {addExercise.isPending ? 'Adding…' : 'Add'}
+        </button>
+        <button
+          onClick={reset}
+          className="rounded-lg bg-gray-700 px-3 py-1.5 text-xs font-medium text-gray-300 hover:bg-gray-600"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // ── Session view (header + exercise logger) ────────────────────────────────────
 
 function SessionView({
   session,
   onDelete,
+  onExerciseChange,
 }: {
   session: WorkoutSession
   onDelete: () => void
+  onExerciseChange: () => void
 }) {
   const [editingDuration, setEditingDuration] = useState(false)
   const [duration, setDuration] = useState(
     session.duration_minutes != null ? String(session.duration_minutes) : '',
   )
+  const [deleteExConfirm, setDeleteExConfirm] = useState<string | null>(null)
   const updateSession = useUpdateSession()
+  const deleteExercise = useDeleteSessionExercise()
 
   async function saveDuration() {
     await updateSession.mutateAsync({
@@ -271,7 +460,12 @@ function SessionView({
     setEditingDuration(false)
   }
 
-  const sections: ExerciseSection[] = ['warmup', 'main', 'cooldown']
+  async function handleDeleteExercise(exId: string) {
+    await deleteExercise.mutateAsync({ sessionId: session.id, exId })
+    setDeleteExConfirm(null)
+    onExerciseChange()
+  }
+
   const bySection: Partial<Record<ExerciseSection, WorkoutSessionExercise[]>> =
     {}
   for (const ex of session.exercises) {
@@ -286,7 +480,7 @@ function SessionView({
           <div>
             <div className="flex items-center gap-2">
               <span className="rounded bg-indigo-900/50 px-2 py-0.5 text-xs text-indigo-400">
-                {TYPE_LABELS[session.type]}
+                {WORKOUT_TYPE_LABELS[session.type]}
               </span>
               <h3 className="text-sm font-medium text-gray-100">
                 {session.name}
@@ -354,7 +548,7 @@ function SessionView({
       </div>
 
       {/* Exercises by section */}
-      {sections.map((section) => {
+      {SECTIONS.map((section) => {
         const exs = bySection[section]
         if (!exs?.length) return null
         return (
@@ -367,16 +561,40 @@ function SessionView({
                 key={ex.id}
                 exercise={ex}
                 sessionId={session.id}
+                onDelete={(exId) => setDeleteExConfirm(exId)}
               />
             ))}
           </div>
         )
       })}
 
-      {session.exercises.length === 0 && (
-        <p className="text-center text-sm text-gray-500">
-          No exercises in this session.
-        </p>
+      {/* Add exercise */}
+      <AddExerciseForm sessionId={session.id} onAdded={onExerciseChange} />
+
+      {/* Delete exercise confirm modal */}
+      {deleteExConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-sm rounded-xl border border-gray-700 bg-gray-900 p-6 shadow-2xl">
+            <p className="mb-4 text-sm text-gray-300">
+              Remove this exercise from the session?
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleDeleteExercise(deleteExConfirm)}
+                disabled={deleteExercise.isPending}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-500 disabled:opacity-50"
+              >
+                {deleteExercise.isPending ? 'Removing…' : 'Remove'}
+              </button>
+              <button
+                onClick={() => setDeleteExConfirm(null)}
+                className="rounded-lg bg-gray-800 px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-700"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
@@ -387,17 +605,14 @@ function SessionView({
 type Props = {
   todaySessions: WorkoutSession[] | undefined
   schedule: WorkoutScheduleEntry[] | undefined
-  presets: WorkoutPreset[] | undefined
   onSessionChange: () => void
 }
 
 export default function TodayTab({
   todaySessions,
   schedule,
-  presets,
   onSessionChange,
 }: Props) {
-  const [selectedPresetId, setSelectedPresetId] = useState('')
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
 
   const generateSession = useGenerateSession()
@@ -417,12 +632,8 @@ export default function TodayTab({
     onSessionChange()
   }
 
-  async function handleStartFromPreset() {
-    if (!selectedPresetId) return
-    await createSession.mutateAsync({
-      preset_id: selectedPresetId,
-      date: todayStr(),
-    })
+  async function handleQuickStart(type: string, label: string) {
+    await createSession.mutateAsync({ type, name: label, date: todayStr() })
     onSessionChange()
   }
 
@@ -448,6 +659,7 @@ export default function TodayTab({
         <SessionView
           session={activeSession}
           onDelete={() => setDeleteConfirm(activeSession.id)}
+          onExerciseChange={onSessionChange}
         />
 
         {deleteConfirm && (
@@ -490,7 +702,7 @@ export default function TodayTab({
             {todaySchedule.preset_name}
           </p>
           <p className="mt-0.5 text-xs text-gray-500">
-            {TYPE_LABELS[todaySchedule.preset_type]}
+            {WORKOUT_TYPE_LABELS[todaySchedule.preset_type]}
           </p>
           <button
             onClick={handleGenerate}
@@ -511,42 +723,31 @@ export default function TodayTab({
         <div className="rounded-xl border border-gray-800 bg-gray-900 p-5">
           <p className="text-sm font-medium text-gray-300">Rest day 🎉</p>
           <p className="mt-1 text-xs text-gray-500">
-            No workout scheduled for {DAY_NAMES[dayOfWeek]}. You can still start
-            one below.
+            No workout scheduled for {DAY_NAMES[dayOfWeek]}. Start one below.
           </p>
         </div>
       )}
 
+      {/* Quick Start */}
       <div className="rounded-xl border border-gray-800 bg-gray-900 p-5">
-        <p className="mb-3 text-sm font-medium text-gray-300">
-          Start from preset
-        </p>
-        <div className="flex gap-2">
-          <select
-            className="flex-1 rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 focus:border-indigo-500 focus:outline-none"
-            value={selectedPresetId}
-            onChange={(e) => setSelectedPresetId(e.target.value)}
-          >
-            <option value="">Select a preset…</option>
-            {(presets ?? []).map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-          <button
-            onClick={handleStartFromPreset}
-            disabled={!selectedPresetId || generating}
-            className="rounded-lg bg-gray-700 px-4 py-2 text-sm font-medium text-gray-200 hover:bg-gray-600 disabled:opacity-50"
-          >
-            {generating ? 'Starting…' : 'Start'}
-          </button>
+        <p className="mb-3 text-sm font-medium text-gray-300">Quick Start</p>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          {QUICK_START_TYPES.map(({ type, label }) => (
+            <button
+              key={type}
+              onClick={() => handleQuickStart(type, label)}
+              disabled={generating}
+              className="rounded-lg border border-gray-700 bg-gray-800 px-3 py-2.5 text-left text-sm font-medium text-gray-200 hover:border-gray-600 hover:bg-gray-700 disabled:opacity-50"
+            >
+              {label}
+            </button>
+          ))}
         </div>
         {createSession.isError && (
           <p className="mt-2 text-xs text-red-400">
             {createSession.error instanceof Error
               ? createSession.error.message
-              : 'Failed to create session.'}
+              : 'Failed to start session.'}
           </p>
         )}
       </div>

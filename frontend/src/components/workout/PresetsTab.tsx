@@ -4,26 +4,30 @@ import {
   useCreatePreset,
   useUpdatePreset,
   useDeletePreset,
+  useCreateSession,
 } from '../../queries/useWorkout'
 import PresetForm from './PresetForm'
+import { WORKOUT_TYPE_LABELS } from '../../lib/workout'
 
-const TYPE_LABELS = {
-  weight_training: 'Weight Training',
-  body_weight: 'Body Weight',
-} as const
+function todayStr() {
+  return new Date().toISOString().slice(0, 10)
+}
 
 type Props = {
   presets: WorkoutPreset[] | undefined
+  onStarted?: () => void
 }
 
-export default function PresetsTab({ presets }: Props) {
+export default function PresetsTab({ presets, onStarted }: Props) {
   const [showForm, setShowForm] = useState(false)
   const [editingPreset, setEditingPreset] = useState<WorkoutPreset | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
+  const [startingId, setStartingId] = useState<string | null>(null)
 
   const createPreset = useCreatePreset()
   const updatePreset = useUpdatePreset()
   const deletePreset = useDeletePreset()
+  const createSession = useCreateSession()
 
   const saving = createPreset.isPending || updatePreset.isPending
 
@@ -55,6 +59,16 @@ export default function PresetsTab({ presets }: Props) {
   async function handleDelete(id: string) {
     await deletePreset.mutateAsync(id)
     setDeleteConfirm(null)
+  }
+
+  async function handleStartWorkout(presetId: string) {
+    setStartingId(presetId)
+    try {
+      await createSession.mutateAsync({ preset_id: presetId, date: todayStr() })
+      onStarted?.()
+    } finally {
+      setStartingId(null)
+    }
   }
 
   if (showForm) {
@@ -107,7 +121,7 @@ export default function PresetsTab({ presets }: Props) {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <span className="rounded bg-indigo-900/50 px-2 py-0.5 text-xs text-indigo-400">
-                      {TYPE_LABELS[preset.type]}
+                      {WORKOUT_TYPE_LABELS[preset.type]}
                     </span>
                     <h3 className="truncate text-sm font-medium text-gray-100">
                       {preset.name}
@@ -143,7 +157,14 @@ export default function PresetsTab({ presets }: Props) {
                     )}
                   </p>
                 </div>
-                <div className="flex shrink-0 gap-2">
+                <div className="flex shrink-0 items-center gap-2">
+                  <button
+                    onClick={() => handleStartWorkout(preset.id)}
+                    disabled={startingId === preset.id}
+                    className="rounded-md bg-indigo-600 px-3 py-1 text-xs font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
+                  >
+                    {startingId === preset.id ? 'Starting…' : 'Start workout'}
+                  </button>
                   <button
                     onClick={() => handleEdit(preset)}
                     className="text-xs text-gray-400 hover:text-gray-100"

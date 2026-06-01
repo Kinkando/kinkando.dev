@@ -175,73 +175,45 @@ func (r *Repository) List(ctx context.Context, userID uuid.UUID, month string) (
 		return nil, err
 	}
 
-	const q = `
-		SELECT
-			r.id::text, r.user_id::text, r.type, r.amount, r.category, r.note, r.date, r.created_at,
-			r.category_id::text,
-			c.id::text AS cat_id, c.name AS cat_name, c.icon AS cat_icon, c.color AS cat_color
-		FROM finance_records r
-		LEFT JOIN finance_categories c ON c.id = r.category_id
-		WHERE r.user_id = $1::uuid AND r.date >= $2 AND r.date < $3
-		ORDER BY r.date DESC, r.created_at DESC`
+	stmt := postgres.SELECT(
+		table.FinanceRecords.AllColumns,
+		table.FinanceCategories.AllColumns,
+	).FROM(
+		table.FinanceRecords.LEFT_JOIN(
+			table.FinanceCategories,
+			table.FinanceCategories.ID.EQ(table.FinanceRecords.CategoryID),
+		),
+	).WHERE(
+		table.FinanceRecords.UserID.EQ(postgres.UUID(userID)).
+			AND(table.FinanceRecords.Date.GT_EQ(postgres.DateT(start))).
+			AND(table.FinanceRecords.Date.LT(postgres.DateT(end))),
+	).ORDER_BY(
+		table.FinanceRecords.Date.DESC(),
+		table.FinanceRecords.CreatedAt.DESC(),
+	)
 
-	rows, err := r.db.QueryContext(ctx, q, userID.String(), start, end)
-	if err != nil {
+	type listRow struct {
+		model.FinanceRecords
+		Category *model.FinanceCategories
+	}
+
+	var dest []listRow
+	if err := stmt.QueryContext(ctx, r.db, &dest); err != nil {
 		return nil, fmt.Errorf("list records: %w", err)
 	}
-	defer rows.Close()
 
 	var records []*finance.Record
-	for rows.Next() {
-		var (
-			idStr       string
-			userIDStr   string
-			typeStr     string
-			amount      decimal.Decimal
-			catName     string
-			note        string
-			date        time.Time
-			createdAt   time.Time
-			catIDStr    *string
-			catRefIDStr *string
-			catRefName  *string
-			catRefIcon  *string
-			catRefColor *string
-		)
-		if err := rows.Scan(
-			&idStr, &userIDStr, &typeStr, &amount, &catName, &note, &date, &createdAt,
-			&catIDStr,
-			&catRefIDStr, &catRefName, &catRefIcon, &catRefColor,
-		); err != nil {
-			return nil, fmt.Errorf("scan record: %w", err)
-		}
-		rec := &finance.Record{
-			ID:           uuid.MustParse(idStr),
-			UserID:       uuid.MustParse(userIDStr),
-			Type:         finance.RecordType(typeStr),
-			CategoryName: catName,
-			Note:         note,
-			Date:         date,
-			CreatedAt:    createdAt,
-		}
-		rec.Amount, _ = amount.Float64()
-		if catIDStr != nil {
-			id := uuid.MustParse(*catIDStr)
-			rec.CategoryID = &id
-		}
-		if catRefIDStr != nil && catRefName != nil {
-			id := uuid.MustParse(*catRefIDStr)
+	for _, d := range dest {
+		rec := toRecord(d.FinanceRecords)
+		if d.Category != nil {
 			rec.Category = &finance.CategoryRef{
-				ID:    id,
-				Name:  *catRefName,
-				Icon:  derefStr(catRefIcon),
-				Color: derefStr(catRefColor),
+				ID:    d.Category.ID,
+				Name:  d.Category.Name,
+				Icon:  d.Category.Icon,
+				Color: d.Category.Color,
 			}
 		}
 		records = append(records, rec)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate records: %w", err)
 	}
 	return records, nil
 }
@@ -252,66 +224,71 @@ func (r *Repository) MonthlySummary(ctx context.Context, userID uuid.UUID, month
 		return nil, err
 	}
 
-	const q = `
-		SELECT
-			r.category_id::text,
-			COALESCE(c.name, r.category)  AS cat_name,
-			COALESCE(c.icon, '')           AS cat_icon,
-			COALESCE(c.color, '')          AS cat_color,
-			r.type,
-			SUM(r.amount)                  AS total
-		FROM finance_records r
-		LEFT JOIN finance_categories c ON c.id = r.category_id
-		WHERE r.user_id = $1::uuid AND r.date >= $2 AND r.date < $3
-		GROUP BY r.category_id, COALESCE(c.name, r.category), r.type,
-		         COALESCE(c.icon, ''), COALESCE(c.color, '')
-		ORDER BY SUM(r.amount) DESC`
+	catName := postgres.COALESCE(table.FinanceCategories.Name, table.FinanceRecords.Category)
+	catIcon := postgres.COALESCE(table.FinanceCategories.Icon, postgres.String(""))
+	catColor := postgres.COALESCE(table.FinanceCategories.Color, postgres.String(""))
+	sumAmount := postgres.SUM(table.FinanceRecords.Amount)
 
-	rows, err := r.db.QueryContext(ctx, q, userID.String(), start, end)
-	if err != nil {
+	stmt := postgres.SELECT(
+		table.FinanceRecords.CategoryID.AS("cat_id"),
+		catName.AS("cat_name"),
+		catIcon.AS("cat_icon"),
+		catColor.AS("cat_color"),
+		table.FinanceRecords.Type.AS("rec_type"),
+		sumAmount.AS("total"),
+	).FROM(
+		table.FinanceRecords.LEFT_JOIN(
+			table.FinanceCategories,
+			table.FinanceCategories.ID.EQ(table.FinanceRecords.CategoryID),
+		),
+	).WHERE(
+		table.FinanceRecords.UserID.EQ(postgres.UUID(userID)).
+			AND(table.FinanceRecords.Date.GT_EQ(postgres.DateT(start))).
+			AND(table.FinanceRecords.Date.LT(postgres.DateT(end))),
+	).GROUP_BY(
+		table.FinanceRecords.CategoryID,
+		catName,
+		table.FinanceRecords.Type,
+		catIcon,
+		catColor,
+	).ORDER_BY(
+		sumAmount.DESC(),
+	)
+
+	type summaryRow struct {
+		CategoryID *uuid.UUID      `alias:"cat_id"`
+		CatName    string          `alias:"cat_name"`
+		CatIcon    string          `alias:"cat_icon"`
+		CatColor   string          `alias:"cat_color"`
+		Type       string          `alias:"rec_type"`
+		Total      decimal.Decimal `alias:"total"`
+	}
+
+	var rows []summaryRow
+	if err := stmt.QueryContext(ctx, r.db, &rows); err != nil {
 		return nil, fmt.Errorf("monthly summary: %w", err)
 	}
-	defer rows.Close()
 
 	summary := &finance.MonthlySummary{
 		Month:      month,
 		Categories: []finance.CategorySummary{},
 	}
-	for rows.Next() {
-		var (
-			catIDStr string
-			catName  string
-			catIcon  string
-			catColor string
-			recType  string
-			total    decimal.Decimal
-		)
-		if err := rows.Scan(&catIDStr, &catName, &catIcon, &catColor, &recType, &total); err != nil {
-			return nil, fmt.Errorf("scan summary row: %w", err)
-		}
-		t, _ := total.Float64()
-		switch recType {
+	for _, row := range rows {
+		t, _ := row.Total.Float64()
+		switch row.Type {
 		case string(finance.RecordTypeIncome):
 			summary.Income += t
 		case string(finance.RecordTypeExpense):
 			summary.Expense += t
 		}
-		var catID *uuid.UUID
-		if catIDStr != "" {
-			id := uuid.MustParse(catIDStr)
-			catID = &id
-		}
 		summary.Categories = append(summary.Categories, finance.CategorySummary{
-			CategoryID: catID,
-			Category:   catName,
-			Type:       finance.RecordType(recType),
+			CategoryID: row.CategoryID,
+			Category:   row.CatName,
+			Type:       finance.RecordType(row.Type),
 			Total:      t,
-			Icon:       catIcon,
-			Color:      catColor,
+			Icon:       row.CatIcon,
+			Color:      row.CatColor,
 		})
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate summary rows: %w", err)
 	}
 	summary.Net = summary.Income - summary.Expense
 	return summary, nil
@@ -371,9 +348,3 @@ func toCategory(m model.FinanceCategories) *finance.Category {
 	}
 }
 
-func derefStr(s *string) string {
-	if s == nil {
-		return ""
-	}
-	return *s
-}

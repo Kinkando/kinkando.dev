@@ -70,9 +70,7 @@ export default function KanbanCard({
         ref={setNodeRef}
         style={cardStyle}
         {...attributes}
-        className={`group rounded-lg border bg-gray-800 p-3 ${
-          priorityMeta ? 'border-l-2 border-gray-700' : 'border-gray-700'
-        }`}
+        className={`group rounded-lg bg-gray-800 p-3 ${priorityMeta ? 'border-l-2' : ''}`}
       >
         <div className="flex items-start gap-2">
           {/* Drag handle */}

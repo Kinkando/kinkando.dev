@@ -33,18 +33,11 @@ export default function KanbanColumn({
   const updateColumn = useUpdateColumn(boardId)
   const deleteColumn = useDeleteColumn(boardId)
 
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: column.id, data: { type: 'column' } })
+  const { attributes, listeners, setNodeRef, transform, isDragging } =
+    useSortable({ id: column.id, data: { type: 'column' } })
 
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
-    transition,
     opacity: isDragging ? 0.4 : 1,
   }
 

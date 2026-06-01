@@ -231,6 +231,9 @@ export function useDeleteCard(boardId: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: keys.kanbanBoard(boardId) })
       queryClient.invalidateQueries({ queryKey: keys.kanbanStats(boardId) })
+      queryClient.invalidateQueries({
+        queryKey: ['kanban', 'archive', boardId],
+      })
     },
   })
 }

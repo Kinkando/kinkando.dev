@@ -22,14 +22,6 @@ const (
 	GoalGainMuscle Goal = "gain_muscle"
 )
 
-type ExerciseType string
-
-const (
-	ExerciseTypeCardio      ExerciseType = "cardio"
-	ExerciseTypeStrength    ExerciseType = "strength"
-	ExerciseTypeFlexibility ExerciseType = "flexibility"
-)
-
 type Profile struct {
 	ID        uuid.UUID `json:"id"`
 	UserID    uuid.UUID `json:"user_id"`
@@ -59,32 +51,64 @@ type CreateWeightInput struct {
 	LoggedAt string  `json:"logged_at"` // YYYY-MM-DD, optional
 }
 
-type Exercise struct {
-	ID              uuid.UUID    `json:"id"`
-	UserID          uuid.UUID    `json:"user_id"`
-	Name            string       `json:"name"`
-	Type            ExerciseType `json:"type"`
-	DurationMinutes *int         `json:"duration_minutes"`
-	Calories        *int         `json:"calories"`
-	Notes           *string      `json:"notes"`
-	PerformedAt     time.Time    `json:"performed_at"`
-	CreatedAt       time.Time    `json:"created_at"`
+// ── Food ─────────────────────────────────────────────────────────────────────
+
+type MealType string
+
+const (
+	MealTypeBreakfast MealType = "breakfast"
+	MealTypeLunch     MealType = "lunch"
+	MealTypeDinner    MealType = "dinner"
+	MealTypeSnack     MealType = "snack"
+)
+
+type FoodLog struct {
+	ID         uuid.UUID `json:"id"`
+	UserID     uuid.UUID `json:"user_id"`
+	Name       string    `json:"name"`
+	MealType   MealType  `json:"meal_type"`
+	Calories   *int      `json:"calories"`
+	ProteinG   *float64  `json:"protein_g"`
+	CarbsG     *float64  `json:"carbs_g"`
+	FatG       *float64  `json:"fat_g"`
+	Notes      *string   `json:"notes"`
+	ConsumedAt time.Time `json:"consumed_at"`
+	CreatedAt  time.Time `json:"created_at"`
 }
 
-type CreateExerciseInput struct {
-	Name            string       `json:"name"`
-	Type            ExerciseType `json:"type"`
-	DurationMinutes *int         `json:"duration_minutes"`
-	Calories        *int         `json:"calories"`
-	Notes           *string      `json:"notes"`
-	PerformedAt     string       `json:"performed_at"` // YYYY-MM-DD
+type CreateFoodInput struct {
+	Name       string   `json:"name"`
+	MealType   MealType `json:"meal_type"`
+	Calories   *int     `json:"calories"`
+	ProteinG   *float64 `json:"protein_g"`
+	CarbsG     *float64 `json:"carbs_g"`
+	FatG       *float64 `json:"fat_g"`
+	Notes      *string  `json:"notes"`
+	ConsumedAt string   `json:"consumed_at"` // YYYY-MM-DD, optional
 }
 
-type UpdateExerciseInput struct {
-	Name            string       `json:"name"`
-	Type            ExerciseType `json:"type"`
-	DurationMinutes *int         `json:"duration_minutes"`
-	Calories        *int         `json:"calories"`
-	Notes           *string      `json:"notes"`
-	PerformedAt     string       `json:"performed_at"` // YYYY-MM-DD
+type UpdateFoodInput = CreateFoodInput
+
+// ── Sleep ─────────────────────────────────────────────────────────────────────
+
+type SleepLog struct {
+	ID              uuid.UUID `json:"id"`
+	UserID          uuid.UUID `json:"user_id"`
+	StartedAt       time.Time `json:"started_at"`       // bedtime
+	EndedAt         time.Time `json:"ended_at"`         // wake time
+	DurationMinutes int       `json:"duration_minutes"` // derived: (ended_at - started_at)
+	Score           *int      `json:"score"`            // 0–100 (Samsung Health)
+	Notes           *string   `json:"notes"`
+	LoggedAt        time.Time `json:"logged_at"` // night-of date for grouping
+	CreatedAt       time.Time `json:"created_at"`
 }
+
+type CreateSleepInput struct {
+	StartedAt string  `json:"started_at"` // RFC3339
+	EndedAt   string  `json:"ended_at"`   // RFC3339
+	Score     *int    `json:"score"`      // 0–100, optional
+	Notes     *string `json:"notes"`
+	LoggedAt  string  `json:"logged_at"` // YYYY-MM-DD, optional (defaults to started_at date)
+}
+
+type UpdateSleepInput = CreateSleepInput

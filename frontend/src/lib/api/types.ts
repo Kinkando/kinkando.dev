@@ -218,8 +218,6 @@ export type Gender = 'male' | 'female' | 'other'
 
 export type HealthGoal = 'lose_weight' | 'maintain' | 'gain_muscle'
 
-export type ExerciseType = 'cardio' | 'strength' | 'flexibility'
-
 export type HealthProfile = {
   id: string
   user_id: string
@@ -249,28 +247,60 @@ export type CreateWeightInput = {
   logged_at?: string // YYYY-MM-DD, optional
 }
 
-export type HealthExercise = {
+// ---- Food
+
+export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack'
+
+export type FoodLog = {
   id: string
   user_id: string
   name: string
-  type: ExerciseType
-  duration_minutes: number | null
+  meal_type: MealType
   calories: number | null
+  protein_g: number | null
+  carbs_g: number | null
+  fat_g: number | null
   notes: string | null
-  performed_at: string // ISO date
+  consumed_at: string // ISO date
   created_at: string
 }
 
-export type CreateExerciseInput = {
+export type CreateFoodInput = {
   name: string
-  type: ExerciseType
-  duration_minutes: number | null
+  meal_type: MealType
   calories: number | null
+  protein_g: number | null
+  carbs_g: number | null
+  fat_g: number | null
   notes: string | null
-  performed_at: string // YYYY-MM-DD
+  consumed_at: string // YYYY-MM-DD
 }
 
-export type UpdateExerciseInput = CreateExerciseInput
+export type UpdateFoodInput = CreateFoodInput
+
+// ---- Sleep
+
+export type SleepLog = {
+  id: string
+  user_id: string
+  started_at: string // RFC3339
+  ended_at: string // RFC3339
+  duration_minutes: number
+  score: number | null // 0–100 (Samsung Health)
+  notes: string | null
+  logged_at: string // ISO date
+  created_at: string
+}
+
+export type CreateSleepInput = {
+  started_at: string // RFC3339
+  ended_at: string // RFC3339
+  score: number | null
+  notes: string | null
+  logged_at?: string // YYYY-MM-DD, optional
+}
+
+export type UpdateSleepInput = CreateSleepInput
 
 // ---- Workout
 

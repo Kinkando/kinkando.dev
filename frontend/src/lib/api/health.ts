@@ -4,9 +4,12 @@ import type {
   UpsertProfileInput,
   WeightLog,
   CreateWeightInput,
-  HealthExercise,
-  CreateExerciseInput,
-  UpdateExerciseInput,
+  FoodLog,
+  CreateFoodInput,
+  UpdateFoodInput,
+  SleepLog,
+  CreateSleepInput,
+  UpdateSleepInput,
 } from './types'
 
 export function fetchProfile(): Promise<HealthProfile | null | undefined> {
@@ -44,33 +47,69 @@ export function deleteWeightLog(id: string): Promise<undefined> {
   })
 }
 
-export function fetchExercises(): Promise<HealthExercise[] | undefined> {
-  return apiFetch<HealthExercise[]>('/health/exercises', { auth: true })
+// ── Food ─────────────────────────────────────────────────────────────────────
+
+export function fetchFoodLogs(): Promise<FoodLog[] | undefined> {
+  return apiFetch<FoodLog[]>('/health/food', { auth: true })
 }
 
-export function createExercise(
-  input: CreateExerciseInput,
-): Promise<HealthExercise | undefined> {
-  return apiFetch<HealthExercise>('/health/exercises', {
+export function createFoodLog(
+  input: CreateFoodInput,
+): Promise<FoodLog | undefined> {
+  return apiFetch<FoodLog>('/health/food', {
     method: 'POST',
     body: input,
     auth: true,
   })
 }
 
-export function updateExercise(
+export function updateFoodLog(
   id: string,
-  input: UpdateExerciseInput,
-): Promise<HealthExercise | undefined> {
-  return apiFetch<HealthExercise>(`/health/exercises/${id}`, {
+  input: UpdateFoodInput,
+): Promise<FoodLog | undefined> {
+  return apiFetch<FoodLog>(`/health/food/${id}`, {
     method: 'PATCH',
     body: input,
     auth: true,
   })
 }
 
-export function deleteExercise(id: string): Promise<undefined> {
-  return apiFetch<undefined>(`/health/exercises/${id}`, {
+export function deleteFoodLog(id: string): Promise<undefined> {
+  return apiFetch<undefined>(`/health/food/${id}`, {
+    method: 'DELETE',
+    auth: true,
+  })
+}
+
+// ── Sleep ─────────────────────────────────────────────────────────────────────
+
+export function fetchSleepLogs(): Promise<SleepLog[] | undefined> {
+  return apiFetch<SleepLog[]>('/health/sleep', { auth: true })
+}
+
+export function createSleepLog(
+  input: CreateSleepInput,
+): Promise<SleepLog | undefined> {
+  return apiFetch<SleepLog>('/health/sleep', {
+    method: 'POST',
+    body: input,
+    auth: true,
+  })
+}
+
+export function updateSleepLog(
+  id: string,
+  input: UpdateSleepInput,
+): Promise<SleepLog | undefined> {
+  return apiFetch<SleepLog>(`/health/sleep/${id}`, {
+    method: 'PATCH',
+    body: input,
+    auth: true,
+  })
+}
+
+export function deleteSleepLog(id: string): Promise<undefined> {
+  return apiFetch<undefined>(`/health/sleep/${id}`, {
     method: 'DELETE',
     auth: true,
   })

@@ -10,6 +10,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/kinkando/personal-dashboard/internal/finance"
 	financeSvc "github.com/kinkando/personal-dashboard/internal/finance/service"
+	"github.com/kinkando/personal-dashboard/internal/health"
+	healthSvc "github.com/kinkando/personal-dashboard/internal/health/service"
 	"github.com/kinkando/personal-dashboard/internal/kanban"
 	kanbanRepo "github.com/kinkando/personal-dashboard/internal/kanban/repository"
 	"github.com/kinkando/personal-dashboard/internal/tools"
@@ -25,6 +27,7 @@ type Deps struct {
 	FinSvc      *financeSvc.Service
 	KanRepo     *kanbanRepo.Repository
 	WkSvc       *workoutSvc.Service
+	HeaSvc      *healthSvc.Service
 	UserUUID    uuid.UUID
 	FirebaseUID string
 	Logger      *zap.Logger
@@ -325,6 +328,86 @@ func toCardDTO(c *kanban.Card) cardDTO {
 		dto.ArchivedAt = &s
 	}
 	return dto
+}
+
+// ---- Food output types ------------------------------------------------------
+
+type foodLogDTO struct {
+	ID         string   `json:"id"`
+	Name       string   `json:"name"`
+	MealType   string   `json:"meal_type"`
+	Calories   *int     `json:"calories"`
+	ProteinG   *float64 `json:"protein_g"`
+	CarbsG     *float64 `json:"carbs_g"`
+	FatG       *float64 `json:"fat_g"`
+	Notes      *string  `json:"notes"`
+	ConsumedAt string   `json:"consumed_at"`
+	CreatedAt  string   `json:"created_at"`
+}
+
+type listFoodLogsOut struct {
+	Logs []foodLogDTO `json:"logs"`
+}
+
+type foodLogOut struct {
+	Log foodLogDTO `json:"log"`
+}
+
+type deleteFoodOut struct {
+	Deleted bool `json:"deleted"`
+}
+
+func toFoodLogDTO(f *health.FoodLog) foodLogDTO {
+	return foodLogDTO{
+		ID:         f.ID.String(),
+		Name:       f.Name,
+		MealType:   string(f.MealType),
+		Calories:   f.Calories,
+		ProteinG:   f.ProteinG,
+		CarbsG:     f.CarbsG,
+		FatG:       f.FatG,
+		Notes:      f.Notes,
+		ConsumedAt: f.ConsumedAt.Format("2006-01-02"),
+		CreatedAt:  f.CreatedAt.Format(time.RFC3339),
+	}
+}
+
+// ---- Sleep output types -----------------------------------------------------
+
+type sleepLogDTO struct {
+	ID              string  `json:"id"`
+	StartedAt       string  `json:"started_at"`
+	EndedAt         string  `json:"ended_at"`
+	DurationMinutes int     `json:"duration_minutes"`
+	Score           *int    `json:"score"`
+	Notes           *string `json:"notes"`
+	LoggedAt        string  `json:"logged_at"`
+	CreatedAt       string  `json:"created_at"`
+}
+
+type listSleepLogsOut struct {
+	Logs []sleepLogDTO `json:"logs"`
+}
+
+type sleepLogOut struct {
+	Log sleepLogDTO `json:"log"`
+}
+
+type deleteSleepOut struct {
+	Deleted bool `json:"deleted"`
+}
+
+func toSleepLogDTO(s *health.SleepLog) sleepLogDTO {
+	return sleepLogDTO{
+		ID:              s.ID.String(),
+		StartedAt:       s.StartedAt.Format(time.RFC3339),
+		EndedAt:         s.EndedAt.Format(time.RFC3339),
+		DurationMinutes: s.DurationMinutes,
+		Score:           s.Score,
+		Notes:           s.Notes,
+		LoggedAt:        s.LoggedAt.Format("2006-01-02"),
+		CreatedAt:       s.CreatedAt.Format(time.RFC3339),
+	}
 }
 
 // ---- Workout output types ---------------------------------------------------
@@ -1329,4 +1412,221 @@ func registerTools(s *mcp.Server, d Deps) {
 		}
 		return nil, deletePresetOut{Deleted: true}, nil
 	}))
+
+	// Food
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        tools.FoodListLogs.Name,
+		Description: tools.FoodListLogs.Description,
+	}, withLog(d.Logger, tools.FoodListLogs.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.FoodListLogsIn) (*mcp.CallToolResult, listFoodLogsOut, error) {
+		logs, err := d.HeaSvc.ListFoodLogs(ctx, d.UserUUID)
+		if err != nil {
+			return nil, listFoodLogsOut{}, fmt.Errorf("list food logs: %w", err)
+		}
+		// filter by date range if provided
+		from := time.Time{}
+		to := time.Now().UTC().Add(24 * time.Hour)
+		if in.From != "" {
+			t, err := time.Parse("2006-01-02", in.From)
+			if err != nil {
+				return nil, listFoodLogsOut{}, fmt.Errorf("invalid from date: %w", err)
+			}
+			from = t
+		}
+		if in.To != "" {
+			t, err := time.Parse("2006-01-02", in.To)
+			if err != nil {
+				return nil, listFoodLogsOut{}, fmt.Errorf("invalid to date: %w", err)
+			}
+			to = t.Add(24 * time.Hour) // inclusive
+		}
+		dtos := make([]foodLogDTO, 0, len(logs))
+		for _, l := range logs {
+			if (!from.IsZero() && l.ConsumedAt.Before(from)) || l.ConsumedAt.After(to) {
+				continue
+			}
+			dtos = append(dtos, toFoodLogDTO(l))
+		}
+		return nil, listFoodLogsOut{Logs: dtos}, nil
+	}))
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        tools.FoodLogMeal.Name,
+		Description: tools.FoodLogMeal.Description,
+	}, withLog(d.Logger, tools.FoodLogMeal.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.FoodLogMealIn) (*mcp.CallToolResult, foodLogOut, error) {
+		inp := health.CreateFoodInput{
+			Name:       in.Name,
+			MealType:   health.MealType(in.MealType),
+			Notes:      nilStr(in.Notes),
+			ConsumedAt: in.ConsumedAt,
+		}
+		if in.Calories > 0 {
+			c := in.Calories
+			inp.Calories = &c
+		}
+		if in.ProteinG > 0 {
+			inp.ProteinG = &in.ProteinG
+		}
+		if in.CarbsG > 0 {
+			inp.CarbsG = &in.CarbsG
+		}
+		if in.FatG > 0 {
+			inp.FatG = &in.FatG
+		}
+		log, err := d.HeaSvc.CreateFoodLog(ctx, d.UserUUID, inp)
+		if err != nil {
+			return nil, foodLogOut{}, fmt.Errorf("create food log: %w", err)
+		}
+		return nil, foodLogOut{Log: toFoodLogDTO(log)}, nil
+	}))
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        tools.FoodUpdateMeal.Name,
+		Description: tools.FoodUpdateMeal.Description,
+	}, withLog(d.Logger, tools.FoodUpdateMeal.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.FoodUpdateMealIn) (*mcp.CallToolResult, foodLogOut, error) {
+		logID, err := uuid.Parse(in.LogID)
+		if err != nil {
+			return nil, foodLogOut{}, fmt.Errorf("invalid log_id %q: %w", in.LogID, err)
+		}
+		inp := health.UpdateFoodInput{
+			Name:       in.Name,
+			MealType:   health.MealType(in.MealType),
+			Notes:      nilStr(in.Notes),
+			ConsumedAt: in.ConsumedAt,
+		}
+		if in.Calories > 0 {
+			c := in.Calories
+			inp.Calories = &c
+		}
+		if in.ProteinG > 0 {
+			inp.ProteinG = &in.ProteinG
+		}
+		if in.CarbsG > 0 {
+			inp.CarbsG = &in.CarbsG
+		}
+		if in.FatG > 0 {
+			inp.FatG = &in.FatG
+		}
+		log, err := d.HeaSvc.UpdateFoodLog(ctx, logID, d.UserUUID, inp)
+		if err != nil {
+			return nil, foodLogOut{}, fmt.Errorf("update food log: %w", err)
+		}
+		return nil, foodLogOut{Log: toFoodLogDTO(log)}, nil
+	}))
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        tools.FoodDeleteMeal.Name,
+		Description: tools.FoodDeleteMeal.Description,
+	}, withLog(d.Logger, tools.FoodDeleteMeal.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.FoodDeleteMealIn) (*mcp.CallToolResult, deleteFoodOut, error) {
+		logID, err := uuid.Parse(in.LogID)
+		if err != nil {
+			return nil, deleteFoodOut{}, fmt.Errorf("invalid log_id %q: %w", in.LogID, err)
+		}
+		if err := d.HeaSvc.DeleteFoodLog(ctx, logID, d.UserUUID); err != nil {
+			return nil, deleteFoodOut{}, fmt.Errorf("delete food log: %w", err)
+		}
+		return nil, deleteFoodOut{Deleted: true}, nil
+	}))
+
+	// Sleep
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        tools.SleepListLogs.Name,
+		Description: tools.SleepListLogs.Description,
+	}, withLog(d.Logger, tools.SleepListLogs.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.SleepListLogsIn) (*mcp.CallToolResult, listSleepLogsOut, error) {
+		logs, err := d.HeaSvc.ListSleepLogs(ctx, d.UserUUID)
+		if err != nil {
+			return nil, listSleepLogsOut{}, fmt.Errorf("list sleep logs: %w", err)
+		}
+		from := time.Time{}
+		to := time.Now().UTC().Add(24 * time.Hour)
+		if in.From != "" {
+			t, err := time.Parse("2006-01-02", in.From)
+			if err != nil {
+				return nil, listSleepLogsOut{}, fmt.Errorf("invalid from date: %w", err)
+			}
+			from = t
+		}
+		if in.To != "" {
+			t, err := time.Parse("2006-01-02", in.To)
+			if err != nil {
+				return nil, listSleepLogsOut{}, fmt.Errorf("invalid to date: %w", err)
+			}
+			to = t.Add(24 * time.Hour) // inclusive
+		}
+		dtos := make([]sleepLogDTO, 0, len(logs))
+		for _, l := range logs {
+			if (!from.IsZero() && l.LoggedAt.Before(from)) || l.LoggedAt.After(to) {
+				continue
+			}
+			dtos = append(dtos, toSleepLogDTO(l))
+		}
+		return nil, listSleepLogsOut{Logs: dtos}, nil
+	}))
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        tools.SleepLogNight.Name,
+		Description: tools.SleepLogNight.Description,
+	}, withLog(d.Logger, tools.SleepLogNight.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.SleepLogNightIn) (*mcp.CallToolResult, sleepLogOut, error) {
+		inp := health.CreateSleepInput{
+			StartedAt: in.StartedAt,
+			EndedAt:   in.EndedAt,
+			Notes:     nilStr(in.Notes),
+			LoggedAt:  in.LoggedAt,
+		}
+		if in.Score > 0 {
+			s := in.Score
+			inp.Score = &s
+		}
+		log, err := d.HeaSvc.CreateSleepLog(ctx, d.UserUUID, inp)
+		if err != nil {
+			return nil, sleepLogOut{}, fmt.Errorf("create sleep log: %w", err)
+		}
+		return nil, sleepLogOut{Log: toSleepLogDTO(log)}, nil
+	}))
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        tools.SleepUpdateNight.Name,
+		Description: tools.SleepUpdateNight.Description,
+	}, withLog(d.Logger, tools.SleepUpdateNight.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.SleepUpdateNightIn) (*mcp.CallToolResult, sleepLogOut, error) {
+		logID, err := uuid.Parse(in.LogID)
+		if err != nil {
+			return nil, sleepLogOut{}, fmt.Errorf("invalid log_id %q: %w", in.LogID, err)
+		}
+		inp := health.UpdateSleepInput{
+			StartedAt: in.StartedAt,
+			EndedAt:   in.EndedAt,
+			Notes:     nilStr(in.Notes),
+			LoggedAt:  in.LoggedAt,
+		}
+		if in.Score > 0 {
+			s := in.Score
+			inp.Score = &s
+		}
+		log, err := d.HeaSvc.UpdateSleepLog(ctx, logID, d.UserUUID, inp)
+		if err != nil {
+			return nil, sleepLogOut{}, fmt.Errorf("update sleep log: %w", err)
+		}
+		return nil, sleepLogOut{Log: toSleepLogDTO(log)}, nil
+	}))
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        tools.SleepDeleteNight.Name,
+		Description: tools.SleepDeleteNight.Description,
+	}, withLog(d.Logger, tools.SleepDeleteNight.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.SleepDeleteNightIn) (*mcp.CallToolResult, deleteSleepOut, error) {
+		logID, err := uuid.Parse(in.LogID)
+		if err != nil {
+			return nil, deleteSleepOut{}, fmt.Errorf("invalid log_id %q: %w", in.LogID, err)
+		}
+		if err := d.HeaSvc.DeleteSleepLog(ctx, logID, d.UserUUID); err != nil {
+			return nil, deleteSleepOut{}, fmt.Errorf("delete sleep log: %w", err)
+		}
+		return nil, deleteSleepOut{Deleted: true}, nil
+	}))
+}
+
+// nilStr returns nil when s is empty, otherwise a pointer to s.
+func nilStr(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
 }

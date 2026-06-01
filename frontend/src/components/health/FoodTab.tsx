@@ -1,21 +1,22 @@
 import { useState } from 'react'
-import type { HealthExercise, ExerciseType } from '../../lib/api/types'
+import type { FoodLog, MealType } from '../../lib/api/types'
 import {
-  useCreateExercise,
-  useUpdateExercise,
-  useDeleteExercise,
+  useCreateFoodLog,
+  useUpdateFoodLog,
+  useDeleteFoodLog,
 } from '../../queries/useHealth'
 
 type Props = {
-  exercises: HealthExercise[] | undefined
+  foodLogs: FoodLog[] | undefined
 }
 
-const EXERCISE_TYPES: ExerciseType[] = ['cardio', 'strength', 'flexibility']
+const MEAL_TYPES: MealType[] = ['breakfast', 'lunch', 'dinner', 'snack']
 
-const TYPE_LABELS: Record<ExerciseType, string> = {
-  cardio: 'Cardio',
-  strength: 'Strength',
-  flexibility: 'Flexibility',
+const MEAL_LABELS: Record<MealType, string> = {
+  breakfast: 'Breakfast',
+  lunch: 'Lunch',
+  dinner: 'Dinner',
+  snack: 'Snack',
 }
 
 const inputClass =
@@ -27,36 +28,6 @@ function todayStr() {
   return new Date().toISOString().slice(0, 10)
 }
 
-type FormState = {
-  name: string
-  type: ExerciseType
-  duration_minutes: string
-  calories: string
-  notes: string
-  performed_at: string
-}
-
-const defaultForm: FormState = {
-  name: '',
-  type: 'cardio',
-  duration_minutes: '',
-  calories: '',
-  notes: '',
-  performed_at: todayStr(),
-}
-
-function exerciseToForm(ex: HealthExercise): FormState {
-  return {
-    name: ex.name,
-    type: ex.type,
-    duration_minutes:
-      ex.duration_minutes != null ? String(ex.duration_minutes) : '',
-    calories: ex.calories != null ? String(ex.calories) : '',
-    notes: ex.notes ?? '',
-    performed_at: ex.performed_at.slice(0, 10),
-  }
-}
-
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString(undefined, {
     month: 'short',
@@ -65,22 +36,57 @@ function formatDate(iso: string) {
   })
 }
 
-export default function ExerciseTab({ exercises }: Props) {
+type FormState = {
+  name: string
+  meal_type: MealType
+  calories: string
+  protein_g: string
+  carbs_g: string
+  fat_g: string
+  notes: string
+  consumed_at: string
+}
+
+const defaultForm: FormState = {
+  name: '',
+  meal_type: 'breakfast',
+  calories: '',
+  protein_g: '',
+  carbs_g: '',
+  fat_g: '',
+  notes: '',
+  consumed_at: todayStr(),
+}
+
+function logToForm(log: FoodLog): FormState {
+  return {
+    name: log.name,
+    meal_type: log.meal_type,
+    calories: log.calories != null ? String(log.calories) : '',
+    protein_g: log.protein_g != null ? String(log.protein_g) : '',
+    carbs_g: log.carbs_g != null ? String(log.carbs_g) : '',
+    fat_g: log.fat_g != null ? String(log.fat_g) : '',
+    notes: log.notes ?? '',
+    consumed_at: log.consumed_at.slice(0, 10),
+  }
+}
+
+export default function FoodTab({ foodLogs }: Props) {
   const [form, setForm] = useState<FormState>(defaultForm)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
 
-  const createExercise = useCreateExercise()
-  const updateExercise = useUpdateExercise()
-  const deleteExercise = useDeleteExercise()
+  const createFoodLog = useCreateFoodLog()
+  const updateFoodLog = useUpdateFoodLog()
+  const deleteFoodLog = useDeleteFoodLog()
 
   const isEditing = editingId !== null
-  const loading = createExercise.isPending || updateExercise.isPending
+  const loading = createFoodLog.isPending || updateFoodLog.isPending
 
-  function handleEdit(ex: HealthExercise) {
-    setEditingId(ex.id)
-    setForm(exerciseToForm(ex))
+  function handleEdit(log: FoodLog) {
+    setEditingId(log.id)
+    setForm(logToForm(log))
     setError('')
   }
 
@@ -101,21 +107,21 @@ export default function ExerciseTab({ exercises }: Props) {
 
     const payload = {
       name: form.name.trim(),
-      type: form.type,
-      duration_minutes: form.duration_minutes
-        ? parseInt(form.duration_minutes, 10)
-        : null,
+      meal_type: form.meal_type,
       calories: form.calories ? parseInt(form.calories, 10) : null,
+      protein_g: form.protein_g ? parseFloat(form.protein_g) : null,
+      carbs_g: form.carbs_g ? parseFloat(form.carbs_g) : null,
+      fat_g: form.fat_g ? parseFloat(form.fat_g) : null,
       notes: form.notes.trim() || null,
-      performed_at: form.performed_at || todayStr(),
+      consumed_at: form.consumed_at || todayStr(),
     }
 
     try {
       if (isEditing) {
-        await updateExercise.mutateAsync({ id: editingId!, input: payload })
+        await updateFoodLog.mutateAsync({ id: editingId!, input: payload })
         setEditingId(null)
       } else {
-        await createExercise.mutateAsync(payload)
+        await createFoodLog.mutateAsync(payload)
       }
       setForm(defaultForm)
     } catch (err) {
@@ -125,7 +131,7 @@ export default function ExerciseTab({ exercises }: Props) {
 
   async function handleDelete(id: string) {
     try {
-      await deleteExercise.mutateAsync(id)
+      await deleteFoodLog.mutateAsync(id)
       setDeleteConfirm(null)
     } catch {
       // ignore — mutation error shown in console
@@ -137,7 +143,7 @@ export default function ExerciseTab({ exercises }: Props) {
       {/* Create / edit form */}
       <div className="rounded-xl border border-gray-800 bg-gray-900 p-5">
         <h3 className="mb-4 text-sm font-medium text-gray-300">
-          {isEditing ? 'Edit Exercise' : 'Log Exercise'}
+          {isEditing ? 'Edit Entry' : 'Log Food'}
         </h3>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -145,49 +151,74 @@ export default function ExerciseTab({ exercises }: Props) {
               <label className={labelClass}>Name</label>
               <input
                 className={inputClass}
-                placeholder="e.g. Morning Run"
+                placeholder="e.g. Grilled chicken"
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
               />
             </div>
             <div>
-              <label className={labelClass}>Type</label>
+              <label className={labelClass}>Meal type</label>
               <select
                 className={inputClass}
-                value={form.type}
+                value={form.meal_type}
                 onChange={(e) =>
-                  setForm({ ...form, type: e.target.value as ExerciseType })
+                  setForm({ ...form, meal_type: e.target.value as MealType })
                 }
               >
-                {EXERCISE_TYPES.map((t) => (
+                {MEAL_TYPES.map((t) => (
                   <option key={t} value={t}>
-                    {TYPE_LABELS[t]}
+                    {MEAL_LABELS[t]}
                   </option>
                 ))}
               </select>
-            </div>
-            <div>
-              <label className={labelClass}>Duration (min)</label>
-              <input
-                className={inputClass}
-                type="number"
-                min="1"
-                placeholder="Optional"
-                value={form.duration_minutes}
-                onChange={(e) =>
-                  setForm({ ...form, duration_minutes: e.target.value })
-                }
-              />
             </div>
             <div>
               <label className={labelClass}>Calories</label>
               <input
                 className={inputClass}
                 type="number"
-                min="1"
+                min="0"
                 placeholder="Optional"
                 value={form.calories}
                 onChange={(e) => setForm({ ...form, calories: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Protein (g)</label>
+              <input
+                className={inputClass}
+                type="number"
+                min="0"
+                step="0.1"
+                placeholder="Optional"
+                value={form.protein_g}
+                onChange={(e) =>
+                  setForm({ ...form, protein_g: e.target.value })
+                }
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Carbs (g)</label>
+              <input
+                className={inputClass}
+                type="number"
+                min="0"
+                step="0.1"
+                placeholder="Optional"
+                value={form.carbs_g}
+                onChange={(e) => setForm({ ...form, carbs_g: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Fat (g)</label>
+              <input
+                className={inputClass}
+                type="number"
+                min="0"
+                step="0.1"
+                placeholder="Optional"
+                value={form.fat_g}
+                onChange={(e) => setForm({ ...form, fat_g: e.target.value })}
               />
             </div>
             <div>
@@ -195,9 +226,9 @@ export default function ExerciseTab({ exercises }: Props) {
               <input
                 className={inputClass}
                 type="date"
-                value={form.performed_at}
+                value={form.consumed_at}
                 onChange={(e) =>
-                  setForm({ ...form, performed_at: e.target.value })
+                  setForm({ ...form, consumed_at: e.target.value })
                 }
               />
             </div>
@@ -220,7 +251,7 @@ export default function ExerciseTab({ exercises }: Props) {
               disabled={loading}
               className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
             >
-              {loading ? 'Saving…' : isEditing ? 'Update' : 'Add Exercise'}
+              {loading ? 'Saving…' : isEditing ? 'Update' : 'Log Food'}
             </button>
             {isEditing && (
               <button
@@ -235,44 +266,44 @@ export default function ExerciseTab({ exercises }: Props) {
         </form>
       </div>
 
-      {/* Exercise list */}
+      {/* Food log list */}
       <div className="rounded-xl border border-gray-800 bg-gray-900">
-        {!exercises || exercises.length === 0 ? (
+        {!foodLogs || foodLogs.length === 0 ? (
           <p className="px-5 py-8 text-center text-sm text-gray-500">
-            No exercises logged yet.
+            No food logged yet.
           </p>
         ) : (
           <ul className="divide-y divide-gray-800">
-            {exercises.map((ex) => (
-              <li key={ex.id} className="flex items-center gap-3 px-5 py-3.5">
+            {foodLogs.map((log) => (
+              <li key={log.id} className="flex items-center gap-3 px-5 py-3.5">
                 <span className="rounded bg-gray-800 px-2 py-0.5 text-xs text-indigo-400">
-                  {TYPE_LABELS[ex.type]}
+                  {MEAL_LABELS[log.meal_type]}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm text-gray-100">{ex.name}</p>
+                  <p className="truncate text-sm text-gray-100">{log.name}</p>
                   <p className="text-xs text-gray-500">
                     {[
-                      ex.duration_minutes != null
-                        ? `${ex.duration_minutes} min`
-                        : null,
-                      ex.calories != null ? `${ex.calories} kcal` : null,
-                      ex.notes,
+                      log.calories != null ? `${log.calories} kcal` : null,
+                      log.protein_g != null ? `P ${log.protein_g}g` : null,
+                      log.carbs_g != null ? `C ${log.carbs_g}g` : null,
+                      log.fat_g != null ? `F ${log.fat_g}g` : null,
+                      log.notes,
                     ]
                       .filter(Boolean)
                       .join(' · ')}
                   </p>
                 </div>
                 <span className="shrink-0 text-xs text-gray-600">
-                  {formatDate(ex.performed_at)}
+                  {formatDate(log.consumed_at)}
                 </span>
                 <button
-                  onClick={() => handleEdit(ex)}
+                  onClick={() => handleEdit(log)}
                   className="shrink-0 text-xs text-gray-400 hover:text-gray-100"
                 >
                   Edit
                 </button>
                 <button
-                  onClick={() => setDeleteConfirm(ex.id)}
+                  onClick={() => setDeleteConfirm(log.id)}
                   className="shrink-0 text-xs text-red-500 hover:text-red-400"
                 >
                   Delete
@@ -288,15 +319,15 @@ export default function ExerciseTab({ exercises }: Props) {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
           <div className="w-full max-w-sm rounded-xl border border-gray-700 bg-gray-900 p-6 shadow-2xl">
             <p className="mb-4 text-sm text-gray-300">
-              Delete this exercise? This cannot be undone.
+              Delete this food entry? This cannot be undone.
             </p>
             <div className="flex gap-2">
               <button
                 onClick={() => handleDelete(deleteConfirm)}
-                disabled={deleteExercise.isPending}
+                disabled={deleteFoodLog.isPending}
                 className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-500 disabled:opacity-50"
               >
-                {deleteExercise.isPending ? 'Deleting…' : 'Delete'}
+                {deleteFoodLog.isPending ? 'Deleting…' : 'Delete'}
               </button>
               <button
                 onClick={() => setDeleteConfirm(null)}

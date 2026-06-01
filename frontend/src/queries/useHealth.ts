@@ -5,16 +5,22 @@ import {
   fetchWeightLogs,
   createWeightLog,
   deleteWeightLog,
-  fetchExercises,
-  createExercise,
-  updateExercise,
-  deleteExercise,
+  fetchFoodLogs,
+  createFoodLog,
+  updateFoodLog,
+  deleteFoodLog,
+  fetchSleepLogs,
+  createSleepLog,
+  updateSleepLog,
+  deleteSleepLog,
 } from '../lib/api/health'
 import type {
   UpsertProfileInput,
   CreateWeightInput,
-  CreateExerciseInput,
-  UpdateExerciseInput,
+  CreateFoodInput,
+  UpdateFoodInput,
+  CreateSleepInput,
+  UpdateSleepInput,
 } from '../lib/api/types'
 import { keys } from './keys'
 
@@ -62,40 +68,82 @@ export function useDeleteWeightLog() {
   })
 }
 
-export function useExercises() {
+// ── Food ─────────────────────────────────────────────────────────────────────
+
+export function useFoodLogs() {
   return useQuery({
-    queryKey: keys.healthExercises,
-    queryFn: fetchExercises,
+    queryKey: keys.healthFood,
+    queryFn: fetchFoodLogs,
   })
 }
 
-export function useCreateExercise() {
+export function useCreateFoodLog() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (input: CreateExerciseInput) => createExercise(input),
+    mutationFn: (input: CreateFoodInput) => createFoodLog(input),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: keys.healthExercises })
+      queryClient.invalidateQueries({ queryKey: keys.healthFood })
     },
   })
 }
 
-export function useUpdateExercise() {
+export function useUpdateFoodLog() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, input }: { id: string; input: UpdateExerciseInput }) =>
-      updateExercise(id, input),
+    mutationFn: ({ id, input }: { id: string; input: UpdateFoodInput }) =>
+      updateFoodLog(id, input),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: keys.healthExercises })
+      queryClient.invalidateQueries({ queryKey: keys.healthFood })
     },
   })
 }
 
-export function useDeleteExercise() {
+export function useDeleteFoodLog() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (id: string) => deleteExercise(id),
+    mutationFn: (id: string) => deleteFoodLog(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: keys.healthExercises })
+      queryClient.invalidateQueries({ queryKey: keys.healthFood })
+    },
+  })
+}
+
+// ── Sleep ─────────────────────────────────────────────────────────────────────
+
+export function useSleepLogs() {
+  return useQuery({
+    queryKey: keys.healthSleep,
+    queryFn: fetchSleepLogs,
+  })
+}
+
+export function useCreateSleepLog() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (input: CreateSleepInput) => createSleepLog(input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: keys.healthSleep })
+    },
+  })
+}
+
+export function useUpdateSleepLog() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: UpdateSleepInput }) =>
+      updateSleepLog(id, input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: keys.healthSleep })
+    },
+  })
+}
+
+export function useDeleteSleepLog() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => deleteSleepLog(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: keys.healthSleep })
     },
   })
 }

@@ -151,133 +151,298 @@ func (r *Repository) DeleteWeightLog(ctx context.Context, id uuid.UUID, userID u
 	return nil
 }
 
-// ── Exercises ─────────────────────────────────────────────────────────────────
+// ── Food logs ─────────────────────────────────────────────────────────────────
 
-func (r *Repository) ListExercises(ctx context.Context, userID uuid.UUID) ([]*health.Exercise, error) {
-	stmt := postgres.SELECT(table.HealthExercises.AllColumns).
-		FROM(table.HealthExercises).
-		WHERE(table.HealthExercises.UserID.EQ(postgres.UUID(userID))).
-		ORDER_BY(table.HealthExercises.PerformedAt.DESC(), table.HealthExercises.CreatedAt.DESC())
+func (r *Repository) ListFoodLogs(ctx context.Context, userID uuid.UUID) ([]*health.FoodLog, error) {
+	stmt := postgres.SELECT(table.HealthFoodLogs.AllColumns).
+		FROM(table.HealthFoodLogs).
+		WHERE(table.HealthFoodLogs.UserID.EQ(postgres.UUID(userID))).
+		ORDER_BY(table.HealthFoodLogs.ConsumedAt.DESC(), table.HealthFoodLogs.CreatedAt.DESC())
 
-	var dest []model.HealthExercises
+	var dest []model.HealthFoodLogs
 	if err := stmt.QueryContext(ctx, r.db, &dest); err != nil {
-		return nil, fmt.Errorf("list exercises: %w", err)
+		return nil, fmt.Errorf("list food logs: %w", err)
 	}
-	exercises := make([]*health.Exercise, len(dest))
+	logs := make([]*health.FoodLog, len(dest))
 	for i, d := range dest {
-		exercises[i] = toExercise(d)
+		logs[i] = toFoodLog(d)
 	}
-	return exercises, nil
+	return logs, nil
 }
 
-func (r *Repository) CreateExercise(ctx context.Context, userID uuid.UUID, in health.CreateExerciseInput) (*health.Exercise, error) {
-	performedAt := time.Now().UTC().Truncate(24 * time.Hour)
-	if in.PerformedAt != "" {
-		t, err := time.Parse("2006-01-02", in.PerformedAt)
+func (r *Repository) CreateFoodLog(ctx context.Context, userID uuid.UUID, in health.CreateFoodInput) (*health.FoodLog, error) {
+	consumedAt := time.Now().UTC().Truncate(24 * time.Hour)
+	if in.ConsumedAt != "" {
+		t, err := time.Parse("2006-01-02", in.ConsumedAt)
 		if err != nil {
-			return nil, fmt.Errorf("invalid performed_at date format: %w", err)
+			return nil, fmt.Errorf("invalid consumed_at date format: %w", err)
 		}
-		performedAt = t
+		consumedAt = t
 	}
 
-	var durationMinutes *int32
-	if in.DurationMinutes != nil {
-		d := int32(*in.DurationMinutes)
-		durationMinutes = &d
-	}
 	var calories *int32
 	if in.Calories != nil {
-		cal := int32(*in.Calories)
-		calories = &cal
+		c := int32(*in.Calories)
+		calories = &c
+	}
+	var proteinG, carbsG, fatG *decimal.Decimal
+	if in.ProteinG != nil {
+		d := decimal.NewFromFloat(*in.ProteinG)
+		proteinG = &d
+	}
+	if in.CarbsG != nil {
+		d := decimal.NewFromFloat(*in.CarbsG)
+		carbsG = &d
+	}
+	if in.FatG != nil {
+		d := decimal.NewFromFloat(*in.FatG)
+		fatG = &d
 	}
 
-	stmt := table.HealthExercises.INSERT(
-		table.HealthExercises.UserID,
-		table.HealthExercises.Name,
-		table.HealthExercises.Type,
-		table.HealthExercises.DurationMinutes,
-		table.HealthExercises.Calories,
-		table.HealthExercises.Notes,
-		table.HealthExercises.PerformedAt,
+	stmt := table.HealthFoodLogs.INSERT(
+		table.HealthFoodLogs.UserID,
+		table.HealthFoodLogs.Name,
+		table.HealthFoodLogs.MealType,
+		table.HealthFoodLogs.Calories,
+		table.HealthFoodLogs.ProteinG,
+		table.HealthFoodLogs.CarbsG,
+		table.HealthFoodLogs.FatG,
+		table.HealthFoodLogs.Notes,
+		table.HealthFoodLogs.ConsumedAt,
 	).VALUES(
 		postgres.UUID(userID),
 		in.Name,
-		string(in.Type),
-		durationMinutes,
+		string(in.MealType),
 		calories,
+		proteinG,
+		carbsG,
+		fatG,
 		in.Notes,
-		postgres.DateT(performedAt),
-	).RETURNING(table.HealthExercises.AllColumns)
+		postgres.DateT(consumedAt),
+	).RETURNING(table.HealthFoodLogs.AllColumns)
 
-	var dest model.HealthExercises
+	var dest model.HealthFoodLogs
 	if err := stmt.QueryContext(ctx, r.db, &dest); err != nil {
-		return nil, fmt.Errorf("create exercise: %w", err)
+		return nil, fmt.Errorf("create food log: %w", err)
 	}
-	return toExercise(dest), nil
+	return toFoodLog(dest), nil
 }
 
-func (r *Repository) UpdateExercise(ctx context.Context, id uuid.UUID, userID uuid.UUID, in health.UpdateExerciseInput) (*health.Exercise, error) {
-	performedAt := time.Now().UTC().Truncate(24 * time.Hour)
-	if in.PerformedAt != "" {
-		t, err := time.Parse("2006-01-02", in.PerformedAt)
+func (r *Repository) UpdateFoodLog(ctx context.Context, id uuid.UUID, userID uuid.UUID, in health.UpdateFoodInput) (*health.FoodLog, error) {
+	consumedAt := time.Now().UTC().Truncate(24 * time.Hour)
+	if in.ConsumedAt != "" {
+		t, err := time.Parse("2006-01-02", in.ConsumedAt)
 		if err != nil {
-			return nil, fmt.Errorf("invalid performed_at date format: %w", err)
+			return nil, fmt.Errorf("invalid consumed_at date format: %w", err)
 		}
-		performedAt = t
+		consumedAt = t
 	}
 
-	var durationMinutes *int32
-	if in.DurationMinutes != nil {
-		d := int32(*in.DurationMinutes)
-		durationMinutes = &d
-	}
 	var calories *int32
 	if in.Calories != nil {
-		cal := int32(*in.Calories)
-		calories = &cal
+		c := int32(*in.Calories)
+		calories = &c
+	}
+	var proteinG, carbsG, fatG *decimal.Decimal
+	if in.ProteinG != nil {
+		d := decimal.NewFromFloat(*in.ProteinG)
+		proteinG = &d
+	}
+	if in.CarbsG != nil {
+		d := decimal.NewFromFloat(*in.CarbsG)
+		carbsG = &d
+	}
+	if in.FatG != nil {
+		d := decimal.NewFromFloat(*in.FatG)
+		fatG = &d
 	}
 
-	stmt := table.HealthExercises.UPDATE(
-		table.HealthExercises.Name,
-		table.HealthExercises.Type,
-		table.HealthExercises.DurationMinutes,
-		table.HealthExercises.Calories,
-		table.HealthExercises.Notes,
-		table.HealthExercises.PerformedAt,
+	stmt := table.HealthFoodLogs.UPDATE(
+		table.HealthFoodLogs.Name,
+		table.HealthFoodLogs.MealType,
+		table.HealthFoodLogs.Calories,
+		table.HealthFoodLogs.ProteinG,
+		table.HealthFoodLogs.CarbsG,
+		table.HealthFoodLogs.FatG,
+		table.HealthFoodLogs.Notes,
+		table.HealthFoodLogs.ConsumedAt,
 	).SET(
 		in.Name,
-		string(in.Type),
-		durationMinutes,
+		string(in.MealType),
 		calories,
+		proteinG,
+		carbsG,
+		fatG,
 		in.Notes,
-		postgres.DateT(performedAt),
+		postgres.DateT(consumedAt),
 	).WHERE(
-		table.HealthExercises.ID.EQ(postgres.UUID(id)).
-			AND(table.HealthExercises.UserID.EQ(postgres.UUID(userID))),
-	).RETURNING(table.HealthExercises.AllColumns)
+		table.HealthFoodLogs.ID.EQ(postgres.UUID(id)).
+			AND(table.HealthFoodLogs.UserID.EQ(postgres.UUID(userID))),
+	).RETURNING(table.HealthFoodLogs.AllColumns)
 
-	var dest model.HealthExercises
+	var dest model.HealthFoodLogs
 	if err := stmt.QueryContext(ctx, r.db, &dest); err != nil {
 		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("exercise not found")
+			return nil, fmt.Errorf("food log not found")
 		}
-		return nil, fmt.Errorf("update exercise: %w", err)
+		return nil, fmt.Errorf("update food log: %w", err)
 	}
-	return toExercise(dest), nil
+	return toFoodLog(dest), nil
 }
 
-func (r *Repository) DeleteExercise(ctx context.Context, id uuid.UUID, userID uuid.UUID) error {
-	stmt := table.HealthExercises.DELETE().WHERE(
-		table.HealthExercises.ID.EQ(postgres.UUID(id)).
-			AND(table.HealthExercises.UserID.EQ(postgres.UUID(userID))),
+func (r *Repository) DeleteFoodLog(ctx context.Context, id uuid.UUID, userID uuid.UUID) error {
+	stmt := table.HealthFoodLogs.DELETE().WHERE(
+		table.HealthFoodLogs.ID.EQ(postgres.UUID(id)).
+			AND(table.HealthFoodLogs.UserID.EQ(postgres.UUID(userID))),
 	)
 	res, err := stmt.ExecContext(ctx, r.db)
 	if err != nil {
-		return fmt.Errorf("delete exercise: %w", err)
+		return fmt.Errorf("delete food log: %w", err)
 	}
 	n, err := res.RowsAffected()
 	if err != nil || n == 0 {
-		return fmt.Errorf("exercise not found")
+		return fmt.Errorf("food log not found")
+	}
+	return nil
+}
+
+// ── Sleep logs ────────────────────────────────────────────────────────────────
+
+func (r *Repository) ListSleepLogs(ctx context.Context, userID uuid.UUID) ([]*health.SleepLog, error) {
+	stmt := postgres.SELECT(table.HealthSleepLogs.AllColumns).
+		FROM(table.HealthSleepLogs).
+		WHERE(table.HealthSleepLogs.UserID.EQ(postgres.UUID(userID))).
+		ORDER_BY(table.HealthSleepLogs.LoggedAt.DESC(), table.HealthSleepLogs.CreatedAt.DESC())
+
+	var dest []model.HealthSleepLogs
+	if err := stmt.QueryContext(ctx, r.db, &dest); err != nil {
+		return nil, fmt.Errorf("list sleep logs: %w", err)
+	}
+	logs := make([]*health.SleepLog, len(dest))
+	for i, d := range dest {
+		logs[i] = toSleepLog(d)
+	}
+	return logs, nil
+}
+
+func (r *Repository) CreateSleepLog(ctx context.Context, userID uuid.UUID, in health.CreateSleepInput) (*health.SleepLog, error) {
+	startedAt, err := time.Parse(time.RFC3339, in.StartedAt)
+	if err != nil {
+		return nil, fmt.Errorf("invalid started_at format (RFC3339 required): %w", err)
+	}
+	endedAt, err := time.Parse(time.RFC3339, in.EndedAt)
+	if err != nil {
+		return nil, fmt.Errorf("invalid ended_at format (RFC3339 required): %w", err)
+	}
+	if !endedAt.After(startedAt) {
+		return nil, fmt.Errorf("ended_at must be after started_at")
+	}
+
+	loggedAt := startedAt.UTC().Truncate(24 * time.Hour)
+	if in.LoggedAt != "" {
+		t, err := time.Parse("2006-01-02", in.LoggedAt)
+		if err != nil {
+			return nil, fmt.Errorf("invalid logged_at date format: %w", err)
+		}
+		loggedAt = t
+	}
+
+	var score *int32
+	if in.Score != nil {
+		s := int32(*in.Score)
+		score = &s
+	}
+
+	stmt := table.HealthSleepLogs.INSERT(
+		table.HealthSleepLogs.UserID,
+		table.HealthSleepLogs.StartedAt,
+		table.HealthSleepLogs.EndedAt,
+		table.HealthSleepLogs.Score,
+		table.HealthSleepLogs.Notes,
+		table.HealthSleepLogs.LoggedAt,
+	).VALUES(
+		postgres.UUID(userID),
+		startedAt.UTC(),
+		endedAt.UTC(),
+		score,
+		in.Notes,
+		postgres.DateT(loggedAt),
+	).RETURNING(table.HealthSleepLogs.AllColumns)
+
+	var dest model.HealthSleepLogs
+	if err := stmt.QueryContext(ctx, r.db, &dest); err != nil {
+		return nil, fmt.Errorf("create sleep log: %w", err)
+	}
+	return toSleepLog(dest), nil
+}
+
+func (r *Repository) UpdateSleepLog(ctx context.Context, id uuid.UUID, userID uuid.UUID, in health.UpdateSleepInput) (*health.SleepLog, error) {
+	startedAt, err := time.Parse(time.RFC3339, in.StartedAt)
+	if err != nil {
+		return nil, fmt.Errorf("invalid started_at format (RFC3339 required): %w", err)
+	}
+	endedAt, err := time.Parse(time.RFC3339, in.EndedAt)
+	if err != nil {
+		return nil, fmt.Errorf("invalid ended_at format (RFC3339 required): %w", err)
+	}
+	if !endedAt.After(startedAt) {
+		return nil, fmt.Errorf("ended_at must be after started_at")
+	}
+
+	loggedAt := startedAt.UTC().Truncate(24 * time.Hour)
+	if in.LoggedAt != "" {
+		t, err := time.Parse("2006-01-02", in.LoggedAt)
+		if err != nil {
+			return nil, fmt.Errorf("invalid logged_at date format: %w", err)
+		}
+		loggedAt = t
+	}
+
+	var score *int32
+	if in.Score != nil {
+		s := int32(*in.Score)
+		score = &s
+	}
+
+	stmt := table.HealthSleepLogs.UPDATE(
+		table.HealthSleepLogs.StartedAt,
+		table.HealthSleepLogs.EndedAt,
+		table.HealthSleepLogs.Score,
+		table.HealthSleepLogs.Notes,
+		table.HealthSleepLogs.LoggedAt,
+	).SET(
+		startedAt.UTC(),
+		endedAt.UTC(),
+		score,
+		in.Notes,
+		postgres.DateT(loggedAt),
+	).WHERE(
+		table.HealthSleepLogs.ID.EQ(postgres.UUID(id)).
+			AND(table.HealthSleepLogs.UserID.EQ(postgres.UUID(userID))),
+	).RETURNING(table.HealthSleepLogs.AllColumns)
+
+	var dest model.HealthSleepLogs
+	if err := stmt.QueryContext(ctx, r.db, &dest); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("sleep log not found")
+		}
+		return nil, fmt.Errorf("update sleep log: %w", err)
+	}
+	return toSleepLog(dest), nil
+}
+
+func (r *Repository) DeleteSleepLog(ctx context.Context, id uuid.UUID, userID uuid.UUID) error {
+	stmt := table.HealthSleepLogs.DELETE().WHERE(
+		table.HealthSleepLogs.ID.EQ(postgres.UUID(id)).
+			AND(table.HealthSleepLogs.UserID.EQ(postgres.UUID(userID))),
+	)
+	res, err := stmt.ExecContext(ctx, r.db)
+	if err != nil {
+		return fmt.Errorf("delete sleep log: %w", err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil || n == 0 {
+		return fmt.Errorf("sleep log not found")
 	}
 	return nil
 }
@@ -319,23 +484,49 @@ func toWeightLog(m model.HealthWeightLogs) *health.WeightLog {
 	}
 }
 
-func toExercise(m model.HealthExercises) *health.Exercise {
-	e := &health.Exercise{
-		ID:          m.ID,
-		UserID:      m.UserID,
-		Name:        m.Name,
-		Type:        health.ExerciseType(m.Type),
-		Notes:       m.Notes,
-		PerformedAt: m.PerformedAt,
-		CreatedAt:   m.CreatedAt,
-	}
-	if m.DurationMinutes != nil {
-		d := int(*m.DurationMinutes)
-		e.DurationMinutes = &d
+func toFoodLog(m model.HealthFoodLogs) *health.FoodLog {
+	f := &health.FoodLog{
+		ID:         m.ID,
+		UserID:     m.UserID,
+		Name:       m.Name,
+		MealType:   health.MealType(m.MealType),
+		Notes:      m.Notes,
+		ConsumedAt: m.ConsumedAt,
+		CreatedAt:  m.CreatedAt,
 	}
 	if m.Calories != nil {
-		cal := int(*m.Calories)
-		e.Calories = &cal
+		c := int(*m.Calories)
+		f.Calories = &c
 	}
-	return e
+	if m.ProteinG != nil {
+		v, _ := m.ProteinG.Float64()
+		f.ProteinG = &v
+	}
+	if m.CarbsG != nil {
+		v, _ := m.CarbsG.Float64()
+		f.CarbsG = &v
+	}
+	if m.FatG != nil {
+		v, _ := m.FatG.Float64()
+		f.FatG = &v
+	}
+	return f
+}
+
+func toSleepLog(m model.HealthSleepLogs) *health.SleepLog {
+	s := &health.SleepLog{
+		ID:              m.ID,
+		UserID:          m.UserID,
+		StartedAt:       m.StartedAt,
+		EndedAt:         m.EndedAt,
+		DurationMinutes: int(m.EndedAt.Sub(m.StartedAt).Minutes()),
+		Notes:           m.Notes,
+		LoggedAt:        m.LoggedAt,
+		CreatedAt:       m.CreatedAt,
+	}
+	if m.Score != nil {
+		sc := int(*m.Score)
+		s.Score = &sc
+	}
+	return s
 }

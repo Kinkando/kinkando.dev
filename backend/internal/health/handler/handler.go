@@ -18,10 +18,15 @@ type Service interface {
 	CreateWeightLog(ctx context.Context, userID uuid.UUID, in health.CreateWeightInput) (*health.WeightLog, error)
 	DeleteWeightLog(ctx context.Context, id uuid.UUID, userID uuid.UUID) error
 
-	ListExercises(ctx context.Context, userID uuid.UUID) ([]*health.Exercise, error)
-	CreateExercise(ctx context.Context, userID uuid.UUID, in health.CreateExerciseInput) (*health.Exercise, error)
-	UpdateExercise(ctx context.Context, id uuid.UUID, userID uuid.UUID, in health.UpdateExerciseInput) (*health.Exercise, error)
-	DeleteExercise(ctx context.Context, id uuid.UUID, userID uuid.UUID) error
+	ListFoodLogs(ctx context.Context, userID uuid.UUID) ([]*health.FoodLog, error)
+	CreateFoodLog(ctx context.Context, userID uuid.UUID, in health.CreateFoodInput) (*health.FoodLog, error)
+	UpdateFoodLog(ctx context.Context, id uuid.UUID, userID uuid.UUID, in health.UpdateFoodInput) (*health.FoodLog, error)
+	DeleteFoodLog(ctx context.Context, id uuid.UUID, userID uuid.UUID) error
+
+	ListSleepLogs(ctx context.Context, userID uuid.UUID) ([]*health.SleepLog, error)
+	CreateSleepLog(ctx context.Context, userID uuid.UUID, in health.CreateSleepInput) (*health.SleepLog, error)
+	UpdateSleepLog(ctx context.Context, id uuid.UUID, userID uuid.UUID, in health.UpdateSleepInput) (*health.SleepLog, error)
+	DeleteSleepLog(ctx context.Context, id uuid.UUID, userID uuid.UUID) error
 }
 
 // UserResolver resolves a Firebase UID to the internal UUID stored in the users table.
@@ -46,10 +51,15 @@ func (h *Handler) Register(router fiber.Router) {
 	router.Post("/weight", h.createWeightLog)
 	router.Delete("/weight/:id", h.deleteWeightLog)
 
-	router.Get("/exercises", h.listExercises)
-	router.Post("/exercises", h.createExercise)
-	router.Patch("/exercises/:id", h.updateExercise)
-	router.Delete("/exercises/:id", h.deleteExercise)
+	router.Get("/food", h.listFoodLogs)
+	router.Post("/food", h.createFoodLog)
+	router.Patch("/food/:id", h.updateFoodLog)
+	router.Delete("/food/:id", h.deleteFoodLog)
+
+	router.Get("/sleep", h.listSleepLogs)
+	router.Post("/sleep", h.createSleepLog)
+	router.Patch("/sleep/:id", h.updateSleepLog)
+	router.Delete("/sleep/:id", h.deleteSleepLog)
 }
 
 // ── Profile handlers ──────────────────────────────────────────────────────────
@@ -158,90 +168,194 @@ func (h *Handler) deleteWeightLog(c *fiber.Ctx) error {
 	return c.SendStatus(fiber.StatusNoContent)
 }
 
-// ── Exercise handlers ─────────────────────────────────────────────────────────
+// ── Food log handlers ─────────────────────────────────────────────────────────
 
-func (h *Handler) listExercises(c *fiber.Ctx) error {
+func (h *Handler) listFoodLogs(c *fiber.Ctx) error {
 	userID, err := h.resolveUserID(c)
 	if err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
 	}
-	exercises, err := h.svc.ListExercises(c.Context(), userID)
+	logs, err := h.svc.ListFoodLogs(c.Context(), userID)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
-	if exercises == nil {
-		exercises = []*health.Exercise{}
+	if logs == nil {
+		logs = []*health.FoodLog{}
 	}
-	return c.JSON(fiber.Map{"data": exercises})
+	return c.JSON(fiber.Map{"data": logs})
 }
 
-func (h *Handler) createExercise(c *fiber.Ctx) error {
+func (h *Handler) createFoodLog(c *fiber.Ctx) error {
 	userID, err := h.resolveUserID(c)
 	if err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
 	}
-	var in health.CreateExerciseInput
+	var in health.CreateFoodInput
 	if err := c.BodyParser(&in); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
 	}
 	if strings.TrimSpace(in.Name) == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "name is required"})
 	}
-	switch in.Type {
-	case health.ExerciseTypeCardio, health.ExerciseTypeStrength, health.ExerciseTypeFlexibility:
+	switch in.MealType {
+	case health.MealTypeBreakfast, health.MealTypeLunch, health.MealTypeDinner, health.MealTypeSnack:
 	default:
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "type must be cardio, strength, or flexibility"})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "meal_type must be breakfast, lunch, dinner, or snack"})
 	}
-	ex, err := h.svc.CreateExercise(c.Context(), userID, in)
+	if in.Calories != nil && *in.Calories < 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "calories must be non-negative"})
+	}
+	log, err := h.svc.CreateFoodLog(c.Context(), userID, in)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
-	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"data": ex})
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"data": log})
 }
 
-func (h *Handler) updateExercise(c *fiber.Ctx) error {
+func (h *Handler) updateFoodLog(c *fiber.Ctx) error {
 	userID, err := h.resolveUserID(c)
 	if err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
 	}
 	id, err := uuid.Parse(c.Params("id"))
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid exercise id"})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid food log id"})
 	}
-	var in health.UpdateExerciseInput
+	var in health.UpdateFoodInput
 	if err := c.BodyParser(&in); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
 	}
 	if strings.TrimSpace(in.Name) == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "name is required"})
 	}
-	switch in.Type {
-	case health.ExerciseTypeCardio, health.ExerciseTypeStrength, health.ExerciseTypeFlexibility:
+	switch in.MealType {
+	case health.MealTypeBreakfast, health.MealTypeLunch, health.MealTypeDinner, health.MealTypeSnack:
 	default:
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "type must be cardio, strength, or flexibility"})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "meal_type must be breakfast, lunch, dinner, or snack"})
 	}
-	ex, err := h.svc.UpdateExercise(c.Context(), id, userID, in)
+	if in.Calories != nil && *in.Calories < 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "calories must be non-negative"})
+	}
+	log, err := h.svc.UpdateFoodLog(c.Context(), id, userID, in)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "exercise not found"})
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "food log not found"})
 		}
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
-	return c.JSON(fiber.Map{"data": ex})
+	return c.JSON(fiber.Map{"data": log})
 }
 
-func (h *Handler) deleteExercise(c *fiber.Ctx) error {
+func (h *Handler) deleteFoodLog(c *fiber.Ctx) error {
 	userID, err := h.resolveUserID(c)
 	if err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
 	}
 	id, err := uuid.Parse(c.Params("id"))
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid exercise id"})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid food log id"})
 	}
-	if err := h.svc.DeleteExercise(c.Context(), id, userID); err != nil {
+	if err := h.svc.DeleteFoodLog(c.Context(), id, userID); err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "exercise not found"})
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "food log not found"})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+	return c.SendStatus(fiber.StatusNoContent)
+}
+
+// ── Sleep log handlers ────────────────────────────────────────────────────────
+
+func (h *Handler) listSleepLogs(c *fiber.Ctx) error {
+	userID, err := h.resolveUserID(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
+	}
+	logs, err := h.svc.ListSleepLogs(c.Context(), userID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+	if logs == nil {
+		logs = []*health.SleepLog{}
+	}
+	return c.JSON(fiber.Map{"data": logs})
+}
+
+func (h *Handler) createSleepLog(c *fiber.Ctx) error {
+	userID, err := h.resolveUserID(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
+	}
+	var in health.CreateSleepInput
+	if err := c.BodyParser(&in); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
+	}
+	if in.StartedAt == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "started_at is required"})
+	}
+	if in.EndedAt == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "ended_at is required"})
+	}
+	if in.Score != nil && (*in.Score < 0 || *in.Score > 100) {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "score must be between 0 and 100"})
+	}
+	log, err := h.svc.CreateSleepLog(c.Context(), userID, in)
+	if err != nil {
+		if strings.Contains(err.Error(), "ended_at must be after started_at") {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"data": log})
+}
+
+func (h *Handler) updateSleepLog(c *fiber.Ctx) error {
+	userID, err := h.resolveUserID(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
+	}
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid sleep log id"})
+	}
+	var in health.UpdateSleepInput
+	if err := c.BodyParser(&in); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
+	}
+	if in.StartedAt == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "started_at is required"})
+	}
+	if in.EndedAt == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "ended_at is required"})
+	}
+	if in.Score != nil && (*in.Score < 0 || *in.Score > 100) {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "score must be between 0 and 100"})
+	}
+	log, err := h.svc.UpdateSleepLog(c.Context(), id, userID, in)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "sleep log not found"})
+		}
+		if strings.Contains(err.Error(), "ended_at must be after started_at") {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+	return c.JSON(fiber.Map{"data": log})
+}
+
+func (h *Handler) deleteSleepLog(c *fiber.Ctx) error {
+	userID, err := h.resolveUserID(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
+	}
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid sleep log id"})
+	}
+	if err := h.svc.DeleteSleepLog(c.Context(), id, userID); err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "sleep log not found"})
 		}
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}

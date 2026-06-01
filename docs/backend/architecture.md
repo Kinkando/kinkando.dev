@@ -20,7 +20,7 @@ Models/types: `internal/<feature>/model.go`
 |---|---|---|---|
 | Finance | `/api/v1/finance` | PostgreSQL | CRUD records + monthly summaries by category |
 | Kanban | `/api/v1/kanban` | MongoDB | Board auto-created on first access per user |
-| Health | `/api/v1/health` | PostgreSQL | Weight logs, exercises, profiles |
+| Health | `/api/v1/health` | PostgreSQL | Weight logs, food logs, sleep logs, profiles |
 | AI Chat | `/api/v1/aichat` | — | Powered by Gemini; see `internal/gemini/` |
 | LINE | `/api/v1/line` | — | LINE Messaging API webhook |
 | Portfolio | `/api/v1/portfolio` | — | Static data, no auth |
@@ -59,9 +59,12 @@ Served at `POST /mcp` (Streamable HTTP, JSON). No separate process.
 
 **Auth:** `Authorization: Bearer <MCP_AUTH_TOKEN>`
 
-**Tools (8):**
-- Finance: `finance_list_records`, `finance_create_record`, `finance_delete_record`, `finance_monthly_summary`
-- Kanban: `kanban_get_board`, `kanban_create_card`, `kanban_move_card`, `kanban_delete_card`
+**Tools (27):**
+- Finance: `finance_list_records`, `finance_list_categories`, `finance_create_category`, `finance_delete_category`, `finance_create_record`, `finance_delete_record`, `finance_monthly_summary`
+- Kanban: `kanban_get_board`, `kanban_create_card`, `kanban_update_card`, `kanban_move_card`, `kanban_delete_card`, `kanban_board_stats`, `kanban_archive_card`, `kanban_unarchive_card`, `kanban_list_archived_cards`
+- Workout: `workout_list_sessions`, `workout_list_presets`, `workout_get_preset`, `workout_get_schedule`, `workout_create_preset`, `workout_update_preset`, `workout_delete_preset`, `workout_start_session`, `workout_update_session`, `workout_log_exercise`, `workout_add_exercise`
+- Food: `food_list_logs`, `food_log_meal`, `food_update_meal`, `food_delete_meal`
+- Sleep: `sleep_list_logs`, `sleep_log_night`, `sleep_update_night`, `sleep_delete_night`
 
 **Config example:**
 ```json

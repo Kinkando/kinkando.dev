@@ -45,6 +45,14 @@ func All() []ToolDef {
 		WorkoutUpdateSession,
 		WorkoutLogExercise,
 		WorkoutAddExercise,
+		FoodListLogs,
+		FoodLogMeal,
+		FoodUpdateMeal,
+		FoodDeleteMeal,
+		SleepListLogs,
+		SleepLogNight,
+		SleepUpdateNight,
+		SleepDeleteNight,
 	}
 }
 
@@ -392,4 +400,120 @@ type WorkoutUpdatePresetIn struct {
 
 type WorkoutDeletePresetIn struct {
 	PresetID string `json:"preset_id" jsonschema:"UUID of the preset to delete — get from workout_list_presets"`
+}
+
+// ---- Food -------------------------------------------------------------------
+
+var FoodListLogs = ToolDef{
+	Name:        "food_list_logs",
+	Description: "List food/nutrition logs in a date range (consumed_at). Defaults to the last 30 days if dates are omitted.",
+	Input:       FoodListLogsIn{},
+}
+
+var FoodLogMeal = ToolDef{
+	Name:        "food_log_meal",
+	Description: "Log a meal or snack with nutritional details (calories, protein, carbs, fat). Returns the created food log entry.",
+	Input:       FoodLogMealIn{},
+	Required:    []string{"name", "meal_type"},
+}
+
+var FoodUpdateMeal = ToolDef{
+	Name:        "food_update_meal",
+	Description: "Update an existing food log entry. Call food_list_logs first to get the log ID.",
+	Input:       FoodUpdateMealIn{},
+	Required:    []string{"log_id", "name", "meal_type"},
+}
+
+var FoodDeleteMeal = ToolDef{
+	Name:        "food_delete_meal",
+	Description: "Delete a food log entry by its UUID. Call food_list_logs first to get the log ID.",
+	Input:       FoodDeleteMealIn{},
+	Required:    []string{"log_id"},
+}
+
+type FoodListLogsIn struct {
+	From string `json:"from" jsonschema:"Start date YYYY-MM-DD (default: 30 days ago)"`
+	To   string `json:"to"   jsonschema:"End date YYYY-MM-DD (default: today)"`
+}
+
+type FoodLogMealIn struct {
+	Name       string  `json:"name"        jsonschema:"Food or meal name (required)"`
+	MealType   string  `json:"meal_type"   jsonschema:"Meal type: breakfast, lunch, dinner, or snack (required)"`
+	Calories   int     `json:"calories"    jsonschema:"Calories (0 = not logging)"`
+	ProteinG   float64 `json:"protein_g"   jsonschema:"Protein in grams (0 = not logging)"`
+	CarbsG     float64 `json:"carbs_g"     jsonschema:"Carbohydrates in grams (0 = not logging)"`
+	FatG       float64 `json:"fat_g"       jsonschema:"Fat in grams (0 = not logging)"`
+	Notes      string  `json:"notes"       jsonschema:"Optional notes"`
+	ConsumedAt string  `json:"consumed_at" jsonschema:"Date YYYY-MM-DD (default: today)"`
+}
+
+type FoodUpdateMealIn struct {
+	LogID      string  `json:"log_id"      jsonschema:"UUID of the food log to update — get from food_list_logs"`
+	Name       string  `json:"name"        jsonschema:"Food or meal name (required)"`
+	MealType   string  `json:"meal_type"   jsonschema:"Meal type: breakfast, lunch, dinner, or snack (required)"`
+	Calories   int     `json:"calories"    jsonschema:"Calories (0 = clear)"`
+	ProteinG   float64 `json:"protein_g"   jsonschema:"Protein in grams (0 = clear)"`
+	CarbsG     float64 `json:"carbs_g"     jsonschema:"Carbohydrates in grams (0 = clear)"`
+	FatG       float64 `json:"fat_g"       jsonschema:"Fat in grams (0 = clear)"`
+	Notes      string  `json:"notes"       jsonschema:"Notes (empty string to clear)"`
+	ConsumedAt string  `json:"consumed_at" jsonschema:"Date YYYY-MM-DD (default: today)"`
+}
+
+type FoodDeleteMealIn struct {
+	LogID string `json:"log_id" jsonschema:"UUID of the food log to delete — get from food_list_logs"`
+}
+
+// ---- Sleep ------------------------------------------------------------------
+
+var SleepListLogs = ToolDef{
+	Name:        "sleep_list_logs",
+	Description: "List sleep logs in a date range (logged_at). Defaults to the last 30 days if dates are omitted. Each entry includes duration, score (0–100), and bedtime/wake timestamps.",
+	Input:       SleepListLogsIn{},
+}
+
+var SleepLogNight = ToolDef{
+	Name:        "sleep_log_night",
+	Description: "Log a night of sleep with bedtime, wake time, Samsung Health sleep score (0–100), and optional notes.",
+	Input:       SleepLogNightIn{},
+	Required:    []string{"started_at", "ended_at"},
+}
+
+var SleepUpdateNight = ToolDef{
+	Name:        "sleep_update_night",
+	Description: "Update an existing sleep log entry. Call sleep_list_logs first to get the log ID.",
+	Input:       SleepUpdateNightIn{},
+	Required:    []string{"log_id", "started_at", "ended_at"},
+}
+
+var SleepDeleteNight = ToolDef{
+	Name:        "sleep_delete_night",
+	Description: "Delete a sleep log entry by its UUID. Call sleep_list_logs first to get the log ID.",
+	Input:       SleepDeleteNightIn{},
+	Required:    []string{"log_id"},
+}
+
+type SleepListLogsIn struct {
+	From string `json:"from" jsonschema:"Start date YYYY-MM-DD (default: 30 days ago)"`
+	To   string `json:"to"   jsonschema:"End date YYYY-MM-DD (default: today)"`
+}
+
+type SleepLogNightIn struct {
+	StartedAt string `json:"started_at" jsonschema:"Bedtime in RFC3339 format, e.g. 2026-06-01T22:30:00+07:00 (required)"`
+	EndedAt   string `json:"ended_at"   jsonschema:"Wake time in RFC3339 format, e.g. 2026-06-02T06:45:00+07:00 (required)"`
+	Score     int    `json:"score"      jsonschema:"Samsung Health sleep score 0–100 (0 = not logging)"`
+	Notes     string `json:"notes"      jsonschema:"Optional notes"`
+	LoggedAt  string `json:"logged_at"  jsonschema:"Night-of date YYYY-MM-DD (defaults to started_at date)"`
+}
+
+type SleepUpdateNightIn struct {
+	LogID     string `json:"log_id"     jsonschema:"UUID of the sleep log to update — get from sleep_list_logs"`
+	StartedAt string `json:"started_at" jsonschema:"Bedtime in RFC3339 format (required)"`
+	EndedAt   string `json:"ended_at"   jsonschema:"Wake time in RFC3339 format (required)"`
+	Score     int    `json:"score"      jsonschema:"Samsung Health sleep score 0–100 (0 = clear)"`
+	Notes     string `json:"notes"      jsonschema:"Notes (empty string to clear)"`
+	LoggedAt  string `json:"logged_at"  jsonschema:"Night-of date YYYY-MM-DD (defaults to started_at date)"`
+}
+
+type SleepDeleteNightIn struct {
+	LogID string `json:"log_id" jsonschema:"UUID of the sleep log to delete — get from sleep_list_logs"`
 }

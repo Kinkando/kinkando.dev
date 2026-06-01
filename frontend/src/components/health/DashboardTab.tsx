@@ -7,17 +7,12 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts'
-import type {
-  HealthProfile,
-  WeightLog,
-  HealthExercise,
-} from '../../lib/api/types'
+import type { HealthProfile, WeightLog } from '../../lib/api/types'
 import { computeBmi, bmiCategory, bmiColor } from './bmi'
 
 type Props = {
   profile: HealthProfile | null | undefined
   weightLogs: WeightLog[] | undefined
-  exercises: HealthExercise[] | undefined
   onGoToSettings: () => void
 }
 
@@ -25,12 +20,6 @@ const GOAL_LABELS: Record<string, string> = {
   lose_weight: 'Lose Weight',
   maintain: 'Maintain',
   gain_muscle: 'Gain Muscle',
-}
-
-const TYPE_LABELS: Record<string, string> = {
-  cardio: 'Cardio',
-  strength: 'Strength',
-  flexibility: 'Flexibility',
 }
 
 function formatDate(iso: string) {
@@ -43,7 +32,6 @@ function formatDate(iso: string) {
 export default function DashboardTab({
   profile,
   weightLogs,
-  exercises,
   onGoToSettings,
 }: Props) {
   const latestWeight =
@@ -56,8 +44,6 @@ export default function DashboardTab({
       ? computeBmi(latestWeight, profile.height)
       : null
   const bmiCat = bmi != null ? bmiCategory(bmi) : null
-
-  const recentExercises = exercises?.slice(0, 6) ?? []
 
   const sparkData =
     weightLogs
@@ -160,35 +146,6 @@ export default function DashboardTab({
           </ResponsiveContainer>
         </div>
       )}
-
-      {/* Recent exercises */}
-      <div className="rounded-xl border border-gray-800 bg-gray-900 p-4">
-        <h3 className="mb-3 text-sm font-medium text-gray-400">
-          Recent Exercises
-        </h3>
-        {recentExercises.length === 0 ? (
-          <p className="text-sm text-gray-500">No exercises logged yet.</p>
-        ) : (
-          <ul className="divide-y divide-gray-800">
-            {recentExercises.map((ex) => (
-              <li key={ex.id} className="flex items-center gap-3 py-2.5">
-                <span className="rounded bg-gray-800 px-2 py-0.5 text-xs text-indigo-400">
-                  {TYPE_LABELS[ex.type] ?? ex.type}
-                </span>
-                <span className="flex-1 text-sm text-gray-100">{ex.name}</span>
-                <span className="text-xs text-gray-500">
-                  {ex.duration_minutes != null
-                    ? `${ex.duration_minutes} min`
-                    : ''}
-                </span>
-                <span className="text-xs text-gray-600">
-                  {formatDate(ex.performed_at)}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
     </div>
   )
 }

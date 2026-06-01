@@ -148,7 +148,6 @@ func (r *Repository) Create(ctx context.Context, userID uuid.UUID, in finance.Cr
 		postgres.UUID(userID),
 		string(in.Type),
 		decimal.NewFromFloat(in.Amount),
-		cat.Name,
 		postgres.UUID(in.CategoryID),
 		in.Note,
 		date,

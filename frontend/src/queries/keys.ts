@@ -14,4 +14,9 @@ export const keys = {
   healthProfile: ['health', 'profile'] as const,
   healthWeight: ['health', 'weight'] as const,
   healthExercises: ['health', 'exercises'] as const,
+  workoutPresets: ['workout', 'presets'] as const,
+  workoutPreset: (id: string) => ['workout', 'preset', id] as const,
+  workoutSchedule: ['workout', 'schedule'] as const,
+  workoutSessions: (range: string) => ['workout', 'sessions', range] as const,
+  workoutSession: (id: string) => ['workout', 'session', id] as const,
 }

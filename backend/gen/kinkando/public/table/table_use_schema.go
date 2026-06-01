@@ -17,4 +17,9 @@ func UseSchema(schema string) {
 	HealthWeightLogs = HealthWeightLogs.FromSchema(schema)
 	SchemaMigrations = SchemaMigrations.FromSchema(schema)
 	Users = Users.FromSchema(schema)
+	WorkoutPresetExercises = WorkoutPresetExercises.FromSchema(schema)
+	WorkoutPresets = WorkoutPresets.FromSchema(schema)
+	WorkoutSchedule = WorkoutSchedule.FromSchema(schema)
+	WorkoutSessionExercises = WorkoutSessionExercises.FromSchema(schema)
+	WorkoutSessions = WorkoutSessions.FromSchema(schema)
 }

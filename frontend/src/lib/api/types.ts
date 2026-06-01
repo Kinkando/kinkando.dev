@@ -271,3 +271,123 @@ export type CreateExerciseInput = {
 }
 
 export type UpdateExerciseInput = CreateExerciseInput
+
+// ---- Workout
+
+export type WorkoutType = 'weight_training' | 'body_weight'
+
+export type ExerciseSection = 'warmup' | 'main' | 'cooldown'
+
+export type WorkoutPresetExercise = {
+  id: string
+  preset_id: string
+  section: ExerciseSection
+  order_index: number
+  name: string
+  target_muscles: string | null
+  instructions: string | null
+  sets: number | null
+  reps: number | null
+  duration_seconds: number | null
+  rest_seconds: number | null
+  weight_kg: number | null
+  equipment: string | null
+  notes: string | null
+}
+
+export type WorkoutPreset = {
+  id: string
+  user_id: string
+  name: string
+  type: WorkoutType
+  description: string | null
+  exercises: WorkoutPresetExercise[]
+  created_at: string
+  updated_at: string
+}
+
+export type WorkoutPresetExerciseInput = {
+  section: ExerciseSection
+  name: string
+  target_muscles: string | null
+  instructions: string | null
+  sets: number | null
+  reps: number | null
+  duration_seconds: number | null
+  rest_seconds: number | null
+  weight_kg: number | null
+  equipment: string | null
+  notes: string | null
+}
+
+export type CreatePresetInput = {
+  name: string
+  type: WorkoutType
+  description: string | null
+  exercises: WorkoutPresetExerciseInput[]
+}
+
+export type UpdatePresetInput = CreatePresetInput
+
+export type WorkoutScheduleEntry = {
+  id: string
+  user_id: string
+  day_of_week: number // 0=Sun … 6=Sat
+  preset_id: string
+  preset_name: string
+  preset_type: WorkoutType
+  created_at: string
+}
+
+export type SetScheduleInput = {
+  entries: { day_of_week: number; preset_id: string }[]
+}
+
+export type WorkoutSessionExercise = {
+  id: string
+  session_id: string
+  section: ExerciseSection
+  order_index: number
+  name: string
+  target_muscles: string | null
+  instructions: string | null
+  target_sets: number | null
+  target_reps: number | null
+  target_duration_seconds: number | null
+  rest_seconds: number | null
+  actual_sets: number | null
+  actual_reps: number | null
+  actual_duration_seconds: number | null
+  weight_kg: number | null
+  completed: boolean
+  notes: string | null
+}
+
+export type WorkoutSession = {
+  id: string
+  user_id: string
+  preset_id: string | null
+  name: string
+  type: WorkoutType
+  performed_at: string // ISO date
+  duration_minutes: number | null
+  notes: string | null
+  exercises: WorkoutSessionExercise[]
+  created_at: string
+  updated_at: string
+}
+
+export type UpdateSessionExerciseInput = {
+  actual_sets: number | null
+  actual_reps: number | null
+  actual_duration_seconds: number | null
+  weight_kg: number | null
+  completed: boolean
+  notes: string | null
+}
+
+export type UpdateSessionInput = {
+  name: string
+  duration_minutes: number | null
+  notes: string | null
+}

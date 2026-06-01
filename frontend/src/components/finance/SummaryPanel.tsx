@@ -11,23 +11,23 @@ function formatCurrency(amount: number): string {
 export default function SummaryPanel({ summary }: { summary: MonthlySummary }) {
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div className="rounded-xl border border-gray-800 bg-gray-900 p-4">
           <p className="mb-1 text-xs text-gray-500">Income</p>
-          <p className="text-lg font-semibold text-green-400">
+          <p className="truncate text-lg font-semibold text-green-400">
             {formatCurrency(summary.income)}
           </p>
         </div>
         <div className="rounded-xl border border-gray-800 bg-gray-900 p-4">
           <p className="mb-1 text-xs text-gray-500">Expenses</p>
-          <p className="text-lg font-semibold text-red-400">
+          <p className="truncate text-lg font-semibold text-red-400">
             {formatCurrency(summary.expense)}
           </p>
         </div>
         <div className="rounded-xl border border-gray-800 bg-gray-900 p-4">
           <p className="mb-1 text-xs text-gray-500">Net</p>
           <p
-            className={`text-lg font-semibold ${summary.net >= 0 ? 'text-indigo-400' : 'text-red-400'}`}
+            className={`truncate text-lg font-semibold ${summary.net >= 0 ? 'text-indigo-400' : 'text-red-400'}`}
           >
             {formatCurrency(summary.net)}
           </p>

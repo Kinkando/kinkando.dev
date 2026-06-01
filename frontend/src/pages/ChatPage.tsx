@@ -40,6 +40,29 @@ function formatTHB(cost: number): string {
   return `฿${baht.toFixed(5)}`
 }
 
+const SUGGESTIONS = [
+  {
+    label: 'Finance summary',
+    description: 'Summarize my spending or income this month',
+    prompt: 'Give me a summary of my finances this month.',
+  },
+  {
+    label: 'Task overview',
+    description: 'What tasks do I have open or in progress?',
+    prompt: 'Give me an overview of my current kanban tasks.',
+  },
+  {
+    label: 'Budget advice',
+    description: 'Tips on managing my budget based on my records',
+    prompt: 'Based on my finance records, give me some budget advice.',
+  },
+  {
+    label: 'Productivity tips',
+    description: 'Help me prioritize or plan my work',
+    prompt: 'Help me prioritize my tasks and plan my day.',
+  },
+]
+
 export default function ChatPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [streaming, setStreaming] = useState(false)
@@ -165,9 +188,37 @@ export default function ChatPage() {
       {/* Message list */}
       <div className="flex-1 space-y-4 overflow-y-auto pr-1">
         {messages.length === 0 && (
-          <p className="mt-16 text-center text-sm text-gray-500">
-            Ask anything about your finances or tasks.
-          </p>
+          <div className="mt-8 flex flex-col items-center gap-6">
+            <div className="flex flex-col items-center gap-3 text-center">
+              <img
+                src="/chibi.jpg"
+                alt="AI"
+                className="h-16 w-16 rounded-full object-cover ring-2 ring-indigo-500/40"
+              />
+              <div>
+                <p className="text-base font-medium text-gray-200">
+                  Hello! I'm your AI Assistant
+                </p>
+                <p className="mt-1 text-sm text-gray-500">
+                  Here's what I can help you with:
+                </p>
+              </div>
+            </div>
+            <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-2">
+              {SUGGESTIONS.map((s) => (
+                <button
+                  key={s.label}
+                  onClick={() => handleSend(s.prompt)}
+                  className="flex flex-col gap-1 rounded-xl border border-gray-700 bg-gray-800/50 px-4 py-3 text-left transition hover:border-indigo-500/60 hover:bg-gray-800"
+                >
+                  <span className="text-sm font-medium text-gray-200">
+                    {s.label}
+                  </span>
+                  <span className="text-xs text-gray-500">{s.description}</span>
+                </button>
+              ))}
+            </div>
+          </div>
         )}
         {messages.map((m, i) => {
           const isLastAssistant =

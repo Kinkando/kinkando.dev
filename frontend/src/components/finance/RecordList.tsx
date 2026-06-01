@@ -5,7 +5,7 @@ import { getIcon } from '../../lib/icons'
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency: 'USD',
+    currency: 'THB',
   }).format(amount)
 }
 
@@ -14,6 +14,13 @@ function formatGroupDate(date: string): string {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
+  })
+}
+
+function formatTime(ts: string): string {
+  return new Date(ts).toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
   })
 }
 
@@ -89,6 +96,9 @@ export default function RecordList({
                       }`}
                     >
                       {record.type}
+                    </span>
+                    <span className="text-xs text-gray-500">
+                      {formatTime(record.created_at)}
                     </span>
                     <span className="flex flex-1 items-center gap-1.5 text-sm font-medium text-gray-200">
                       {Icon && catColor && (

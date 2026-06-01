@@ -600,10 +600,15 @@ func (r *Repository) ArchiveCard(ctx context.Context, cardID primitive.ObjectID,
 		return nil, fmt.Errorf("reorder after archive: %w", err)
 	}
 
-	if _, err := r.cards.UpdateOne(ctx, bson.M{"_id": cardID}, bson.M{"$set": bson.M{
+	archiveSet := bson.M{
 		"archived_at":    time.Now(),
 		"archive_reason": effectiveReason,
-	}}); err != nil {
+	}
+	// Ensure completed_at is set when archiving from a Done column.
+	if effectiveReason == kanban.ArchiveReasonCompleted && card.CompletedAt == nil {
+		archiveSet["completed_at"] = time.Now()
+	}
+	if _, err := r.cards.UpdateOne(ctx, bson.M{"_id": cardID}, bson.M{"$set": archiveSet}); err != nil {
 		return nil, fmt.Errorf("archive card: %w", err)
 	}
 

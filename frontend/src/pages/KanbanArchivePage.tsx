@@ -37,7 +37,7 @@ function groupByMonth(
 ): Map<string, Card[]> {
   const map = new Map<string, Card[]>()
   for (const card of cards) {
-    const raw = card[dateKey]
+    const raw = card[dateKey] ?? card.archived_at
     if (!raw) continue
     const d = new Date(raw)
     const label = d.toLocaleDateString(undefined, {
@@ -68,7 +68,7 @@ function getAvailableMonths(
   const seen = new Set<string>()
   const result: { year: number; month: number; label: string }[] = []
   for (const card of cards) {
-    const raw = card[dateKey]
+    const raw = card[dateKey] ?? card.archived_at
     if (!raw) continue
     const d = new Date(raw)
     const year = d.getFullYear()

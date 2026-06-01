@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { RotateCcw } from 'lucide-react'
-import { streamChat } from '../lib/api/chat'
-import type { ChatMessage, ChatUsage } from '../lib/api/types'
+import { streamChat, synthesizeSpeech } from '../lib/api/chat'
+import type { ChatMessage, ChatResponseMode, ChatUsage } from '../lib/api/types'
 import MessageBubble from '../components/chat/MessageBubble'
 import ChatInput from '../components/chat/ChatInput'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
@@ -64,6 +64,11 @@ const SUGGESTIONS = [
   },
 ]
 
+const RESPONSE_MODES: { value: ChatResponseMode; label: string }[] = [
+  { value: 'text', label: 'Text' },
+  { value: 'voice', label: 'Text + Voice' },
+]
+
 export default function ChatPage() {
   useDocumentTitle('Chat')
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -73,16 +78,36 @@ export default function ChatPage() {
     inputTokens: 0,
     outputTokens: 0,
   })
+  const [responseMode, setResponseMode] = useState<ChatResponseMode>('text')
   const bottomRef = useRef<HTMLDivElement>(null)
   const abortRef = useRef<AbortController | null>(null)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const ttsAbortRef = useRef<AbortController | null>(null)
 
   // Scroll to bottom whenever messages change.
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+  // Stop any in-flight audio on unmount.
+  useEffect(() => {
+    return () => {
+      stopAudio()
+    }
+  }, [])
+
+  function stopAudio() {
+    ttsAbortRef.current?.abort()
+    ttsAbortRef.current = null
+    if (audioRef.current) {
+      audioRef.current.pause()
+      audioRef.current = null
+    }
+  }
+
   function handleNewSession() {
     abortRef.current?.abort()
+    stopAudio()
     setMessages([])
     setSessionUsage({ inputTokens: 0, outputTokens: 0 })
     setError(null)
@@ -105,10 +130,14 @@ export default function ChatPage() {
     const abort = new AbortController()
     abortRef.current = abort
 
+    // Accumulate the full assistant reply so we can pass it to TTS after streaming.
+    let fullReply = ''
+
     try {
       await streamChat(
         history,
         (token) => {
+          fullReply += token
           setMessages((prev) => {
             const next = [...prev]
             const last = next[next.length - 1]
@@ -129,6 +158,29 @@ export default function ChatPage() {
         },
         abort.signal,
       )
+
+      // Synthesize and play the reply if the user chose Text + Voice.
+      if (responseMode === 'voice' && fullReply.trim()) {
+        const ttsAbort = new AbortController()
+        ttsAbortRef.current = ttsAbort
+        try {
+          const blob = await synthesizeSpeech(fullReply, ttsAbort.signal)
+          const url = URL.createObjectURL(blob)
+          const audio = new Audio(url)
+          audioRef.current = audio
+          audio.addEventListener('ended', () => URL.revokeObjectURL(url))
+          audio.addEventListener('error', () => URL.revokeObjectURL(url))
+          await audio.play()
+        } catch (ttsErr: unknown) {
+          if ((ttsErr as { name?: string }).name === 'AbortError') return
+          // TTS failure is non-fatal: the text reply is already visible.
+          setError(
+            'Voice synthesis failed. The text reply is still shown above.',
+          )
+        } finally {
+          ttsAbortRef.current = null
+        }
+      }
     } catch (err: unknown) {
       if ((err as { name?: string }).name === 'AbortError') return
       const msg =
@@ -162,15 +214,34 @@ export default function ChatPage() {
     >
       {/* Header */}
       <div className="mb-6 flex flex-col gap-1.5">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3">
           <h1 className="text-xl font-semibold text-gray-100">AI Assistant</h1>
-          <button
-            onClick={handleNewSession}
-            className="flex items-center gap-1.5 rounded-lg border border-gray-700 px-3 py-1.5 text-xs text-gray-400 transition hover:border-gray-500 hover:text-gray-200"
-          >
-            <RotateCcw size={12} />
-            New session
-          </button>
+          <div className="flex items-center gap-2">
+            {/* Response-mode toggle */}
+            <div className="flex rounded-lg border border-gray-800 bg-gray-900 p-1">
+              {RESPONSE_MODES.map((m) => (
+                <button
+                  key={m.value}
+                  type="button"
+                  onClick={() => setResponseMode(m.value)}
+                  className={`rounded-md px-3 py-1 text-xs transition ${
+                    responseMode === m.value
+                      ? 'bg-gray-800 text-gray-100'
+                      : 'text-gray-500 hover:text-gray-300'
+                  }`}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={handleNewSession}
+              className="flex items-center gap-1.5 rounded-lg border border-gray-700 px-3 py-1.5 text-xs text-gray-400 transition hover:border-gray-500 hover:text-gray-200"
+            >
+              <RotateCcw size={12} />
+              New session
+            </button>
+          </div>
         </div>
         {hasUsage && (
           <span className="text-xs text-gray-500">
@@ -245,7 +316,11 @@ export default function ChatPage() {
 
       {/* Input */}
       <div className="mt-4">
-        <ChatInput onSend={handleSend} disabled={streaming} />
+        <ChatInput
+          onSend={handleSend}
+          disabled={streaming}
+          onError={(msg) => setError(msg)}
+        />
       </div>
     </main>
   )

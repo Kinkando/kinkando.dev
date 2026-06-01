@@ -198,6 +198,8 @@ export type ChatUsage = {
   outputTokens: number
 }
 
+export type ChatResponseMode = 'text' | 'voice'
+
 export type PortfolioProject = {
   name: string
   description: string

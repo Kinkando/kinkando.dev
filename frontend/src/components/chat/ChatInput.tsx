@@ -5,18 +5,25 @@ import {
   type FormEvent,
   type KeyboardEvent,
 } from 'react'
-import { SendHorizonal } from 'lucide-react'
+import { Loader2, Mic, SendHorizonal, Square } from 'lucide-react'
+import { transcribeAudio } from '../../lib/api/chat'
 
 type Props = {
   onSend: (text: string) => void
   disabled: boolean
+  onError?: (msg: string) => void
 }
 
 const MAX_HEIGHT = 160 // px — matches roughly max-h-40
 
-export default function ChatInput({ onSend, disabled }: Props) {
+export default function ChatInput({ onSend, disabled, onError }: Props) {
   const [value, setValue] = useState('')
+  const [recording, setRecording] = useState(false)
+  const [transcribing, setTranscribing] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const recorderRef = useRef<MediaRecorder | null>(null)
+  const streamRef = useRef<MediaStream | null>(null)
+  const chunksRef = useRef<Blob[]>([])
 
   // Auto-expand height to fit content, capped at MAX_HEIGHT.
   useEffect(() => {
@@ -30,6 +37,14 @@ export default function ChatInput({ onSend, disabled }: Props) {
   useEffect(() => {
     if (!disabled) textareaRef.current?.focus()
   }, [disabled])
+
+  // Stop recording and clean up the stream on unmount.
+  useEffect(() => {
+    return () => {
+      recorderRef.current?.stop()
+      streamRef.current?.getTracks().forEach((t) => t.stop())
+    }
+  }, [])
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -46,6 +61,57 @@ export default function ChatInput({ onSend, disabled }: Props) {
     }
   }
 
+  async function handleMicClick() {
+    if (recording) {
+      // Stop recording — onstop will handle transcription.
+      recorderRef.current?.stop()
+      return
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      streamRef.current = stream
+      chunksRef.current = []
+
+      const recorder = new MediaRecorder(stream)
+      recorderRef.current = recorder
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data)
+      }
+
+      recorder.onstop = async () => {
+        // Stop all mic tracks so the browser releases the indicator.
+        stream.getTracks().forEach((t) => t.stop())
+        streamRef.current = null
+        setRecording(false)
+
+        const blob = new Blob(chunksRef.current, { type: recorder.mimeType })
+        chunksRef.current = []
+
+        setTranscribing(true)
+        try {
+          const text = await transcribeAudio(blob)
+          if (text) {
+            setValue((prev) => (prev ? `${prev} ${text}` : text))
+          }
+        } catch {
+          onError?.('Transcription failed. Please try again.')
+        } finally {
+          setTranscribing(false)
+        }
+      }
+
+      recorder.start()
+      setRecording(true)
+    } catch {
+      onError?.('Microphone access denied or unavailable.')
+    }
+  }
+
+  const micBusy = recording || transcribing
+  const sendDisabled = disabled || micBusy || !value.trim()
+
   return (
     <form
       onSubmit={handleSubmit}
@@ -60,12 +126,45 @@ export default function ChatInput({ onSend, disabled }: Props) {
         value={value}
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={handleKeyDown}
-        disabled={disabled}
+        disabled={disabled || transcribing}
       />
-      <div className="flex justify-end px-2 pb-2">
+      <div className="flex items-center justify-between px-2 pb-2">
+        {/* Mic button */}
+        <div className="flex items-center gap-2 pl-1">
+          <button
+            type="button"
+            onClick={handleMicClick}
+            disabled={disabled || transcribing}
+            className={`flex h-8 w-8 items-center justify-center rounded-lg transition ${
+              recording
+                ? 'bg-red-600 text-white hover:bg-red-500'
+                : 'text-gray-400 hover:bg-gray-700 hover:text-gray-200'
+            } disabled:opacity-40`}
+            aria-label={recording ? 'Stop recording' : 'Start voice input'}
+          >
+            {transcribing ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : recording ? (
+              <Square size={16} />
+            ) : (
+              <Mic size={16} />
+            )}
+          </button>
+          {recording && (
+            <span className="flex items-center gap-1.5 text-xs text-red-400">
+              <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-red-500" />
+              Recording…
+            </span>
+          )}
+          {transcribing && (
+            <span className="text-xs text-gray-500">Transcribing…</span>
+          )}
+        </div>
+
+        {/* Send button */}
         <button
           type="submit"
-          disabled={disabled || !value.trim()}
+          disabled={sendDisabled}
           className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-600 text-white transition hover:bg-indigo-500 disabled:opacity-40"
           aria-label="Send message"
         >

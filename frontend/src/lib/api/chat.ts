@@ -4,6 +4,69 @@ import { ApiError } from './client'
 import type { ChatMessage, ChatUsage } from './types'
 
 /**
+ * Uploads an audio blob to the backend for transcription.
+ * Returns the transcribed text string.
+ */
+export async function transcribeAudio(
+  blob: Blob,
+  signal?: AbortSignal,
+): Promise<string> {
+  const token = await getIdToken()
+  const form = new FormData()
+  form.append('audio', blob, 'recording.webm')
+
+  const res = await fetch(`${env.apiUrl}/api/v1/ai-chat/transcribe`, {
+    method: 'POST',
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: form,
+    signal,
+  })
+
+  if (!res.ok) {
+    const json = await res.json().catch(() => ({}))
+    throw new ApiError(
+      res.status,
+      (json as { error?: string }).error ?? `HTTP ${res.status}`,
+    )
+  }
+
+  const json = (await res.json()) as { data?: { text?: string } }
+  return json.data?.text ?? ''
+}
+
+/**
+ * Sends text to the backend TTS endpoint and returns the audio as a WAV Blob.
+ */
+export async function synthesizeSpeech(
+  text: string,
+  signal?: AbortSignal,
+): Promise<Blob> {
+  const token = await getIdToken()
+
+  const res = await fetch(`${env.apiUrl}/api/v1/ai-chat/tts`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ text }),
+    signal,
+  })
+
+  if (!res.ok) {
+    const json = await res.json().catch(() => ({}))
+    throw new ApiError(
+      res.status,
+      (json as { error?: string }).error ?? `HTTP ${res.status}`,
+    )
+  }
+
+  return res.blob()
+}
+
+/**
  * Streams an AI chat response from the backend.
  *
  * Sends the full message history (including the new user turn) as JSON and

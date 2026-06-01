@@ -12,6 +12,9 @@ package table
 func UseSchema(schema string) {
 	FinanceCategories = FinanceCategories.FromSchema(schema)
 	FinanceRecords = FinanceRecords.FromSchema(schema)
+	HealthExercises = HealthExercises.FromSchema(schema)
+	HealthProfiles = HealthProfiles.FromSchema(schema)
+	HealthWeightLogs = HealthWeightLogs.FromSchema(schema)
 	SchemaMigrations = SchemaMigrations.FromSchema(schema)
 	Users = Users.FromSchema(schema)
 }

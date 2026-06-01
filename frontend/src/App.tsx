@@ -8,6 +8,7 @@ import KanbanPage from './pages/KanbanPage'
 import KanbanArchivePage from './pages/KanbanArchivePage'
 import ChatPage from './pages/ChatPage'
 import HealthPage from './pages/HealthPage'
+import NewsPage from './pages/NewsPage'
 import ProtectedRoute from './auth/ProtectedRoute'
 
 export default function App() {
@@ -17,6 +18,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Navigate to="/portfolio" replace />} />
         <Route path="/portfolio" element={<PortfolioPage />} />
+        <Route path="/news" element={<NewsPage />} />
         <Route path="/login" element={<LoginPage />} />
         {/* <Route path="/register" element={<RegisterPage />} /> */}
         <Route

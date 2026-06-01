@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"strings"
 	"time"
 
@@ -36,6 +37,8 @@ func New(d Deps) *Handler {
 // Register mounts routes onto the given router (auth middleware applied by caller).
 func (h *Handler) Register(router fiber.Router) {
 	router.Post("/", h.chat)
+	router.Post("/transcribe", h.transcribe)
+	router.Post("/tts", h.tts)
 }
 
 // chatRequest is the JSON body sent by the client.
@@ -115,4 +118,84 @@ func (h *Handler) chat(c *fiber.Ctx) error {
 	})
 
 	return nil
+}
+
+// maxAudioBytes caps audio uploads at 10 MiB to prevent oversized payloads.
+const maxAudioBytes = 10 << 20
+
+// transcribe accepts a multipart form upload with an "audio" field and returns
+// the transcribed text via the Gemini model.
+func (h *Handler) transcribe(c *fiber.Ctx) error {
+	fh, err := c.FormFile("audio")
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "audio file required"})
+	}
+	if fh.Size > maxAudioBytes {
+		return c.Status(fiber.StatusRequestEntityTooLarge).JSON(fiber.Map{"error": "audio file too large (max 10 MiB)"})
+	}
+
+	f, err := fh.Open()
+	if err != nil {
+		h.logger.Error("transcribe: open upload", zap.Error(err))
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to read audio"})
+	}
+	defer f.Close() //nolint:errcheck
+
+	audio, err := io.ReadAll(f)
+	if err != nil {
+		h.logger.Error("transcribe: read upload", zap.Error(err))
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to read audio"})
+	}
+
+	mimeType := fh.Header.Get("Content-Type")
+	if mimeType == "" {
+		mimeType = "audio/webm"
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	text, err := h.gemini.Transcribe(ctx, audio, mimeType)
+	if err != nil {
+		h.logger.Error("transcribe: gemini error", zap.Error(err))
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "transcription failed"})
+	}
+
+	return c.JSON(fiber.Map{"data": fiber.Map{"text": text}})
+}
+
+// ttsRequest is the JSON body for the TTS endpoint.
+type ttsRequest struct {
+	Text string `json:"text"`
+}
+
+// maxTTSChars caps TTS input to avoid excessively long synthesis requests.
+const maxTTSChars = 4000
+
+// tts synthesizes the provided text to WAV audio via Gemini and returns the
+// raw bytes with Content-Type: audio/wav.
+func (h *Handler) tts(c *fiber.Ctx) error {
+	var req ttsRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
+	}
+	req.Text = strings.TrimSpace(req.Text)
+	if req.Text == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "text must not be empty"})
+	}
+	if len([]rune(req.Text)) > maxTTSChars {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "text too long (max 4000 characters)"})
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	wav, err := h.gemini.Synthesize(ctx, req.Text)
+	if err != nil {
+		h.logger.Error("tts: gemini error", zap.Error(err))
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "speech synthesis failed"})
+	}
+
+	c.Set("Content-Type", "audio/wav")
+	return c.Send(wav)
 }

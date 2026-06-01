@@ -23,11 +23,14 @@ const defaultModel = "gemini-2.0-flash"
 // prevent infinite loops from a misbehaving model.
 const maxToolRounds = 8
 
+const defaultTTSModel = "gemini-2.5-flash-preview-tts"
+
 // Deps bundles dependencies for the Gemini client.
 type Deps struct {
-	APIKey string
-	Model  string
-	MCP    *mcp.ClientSession // required; routes all tool calls through the MCP server
+	APIKey   string
+	Model    string
+	TTSModel string             // optional; defaults to defaultTTSModel
+	MCP      *mcp.ClientSession // required; routes all tool calls through the MCP server
 }
 
 // Client wraps a Gemini generative model and dispatches tool calls via MCP.
@@ -36,6 +39,7 @@ type Deps struct {
 type Client struct {
 	gc         *genai.Client
 	model      string
+	ttsModel   string
 	configs    map[persona]*genai.GenerateContentConfig
 	mcpSession *mcp.ClientSession
 }
@@ -51,6 +55,10 @@ func New(ctx context.Context, d Deps) (*Client, error) {
 	modelName := d.Model
 	if modelName == "" {
 		modelName = defaultModel
+	}
+	ttsModelName := d.TTSModel
+	if ttsModelName == "" {
+		ttsModelName = defaultTTSModel
 	}
 	configs := map[persona]*genai.GenerateContentConfig{
 		personaAether: {
@@ -68,6 +76,7 @@ func New(ctx context.Context, d Deps) (*Client, error) {
 	return &Client{
 		gc:         gc,
 		model:      modelName,
+		ttsModel:   ttsModelName,
 		configs:    configs,
 		mcpSession: d.MCP,
 	}, nil

@@ -180,9 +180,10 @@ func main() {
 	lineClient := line.NewClient(cfg.LineChannelAccessToken)
 
 	geminiClient, err := gemini.New(context.Background(), gemini.Deps{
-		APIKey: cfg.GeminiAPIKey,
-		Model:  cfg.GeminiModel,
-		MCP:    mcpClientSession,
+		APIKey:   cfg.GeminiAPIKey,
+		Model:    cfg.GeminiModel,
+		TTSModel: cfg.GeminiTTSModel,
+		MCP:      mcpClientSession,
 	})
 	if err != nil {
 		logger.Fatal("gemini init", zap.Error(err))

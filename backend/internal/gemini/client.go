@@ -19,12 +19,6 @@ type Message struct {
 
 const defaultModel = "gemini-2.0-flash"
 
-const systemInstruction = `You are a personal dashboard assistant for finance tracking and kanban task management.
-Reply concisely in the same language the user writes in.
-Always use tools to read or write data — never fabricate records or IDs.
-When creating a finance record, call finance_list_categories first unless you already know the exact category name.
-When creating a kanban card, call kanban_get_board first unless you already have the column ID.`
-
 // maxToolRounds caps the number of tool-call iterations in a single Chat to
 // prevent infinite loops from a misbehaving model.
 const maxToolRounds = 8
@@ -37,14 +31,18 @@ type Deps struct {
 }
 
 // Client wraps a Gemini generative model and dispatches tool calls via MCP.
+// Each persona has its own pre-built GenerateContentConfig (system instruction + scoped
+// tool declarations). The config is selected per-request based on the input text.
 type Client struct {
 	gc         *genai.Client
 	model      string
-	config     *genai.GenerateContentConfig
+	configs    map[persona]*genai.GenerateContentConfig
 	mcpSession *mcp.ClientSession
 }
 
 // New creates a Client. Returns an error if the Gemini API key is invalid or unreachable.
+// Tool declarations and system instructions are built once here (not per-request) and
+// stored per persona. The correct config is selected at call time by resolvePersona.
 func New(ctx context.Context, d Deps) (*Client, error) {
 	gc, err := genai.NewClient(ctx, &genai.ClientConfig{APIKey: d.APIKey})
 	if err != nil {
@@ -54,24 +52,35 @@ func New(ctx context.Context, d Deps) (*Client, error) {
 	if modelName == "" {
 		modelName = defaultModel
 	}
-	config := &genai.GenerateContentConfig{
-		Tools:             []*genai.Tool{{FunctionDeclarations: AllTools()}},
-		SystemInstruction: genai.NewContentFromText(systemInstruction, genai.RoleUser),
+	configs := map[persona]*genai.GenerateContentConfig{
+		personaAether: {
+			SystemInstruction: genai.NewContentFromText(aetherInstruction, genai.RoleUser),
+		},
+		personaKaito: {
+			Tools:             []*genai.Tool{{FunctionDeclarations: toolDecls("kanban_")}},
+			SystemInstruction: genai.NewContentFromText(kaitoInstruction, genai.RoleUser),
+		},
+		personaMint: {
+			Tools:             []*genai.Tool{{FunctionDeclarations: toolDecls("finance_")}},
+			SystemInstruction: genai.NewContentFromText(mintInstruction, genai.RoleUser),
+		},
 	}
 	return &Client{
 		gc:         gc,
 		model:      modelName,
-		config:     config,
+		configs:    configs,
 		mcpSession: d.MCP,
 	}, nil
 }
 
 // Chat sends userMsg to Gemini, executes any tool calls via the MCP session in a
-// loop, and returns the final text reply.
+// loop, and returns the final text reply. The persona (and its scoped tools) is
+// resolved from the message text.
 func (c *Client) Chat(ctx context.Context, userMsg string) (string, error) {
 	msg := fmt.Sprintf("[Today: %s]\n%s", time.Now().Format("2006-01-02"), userMsg)
 
-	chat, err := c.gc.Chats.Create(ctx, c.model, c.config, nil)
+	p := resolvePersona(nil, userMsg)
+	chat, err := c.gc.Chats.Create(ctx, c.model, c.configs[p], nil)
 	if err != nil {
 		return "", fmt.Errorf("gemini: create chat: %w", err)
 	}
@@ -141,7 +150,8 @@ func (c *Client) ChatStream(ctx context.Context, history []Message, userMsg stri
 		historyContents = append(historyContents, genai.NewContentFromText(m.Text, genai.Role(role)))
 	}
 
-	chat, err := c.gc.Chats.Create(ctx, c.model, c.config, historyContents)
+	p := resolvePersona(history, userMsg)
+	chat, err := c.gc.Chats.Create(ctx, c.model, c.configs[p], historyContents)
 	if err != nil {
 		return Usage{}, fmt.Errorf("gemini: create chat: %w", err)
 	}

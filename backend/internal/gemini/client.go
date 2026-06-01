@@ -137,26 +137,32 @@ type Usage struct {
 // ChatStream sends userMsg to Gemini with optional conversation history, streams
 // text tokens through emit as they arrive, executes any tool calls via MCP in a
 // loop, and returns when the model produces its final reply (or on error).
+//
+// Note: we drive GenerateContentStream directly rather than using gc.Chats, because
+// Chat.SendStream records history only when every streaming chunk passes
+// validateResponse — but metadata-only chunks (no candidates) always fail that
+// check, making finalIsValid=false and dropping the model's function-call turn from
+// curatedHistory. Round 2 would then send a function response with no preceding
+// function call, causing the model to reply with a confused error. Managing the
+// contents slice ourselves sidesteps that SDK bug entirely.
 func (c *Client) ChatStream(ctx context.Context, history []Message, userMsg string, emit func(token string) error) (Usage, error) {
 	msg := fmt.Sprintf("[Today: %s]\n%s", time.Now().Format("2006-01-02"), userMsg)
 
-	// Build history contents for the chat session.
-	historyContents := make([]*genai.Content, 0, len(history))
+	// Build initial contents: prior history + current user message.
+	contents := make([]*genai.Content, 0, len(history)+1)
 	for _, m := range history {
 		role := m.Role
 		if role == "assistant" {
 			role = genai.RoleModel
 		}
-		historyContents = append(historyContents, genai.NewContentFromText(m.Text, genai.Role(role)))
+		contents = append(contents, genai.NewContentFromText(m.Text, genai.Role(role)))
 	}
+	contents = append(contents, &genai.Content{
+		Parts: []*genai.Part{{Text: msg}},
+		Role:  genai.RoleUser,
+	})
 
 	p := resolvePersona(history, userMsg)
-	chat, err := c.gc.Chats.Create(ctx, c.model, c.configs[p], historyContents)
-	if err != nil {
-		return Usage{}, fmt.Errorf("gemini: create chat: %w", err)
-	}
-
-	sendParts := []genai.Part{{Text: msg}}
 
 	var cumulative Usage
 
@@ -164,8 +170,9 @@ func (c *Client) ChatStream(ctx context.Context, history []Message, userMsg stri
 		var fcParts []*genai.Part
 		var streamErr error
 		var roundUsage *genai.GenerateContentResponseUsageMetadata
+		var modelParts []*genai.Part
 
-		for resp, err := range chat.SendMessageStream(ctx, sendParts...) {
+		for resp, err := range c.gc.Models.GenerateContentStream(ctx, c.model, contents, c.configs[p]) {
 			if err != nil {
 				streamErr = fmt.Errorf("gemini: stream: %w", err)
 				break
@@ -176,14 +183,15 @@ func (c *Client) ChatStream(ctx context.Context, history []Message, userMsg stri
 			if len(resp.Candidates) == 0 {
 				continue
 			}
-			for _, p := range resp.Candidates[0].Content.Parts {
-				if p.Text != "" {
-					if emitErr := emit(p.Text); emitErr != nil {
+			for _, part := range resp.Candidates[0].Content.Parts {
+				if part.Text != "" {
+					modelParts = append(modelParts, part)
+					if emitErr := emit(part.Text); emitErr != nil {
 						return cumulative, emitErr
 					}
 				}
-				if p.FunctionCall != nil {
-					part := p
+				if part.FunctionCall != nil {
+					modelParts = append(modelParts, part)
 					fcParts = append(fcParts, part)
 				}
 			}
@@ -207,7 +215,25 @@ func (c *Client) ChatStream(ctx context.Context, history []Message, userMsg stri
 			return cumulative, errors.New("gemini: tool-call loop exceeded max rounds")
 		}
 
-		sendParts = c.executeToolCalls(ctx, fcParts)
+		// Append the model's function-call turn so round 2 sees a complete conversation.
+		if len(modelParts) > 0 {
+			contents = append(contents, &genai.Content{
+				Parts: modelParts,
+				Role:  genai.RoleModel,
+			})
+		}
+
+		// Execute tool calls and append the function-response turn.
+		toolParts := c.executeToolCalls(ctx, fcParts)
+		frParts := make([]*genai.Part, len(toolParts))
+		for i := range toolParts {
+			pp := toolParts[i]
+			frParts[i] = &pp
+		}
+		contents = append(contents, &genai.Content{
+			Parts: frParts,
+			Role:  genai.RoleUser,
+		})
 	}
 
 	// Unreachable, but satisfies the compiler.

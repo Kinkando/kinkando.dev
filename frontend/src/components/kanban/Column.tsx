@@ -91,7 +91,7 @@ export default function KanbanColumn({
       <div
         ref={setNodeRef}
         style={style}
-        className="flex w-72 shrink-0 flex-col gap-3 rounded-xl border bg-gray-900 p-4"
+        className="flex w-72 shrink-0 flex-col gap-3 rounded-xl border border-gray-800 bg-gray-900 p-4"
       >
         {/* Column header */}
         <div className="flex items-center gap-2">

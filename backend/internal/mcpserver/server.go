@@ -93,22 +93,27 @@ type columnDTO struct {
 	ID        string `json:"id"`
 	BoardID   string `json:"board_id"`
 	Name      string `json:"name"`
+	Type      string `json:"type"`
+	IsSystem  bool   `json:"is_system"`
 	Order     int    `json:"order"`
 	CreatedAt string `json:"created_at"`
 }
 
 type cardDTO struct {
-	ID          string   `json:"id"`
-	BoardID     string   `json:"board_id"`
-	ColumnID    string   `json:"column_id"`
-	Title       string   `json:"title"`
-	Content     string   `json:"content"`
-	Description string   `json:"description"`
-	Priority    string   `json:"priority"`
-	DueDate     *string  `json:"due_date,omitempty"`
-	Tags        []string `json:"tags"`
-	Order       int      `json:"order"`
-	CreatedAt   string   `json:"created_at"`
+	ID            string   `json:"id"`
+	BoardID       string   `json:"board_id"`
+	ColumnID      string   `json:"column_id"`
+	Title         string   `json:"title"`
+	Content       string   `json:"content"`
+	Description   string   `json:"description"`
+	Priority      string   `json:"priority"`
+	DueDate       *string  `json:"due_date,omitempty"`
+	Tags          []string `json:"tags"`
+	Order         int      `json:"order"`
+	CompletedAt   *string  `json:"completed_at,omitempty"`
+	ArchivedAt    *string  `json:"archived_at,omitempty"`
+	ArchiveReason string   `json:"archive_reason,omitempty"`
+	CreatedAt     string   `json:"created_at"`
 }
 
 type boardStatsDTO struct {
@@ -143,6 +148,18 @@ type deleteCardOut struct {
 
 type boardStatsOut struct {
 	Stats boardStatsDTO `json:"stats"`
+}
+
+type archiveCardOut struct {
+	Card cardDTO `json:"card"`
+}
+
+type unarchiveCardOut struct {
+	Card cardDTO `json:"card"`
+}
+
+type listArchivedCardsOut struct {
+	Cards []cardDTO `json:"cards"`
 }
 
 // ---- DTO helpers ------------------------------------------------------------
@@ -192,6 +209,8 @@ func toColumnDTO(c *kanban.Column) columnDTO {
 		ID:        c.ID.Hex(),
 		BoardID:   c.BoardID.Hex(),
 		Name:      c.Name,
+		Type:      c.Type,
+		IsSystem:  c.IsSystem,
 		Order:     c.Order,
 		CreatedAt: c.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 	}
@@ -207,20 +226,29 @@ func toCardDTO(c *kanban.Card) cardDTO {
 		tags = []string{}
 	}
 	dto := cardDTO{
-		ID:          c.ID.Hex(),
-		BoardID:     c.BoardID.Hex(),
-		ColumnID:    c.ColumnID.Hex(),
-		Title:       c.Title,
-		Content:     c.Content,
-		Description: c.Description,
-		Priority:    priority,
-		Tags:        tags,
-		Order:       c.Order,
-		CreatedAt:   c.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		ID:            c.ID.Hex(),
+		BoardID:       c.BoardID.Hex(),
+		ColumnID:      c.ColumnID.Hex(),
+		Title:         c.Title,
+		Content:       c.Content,
+		Description:   c.Description,
+		Priority:      priority,
+		Tags:          tags,
+		Order:         c.Order,
+		ArchiveReason: c.ArchiveReason,
+		CreatedAt:     c.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 	}
 	if c.DueDate != nil {
 		s := c.DueDate.Format("2006-01-02")
 		dto.DueDate = &s
+	}
+	if c.CompletedAt != nil {
+		s := c.CompletedAt.Format("2006-01-02T15:04:05Z07:00")
+		dto.CompletedAt = &s
+	}
+	if c.ArchivedAt != nil {
+		s := c.ArchivedAt.Format("2006-01-02T15:04:05Z07:00")
+		dto.ArchivedAt = &s
 	}
 	return dto
 }
@@ -548,5 +576,64 @@ func registerTools(s *mcp.Server, d Deps) {
 			NoDueDate:  stats.NoDueDate,
 		}
 		return nil, boardStatsOut{Stats: dto}, nil
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        tools.KanbanArchiveCard.Name,
+		Description: tools.KanbanArchiveCard.Description,
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.ArchiveCardIn) (*mcp.CallToolResult, archiveCardOut, error) {
+		cardID, err := primitive.ObjectIDFromHex(in.CardID)
+		if err != nil {
+			return nil, archiveCardOut{}, fmt.Errorf("invalid card_id %q: %w", in.CardID, err)
+		}
+		if in.Reason != "" && !kanban.ValidUserArchiveReason(in.Reason) {
+			return nil, archiveCardOut{}, fmt.Errorf("invalid reason %q: must be cancelled, duplicate, or stale", in.Reason)
+		}
+		card, err := d.KanRepo.ArchiveCard(ctx, cardID, in.Reason)
+		if err != nil {
+			return nil, archiveCardOut{}, fmt.Errorf("archive card: %w", err)
+		}
+		return nil, archiveCardOut{Card: toCardDTO(card)}, nil
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        tools.KanbanUnarchiveCard.Name,
+		Description: tools.KanbanUnarchiveCard.Description,
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.UnarchiveCardIn) (*mcp.CallToolResult, unarchiveCardOut, error) {
+		cardID, err := primitive.ObjectIDFromHex(in.CardID)
+		if err != nil {
+			return nil, unarchiveCardOut{}, fmt.Errorf("invalid card_id %q: %w", in.CardID, err)
+		}
+		card, err := d.KanRepo.UnarchiveCard(ctx, cardID)
+		if err != nil {
+			return nil, unarchiveCardOut{}, fmt.Errorf("unarchive card: %w", err)
+		}
+		return nil, unarchiveCardOut{Card: toCardDTO(card)}, nil
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        tools.KanbanListArchivedCards.Name,
+		Description: tools.KanbanListArchivedCards.Description,
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.ListArchivedCardsIn) (*mcp.CallToolResult, listArchivedCardsOut, error) {
+		boardID, err := primitive.ObjectIDFromHex(in.BoardID)
+		if err != nil {
+			return nil, listArchivedCardsOut{}, fmt.Errorf("invalid board_id %q: %w", in.BoardID, err)
+		}
+		cards, err := d.KanRepo.ListArchivedCards(ctx, boardID, kanban.ListArchivedFilter{
+			Reason: in.Reason,
+			Month:  in.Month,
+			Year:   in.Year,
+		})
+		if err != nil {
+			return nil, listArchivedCardsOut{}, fmt.Errorf("list archived cards: %w", err)
+		}
+		if cards == nil {
+			cards = []*kanban.Card{}
+		}
+		dtos := make([]cardDTO, len(cards))
+		for i, card := range cards {
+			dtos[i] = toCardDTO(card)
+		}
+		return nil, listArchivedCardsOut{Cards: dtos}, nil
 	})
 }

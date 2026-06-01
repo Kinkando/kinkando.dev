@@ -31,6 +31,9 @@ func All() []ToolDef {
 		KanbanMoveCard,
 		KanbanDeleteCard,
 		KanbanBoardStats,
+		KanbanArchiveCard,
+		KanbanUnarchiveCard,
+		KanbanListArchivedCards,
 	}
 }
 
@@ -87,7 +90,7 @@ var FinanceMonthlySummary = ToolDef{
 
 var KanbanGetBoard = ToolDef{
 	Name:        "kanban_get_board",
-	Description: "Retrieve the full kanban board: metadata, all columns, and all cards. Use the returned IDs for subsequent calls.",
+	Description: "Retrieve the full kanban board: metadata, columns (with type: todo/in_progress/done/custom and is_system flag), and all active (non-archived) cards. Use the returned IDs for subsequent calls.",
 }
 
 var KanbanCreateCard = ToolDef{
@@ -191,4 +194,41 @@ type DeleteCardIn struct {
 
 type BoardStatsIn struct {
 	BoardID string `json:"board_id" jsonschema:"Board ID (hex ObjectID) — get it from kanban_get_board"`
+}
+
+var KanbanArchiveCard = ToolDef{
+	Name:        "kanban_archive_card",
+	Description: "Archive a kanban card. When the card is in a Done column the reason is automatically set to 'completed'; for other columns supply a reason: cancelled, duplicate, or stale.",
+	Input:       ArchiveCardIn{},
+	Required:    []string{"card_id"},
+}
+
+var KanbanUnarchiveCard = ToolDef{
+	Name:        "kanban_unarchive_card",
+	Description: "Restore an archived kanban card back to its original column.",
+	Input:       UnarchiveCardIn{},
+	Required:    []string{"card_id"},
+}
+
+var KanbanListArchivedCards = ToolDef{
+	Name:        "kanban_list_archived_cards",
+	Description: "List archived kanban cards for a board. Use reason='completed' for the completed archive, reason='general' for cancelled/duplicate/stale cards, or omit for all archived. Optionally filter by year and month.",
+	Input:       ListArchivedCardsIn{},
+	Required:    []string{"board_id"},
+}
+
+type ArchiveCardIn struct {
+	CardID string `json:"card_id" jsonschema:"Card ID (hex ObjectID) to archive"`
+	Reason string `json:"reason"  jsonschema:"Archive reason: cancelled, duplicate, or stale. Omit when archiving from a Done column — the server assigns 'completed' automatically."`
+}
+
+type UnarchiveCardIn struct {
+	CardID string `json:"card_id" jsonschema:"Card ID (hex ObjectID) to restore from the archive"`
+}
+
+type ListArchivedCardsIn struct {
+	BoardID string `json:"board_id" jsonschema:"Board ID (hex ObjectID) — get from kanban_get_board"`
+	Reason  string `json:"reason"   jsonschema:"Filter: 'completed' for done-archive, 'general' for all non-completed, or empty for all archived cards"`
+	Month   int    `json:"month"    jsonschema:"Filter by month (1–12); 0 or omit for all months"`
+	Year    int    `json:"year"     jsonschema:"Filter by year (e.g. 2026); 0 or omit for all years"`
 }

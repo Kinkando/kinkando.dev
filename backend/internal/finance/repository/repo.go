@@ -255,7 +255,7 @@ func (r *Repository) MonthlySummary(ctx context.Context, userID uuid.UUID, month
 		sumAmount.DESC(),
 	)
 
-	type summaryRow struct {
+	var rows []struct {
 		CategoryID *uuid.UUID      `alias:"cat_id"`
 		CatName    string          `alias:"cat_name"`
 		CatIcon    string          `alias:"cat_icon"`
@@ -263,8 +263,6 @@ func (r *Repository) MonthlySummary(ctx context.Context, userID uuid.UUID, month
 		Type       string          `alias:"rec_type"`
 		Total      decimal.Decimal `alias:"total"`
 	}
-
-	var rows []summaryRow
 	if err := stmt.QueryContext(ctx, r.db, &rows); err != nil {
 		return nil, fmt.Errorf("monthly summary: %w", err)
 	}

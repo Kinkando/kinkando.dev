@@ -180,18 +180,21 @@ func (c *Client) ChatStream(ctx context.Context, history []Message, userMsg stri
 			if resp.UsageMetadata != nil {
 				roundUsage = resp.UsageMetadata
 			}
-			if len(resp.Candidates) == 0 {
+			if len(resp.Candidates) == 0 || resp.Candidates[0].Content == nil {
 				continue
 			}
 			for _, part := range resp.Candidates[0].Content.Parts {
+				// Always collect every part for the model-turn history.
+				// Thinking models (e.g. gemini-2.5-flash) emit ThoughtSignature-only
+				// parts that carry no Text and no FunctionCall. Dropping those parts
+				// produces an incomplete model turn; round 2 then confuses the model.
+				modelParts = append(modelParts, part)
 				if part.Text != "" {
-					modelParts = append(modelParts, part)
 					if emitErr := emit(part.Text); emitErr != nil {
 						return cumulative, emitErr
 					}
 				}
 				if part.FunctionCall != nil {
-					modelParts = append(modelParts, part)
 					fcParts = append(fcParts, part)
 				}
 			}
@@ -257,11 +260,15 @@ func (c *Client) executeToolCalls(ctx context.Context, fcParts []*genai.Part) []
 		case res.IsError:
 			response = map[string]any{"error": contentText(res.Content)}
 		default:
-			response = map[string]any{"result": jsonFromContent(res.Content)}
+			// Use the "output" key as documented by Gemini; the whole map is
+			// treated as function output when neither "output" nor "error" is
+			// present, but being explicit avoids model confusion.
+			response = map[string]any{"output": jsonFromContent(res.Content)}
 		}
 		// Echo ThoughtSignature back to satisfy thinking-model requirements.
 		parts = append(parts, genai.Part{
 			FunctionResponse: &genai.FunctionResponse{
+				ID:       fc.ID,
 				Name:     fc.Name,
 				Response: response,
 			},

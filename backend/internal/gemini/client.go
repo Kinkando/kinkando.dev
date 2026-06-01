@@ -184,11 +184,6 @@ func (c *Client) ChatStream(ctx context.Context, history []Message, userMsg stri
 				continue
 			}
 			for _, part := range resp.Candidates[0].Content.Parts {
-				// Always collect every part for the model-turn history.
-				// Thinking models (e.g. gemini-2.5-flash) emit ThoughtSignature-only
-				// parts that carry no Text and no FunctionCall. Dropping those parts
-				// produces an incomplete model turn; round 2 then confuses the model.
-				modelParts = append(modelParts, part)
 				if part.Text != "" {
 					if emitErr := emit(part.Text); emitErr != nil {
 						return cumulative, emitErr
@@ -196,6 +191,14 @@ func (c *Client) ChatStream(ctx context.Context, history []Message, userMsg stri
 				}
 				if part.FunctionCall != nil {
 					fcParts = append(fcParts, part)
+				}
+				// Only keep parts that have a data field in the API's oneof.
+				// Bare ThoughtSignature parts (thinking chunks with no text/function call)
+				// carry no data field and the API returns 400 when they are echoed back
+				// in conversation history. ThoughtSignature on FunctionCall parts is
+				// preserved and echoed on the corresponding FunctionResponse.
+				if partHasData(part) {
+					modelParts = append(modelParts, part)
 				}
 			}
 		}
@@ -276,6 +279,20 @@ func (c *Client) executeToolCalls(ctx context.Context, fcParts []*genai.Part) []
 		})
 	}
 	return parts
+}
+
+// partHasData reports whether p has at least one field in the API's Part.data
+// oneof (text, function_call, inline_data, etc.). Bare ThoughtSignature parts
+// have no data field and are rejected by the API with INVALID_ARGUMENT when
+// echoed back in conversation history.
+func partHasData(p *genai.Part) bool {
+	return p.Text != "" ||
+		p.FunctionCall != nil ||
+		p.FunctionResponse != nil ||
+		p.InlineData != nil ||
+		p.FileData != nil ||
+		p.ExecutableCode != nil ||
+		p.CodeExecutionResult != nil
 }
 
 // contentText extracts the text from the first TextContent in a Content slice.

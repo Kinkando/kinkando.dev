@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { createPortal } from 'react-dom'
+import { useEffect, useRef, useState } from 'react'
 import type { Card } from '../lib/api/types'
 import { PRIORITY_META } from '../lib/kanban'
 import {
@@ -279,6 +280,18 @@ function ArchivedCard({
   onRestore: () => void
   onDelete: () => void
 }) {
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const backdropRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!showDeleteConfirm) return
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setShowDeleteConfirm(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [showDeleteConfirm])
+
   const priorityMeta =
     card.priority && card.priority !== 'none'
       ? PRIORITY_META[card.priority]
@@ -348,12 +361,51 @@ function ArchivedCard({
           Restore
         </button>
         <button
-          onClick={onDelete}
+          onClick={() => setShowDeleteConfirm(true)}
           className="rounded-md border border-gray-700 px-2.5 py-1 text-xs text-gray-500 hover:border-red-700 hover:text-red-400"
         >
           Delete
         </button>
       </div>
+
+      {showDeleteConfirm &&
+        createPortal(
+          <div
+            ref={backdropRef}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+            onMouseDown={(e) => {
+              if (e.target === backdropRef.current) setShowDeleteConfirm(false)
+            }}
+          >
+            <div className="w-full max-w-sm rounded-xl border border-gray-700 bg-gray-900 p-6 shadow-2xl">
+              <h2 className="mb-1 text-base font-semibold text-gray-100">
+                Delete card?
+              </h2>
+              <p className="mb-5 text-sm text-gray-400">
+                &ldquo;{card.title}&rdquo; will be permanently deleted. This
+                cannot be undone.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    onDelete()
+                    setShowDeleteConfirm(false)
+                  }}
+                  className="flex-1 rounded-lg bg-red-600 py-2 text-sm font-medium text-white hover:bg-red-500"
+                >
+                  Delete
+                </button>
+                <button
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="flex-1 rounded-lg bg-gray-800 py-2 text-sm font-medium text-gray-400 hover:bg-gray-700"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   )
 }

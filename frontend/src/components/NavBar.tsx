@@ -57,18 +57,18 @@ export default function NavBar() {
             Finance
           </Link>
           <Link
-            to="/chat"
-            className={linkClass('/chat')}
-            onClick={() => setOpen(false)}
-          >
-            Chat
-          </Link>
-          <Link
             to="/health"
             className={linkClass('/health')}
             onClick={() => setOpen(false)}
           >
             Health
+          </Link>
+          <Link
+            to="/chat"
+            className={linkClass('/chat')}
+            onClick={() => setOpen(false)}
+          >
+            Chat
           </Link>
           <button
             onClick={() => {
@@ -105,13 +105,13 @@ export default function NavBar() {
         </Link>
 
         {/* Desktop menu */}
-        <div className="hidden items-center gap-6 text-sm sm:flex">
+        <div className="hidden items-center gap-6 text-sm lg:flex">
           {navLinks}
         </div>
 
         {/* Hamburger */}
         <button
-          className="flex items-center justify-center rounded-md p-1.5 text-gray-400 hover:text-gray-100 sm:hidden"
+          className="flex items-center justify-center rounded-md p-1.5 text-gray-400 hover:text-gray-100 lg:hidden"
           onClick={() => setOpen((o) => !o)}
           aria-label="Toggle menu"
         >
@@ -151,7 +151,7 @@ export default function NavBar() {
 
       {/* Mobile drawer */}
       {open && (
-        <div className="flex flex-col gap-4 border-t border-gray-800 px-6 py-4 text-sm sm:hidden">
+        <div className="flex flex-col gap-4 border-t border-gray-800 px-6 py-4 text-sm lg:hidden">
           {navLinks}
         </div>
       )}

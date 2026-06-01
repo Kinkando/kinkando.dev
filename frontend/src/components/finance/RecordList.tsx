@@ -1,3 +1,5 @@
+import { createPortal } from 'react-dom'
+import { useEffect, useRef, useState } from 'react'
 import type { FinanceRecord } from '../../lib/api/types'
 import { useDeleteRecord } from '../../queries/useFinance'
 import { getIcon } from '../../lib/icons'
@@ -50,6 +52,7 @@ export default function RecordList({
   month: string
 }) {
   const deleteMutation = useDeleteRecord(month)
+  const [pendingDelete, setPendingDelete] = useState<FinanceRecord | null>(null)
 
   if (!records.length) {
     return (
@@ -60,102 +63,188 @@ export default function RecordList({
   const groups = groupByDate(records)
 
   return (
-    <div className="flex flex-col gap-4">
-      {groups.map(([date, groupRecords]) => {
-        const net = dailyNet(groupRecords)
-        return (
-          <div key={date}>
-            <div className="mb-2 flex items-center justify-between px-1">
-              <span className="text-xs font-semibold tracking-wide text-gray-400 uppercase">
-                {formatGroupDate(date)}
-              </span>
-              <span
-                className={`text-xs font-semibold ${net >= 0 ? 'text-green-400' : 'text-red-400'}`}
-              >
-                {net >= 0 ? '+' : ''}
-                {formatCurrency(net)}
-              </span>
-            </div>
-            <ul className="flex flex-col gap-2">
-              {groupRecords.map((record) => {
-                const catName = record.category?.name
-                const catIcon = record.category?.icon
-                const catColor = record.category?.color
-                const Icon = catIcon ? getIcon(catIcon) : null
+    <>
+      <div className="flex flex-col gap-4">
+        {groups.map(([date, groupRecords]) => {
+          const net = dailyNet(groupRecords)
+          return (
+            <div key={date}>
+              <div className="mb-2 flex items-center justify-between px-1">
+                <span className="text-xs font-semibold tracking-wide text-gray-400 uppercase">
+                  {formatGroupDate(date)}
+                </span>
+                <span
+                  className={`text-xs font-semibold ${net >= 0 ? 'text-green-400' : 'text-red-400'}`}
+                >
+                  {net >= 0 ? '+' : ''}
+                  {formatCurrency(net)}
+                </span>
+              </div>
+              <ul className="flex flex-col gap-2">
+                {groupRecords.map((record) => {
+                  const catName = record.category?.name
+                  const catIcon = record.category?.icon
+                  const catColor = record.category?.color
+                  const Icon = catIcon ? getIcon(catIcon) : null
 
-                return (
-                  <li
-                    key={record.id}
-                    className={`relative rounded-xl border px-3 pt-2 pb-3 ${
-                      record.type === 'income'
-                        ? 'border-green-900/40 bg-green-950/30'
-                        : 'border-red-900/40 bg-red-950/30'
-                    }`}
-                  >
-                    {/* Delete — top right */}
-                    <button
-                      onClick={() => deleteMutation.mutate(record.id)}
-                      disabled={deleteMutation.isPending}
-                      className="absolute top-2 right-2 text-xs text-gray-600 hover:text-red-400 disabled:opacity-40"
+                  return (
+                    <li
+                      key={record.id}
+                      className={`relative rounded-xl border px-3 pt-2 pb-3 ${
+                        record.type === 'income'
+                          ? 'border-green-900/40 bg-green-950/30'
+                          : 'border-red-900/40 bg-red-950/30'
+                      }`}
                     >
-                      ✕
-                    </button>
-
-                    <div className="flex items-center gap-3 pr-5">
-                      {/* Category icon — bg tinted by type */}
-                      <span
-                        className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl"
-                        style={{
-                          backgroundColor:
-                            record.type === 'income'
-                              ? '#16a34a26'
-                              : '#dc262626',
-                          color:
-                            catColor ??
-                            (record.type === 'income' ? '#4ade80' : '#f87171'),
-                        }}
+                      {/* Delete — top right */}
+                      <button
+                        onClick={() => setPendingDelete(record)}
+                        disabled={deleteMutation.isPending}
+                        className="absolute top-2 right-2 text-xs text-gray-600 hover:text-red-400 disabled:opacity-40"
                       >
-                        {Icon ? (
-                          <Icon size={16} />
-                        ) : (
-                          <span className="text-xs">?</span>
-                        )}
-                      </span>
+                        ✕
+                      </button>
 
-                      {/* Info — priority: category › note › time */}
-                      <div className="min-w-0 flex-1">
-                        <span className="truncate text-sm font-medium text-gray-200">
-                          {catName ?? '—'}
+                      <div className="flex items-center gap-3 pr-5">
+                        {/* Category icon — bg tinted by type */}
+                        <span
+                          className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl"
+                          style={{
+                            backgroundColor:
+                              record.type === 'income'
+                                ? '#16a34a26'
+                                : '#dc262626',
+                            color:
+                              catColor ??
+                              (record.type === 'income'
+                                ? '#4ade80'
+                                : '#f87171'),
+                          }}
+                        >
+                          {Icon ? (
+                            <Icon size={16} />
+                          ) : (
+                            <span className="text-xs">?</span>
+                          )}
                         </span>
-                        {record.note && (
-                          <p className="mt-0.5 text-xs text-gray-400">
-                            {record.note}
-                          </p>
-                        )}
-                        <p className="mt-0.5 text-xs text-gray-600">
-                          {formatTime(record.created_at)}
-                        </p>
-                      </div>
 
-                      {/* Amount */}
-                      <span
-                        className={`shrink-0 text-sm font-semibold whitespace-nowrap ${
-                          record.type === 'income'
-                            ? 'text-green-400'
-                            : 'text-red-400'
-                        }`}
-                      >
-                        {record.type === 'income' ? '+' : '-'}
-                        {formatCurrency(record.amount)}
-                      </span>
-                    </div>
-                  </li>
-                )
-              })}
-            </ul>
-          </div>
-        )
-      })}
-    </div>
+                        {/* Info — priority: category › note › time */}
+                        <div className="min-w-0 flex-1">
+                          <span className="truncate text-sm font-medium text-gray-200">
+                            {catName ?? '—'}
+                          </span>
+                          {record.note && (
+                            <p className="mt-0.5 text-xs text-gray-400">
+                              {record.note}
+                            </p>
+                          )}
+                          <p className="mt-0.5 text-xs text-gray-600">
+                            {formatTime(record.created_at)}
+                          </p>
+                        </div>
+
+                        {/* Amount */}
+                        <span
+                          className={`shrink-0 text-sm font-semibold whitespace-nowrap ${
+                            record.type === 'income'
+                              ? 'text-green-400'
+                              : 'text-red-400'
+                          }`}
+                        >
+                          {record.type === 'income' ? '+' : '-'}
+                          {formatCurrency(record.amount)}
+                        </span>
+                      </div>
+                    </li>
+                  )
+                })}
+              </ul>
+            </div>
+          )
+        })}
+      </div>
+
+      {pendingDelete && (
+        <ConfirmDeleteDialog
+          record={pendingDelete}
+          onConfirm={() => {
+            deleteMutation.mutate(pendingDelete.id, {
+              onSettled: () => setPendingDelete(null),
+            })
+          }}
+          onClose={() => setPendingDelete(null)}
+        />
+      )}
+    </>
+  )
+}
+
+// ---- Confirm delete dialog --------------------------------------------------
+
+type ConfirmDeleteDialogProps = {
+  record: FinanceRecord
+  onConfirm: () => void
+  onClose: () => void
+}
+
+function ConfirmDeleteDialog({
+  record,
+  onConfirm,
+  onClose,
+}: ConfirmDeleteDialogProps) {
+  const backdropRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  const catName = record.category?.name ?? '—'
+  const amount = formatCurrency(record.amount)
+
+  return createPortal(
+    <div
+      ref={backdropRef}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+      onMouseDown={(e) => {
+        if (e.target === backdropRef.current) onClose()
+      }}
+    >
+      <div className="w-full max-w-sm rounded-xl border border-gray-700 bg-gray-900 p-6 shadow-2xl">
+        <h2 className="mb-1 text-base font-semibold text-gray-100">
+          Delete record?
+        </h2>
+        <p className="mb-5 text-sm text-gray-400">
+          <b className="underline">{catName}</b>{' '}
+          {record.note && <>{record.note} </>}
+          <span
+            className={
+              record.type === 'income' ? 'text-green-400' : 'text-red-400'
+            }
+          >
+            {record.type === 'income' ? '+' : '-'}
+            {amount}
+          </span>
+        </p>
+        <div className="flex gap-2">
+          <button
+            onClick={onConfirm}
+            className="flex-1 rounded-lg bg-red-600 py-2 text-sm font-medium text-white hover:bg-red-500"
+          >
+            Delete
+          </button>
+          <button
+            onClick={onClose}
+            className="flex-1 rounded-lg bg-gray-800 py-2 text-sm font-medium text-gray-400 hover:bg-gray-700"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
   )
 }

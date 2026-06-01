@@ -4,6 +4,39 @@ import { signOut } from 'firebase/auth'
 import { auth } from '../lib/firebase'
 import { useAuth } from '../auth/AuthContext'
 
+const ICONS = {
+  portfolio:
+    'M17.982 18.725A7.488 7.488 0 0012 15.75a7.488 7.488 0 00-5.982 2.975m11.963 0a9 9 0 10-11.963 0m11.963 0A8.966 8.966 0 0112 21a8.966 8.966 0 01-5.982-2.275M15 9.75a3 3 0 11-6 0 3 3 0 016 0z',
+  kanban:
+    'M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z',
+  archive:
+    'M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z',
+  finance:
+    'M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z',
+  health:
+    'M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z',
+  chat: 'M20.25 8.511c.884.284 1.5 1.128 1.5 2.097v4.286c0 1.136-.847 2.1-1.98 2.193-.34.027-.68.052-1.02.072v3.091l-3-3c-1.354 0-2.694-.055-4.02-.163a2.115 2.115 0 01-.825-.242m9.345-8.334a2.126 2.126 0 00-.476-.095 48.64 48.64 0 00-8.048 0c-1.131.094-1.976 1.057-1.976 2.192v4.286c0 .837.46 1.58 1.155 1.951m9.345-8.334V6.637c0-1.621-1.152-3.026-2.76-3.235A48.455 48.455 0 0011.25 3c-2.115 0-4.198.137-6.24.402-1.608.209-2.76 1.614-2.76 3.235v6.226c0 1.621 1.152 3.026 2.76 3.235.577.075 1.157.14 1.74.194V21l4.155-4.155',
+  login:
+    'M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75',
+  logout:
+    'M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9',
+} as const
+
+function NavIcon({ name }: { name: keyof typeof ICONS }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      className="h-4 w-4 shrink-0"
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={1.5}
+    >
+      <path strokeLinecap="round" strokeLinejoin="round" d={ICONS[name]} />
+    </svg>
+  )
+}
+
 export default function NavBar() {
   const { user } = useAuth()
   const location = useLocation()
@@ -38,9 +71,11 @@ export default function NavBar() {
   }
 
   const linkClass = (path: string) =>
-    isActive(path)
-      ? 'text-indigo-400'
-      : 'text-gray-400 hover:text-gray-100 transition-colors'
+    `flex items-center gap-1.5 ${
+      isActive(path)
+        ? 'text-indigo-400'
+        : 'text-gray-400 hover:text-gray-100 transition-colors'
+    }`
 
   const navLinks = (
     <>
@@ -49,6 +84,7 @@ export default function NavBar() {
         className={linkClass('/portfolio')}
         onClick={() => setOpen(false)}
       >
+        <NavIcon name="portfolio" />
         Portfolio
       </Link>
       {user && (
@@ -58,6 +94,7 @@ export default function NavBar() {
             className={linkClass('/kanban')}
             onClick={() => setOpen(false)}
           >
+            <NavIcon name="kanban" />
             Kanban
           </Link>
           <Link
@@ -65,6 +102,7 @@ export default function NavBar() {
             className={linkClass('/kanban/archive')}
             onClick={() => setOpen(false)}
           >
+            <NavIcon name="archive" />
             Archive
           </Link>
           <Link
@@ -72,6 +110,7 @@ export default function NavBar() {
             className={linkClass('/finance')}
             onClick={() => setOpen(false)}
           >
+            <NavIcon name="finance" />
             Finance
           </Link>
           <Link
@@ -79,6 +118,7 @@ export default function NavBar() {
             className={linkClass('/health')}
             onClick={() => setOpen(false)}
           >
+            <NavIcon name="health" />
             Health
           </Link>
           <Link
@@ -86,6 +126,7 @@ export default function NavBar() {
             className={linkClass('/chat')}
             onClick={() => setOpen(false)}
           >
+            <NavIcon name="chat" />
             Chat
           </Link>
         </>
@@ -96,6 +137,7 @@ export default function NavBar() {
           className={linkClass('/login')}
           onClick={() => setOpen(false)}
         >
+          <NavIcon name="login" />
           Login
         </Link>
       )}
@@ -159,8 +201,9 @@ export default function NavBar() {
                       setAvatarOpen(false)
                       handleLogout()
                     }}
-                    className="w-full px-4 py-2 text-left text-sm text-gray-300 transition-colors hover:bg-gray-700 hover:text-gray-100"
+                    className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-300 transition-colors hover:bg-gray-700 hover:text-gray-100"
                   >
+                    <NavIcon name="logout" />
                     Logout
                   </button>
                 </div>
@@ -236,8 +279,9 @@ export default function NavBar() {
                   setOpen(false)
                   handleLogout()
                 }}
-                className="text-left text-gray-400 transition-colors hover:text-gray-100"
+                className="flex items-center gap-1.5 text-left text-gray-400 transition-colors hover:text-gray-100"
               >
+                <NavIcon name="logout" />
                 Logout
               </button>
             </>

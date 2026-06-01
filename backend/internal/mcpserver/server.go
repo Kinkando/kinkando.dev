@@ -13,6 +13,8 @@ import (
 	"github.com/kinkando/personal-dashboard/internal/kanban"
 	kanbanRepo "github.com/kinkando/personal-dashboard/internal/kanban/repository"
 	"github.com/kinkando/personal-dashboard/internal/tools"
+	"github.com/kinkando/personal-dashboard/internal/workout"
+	workoutSvc "github.com/kinkando/personal-dashboard/internal/workout/service"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
@@ -22,6 +24,7 @@ import (
 type Deps struct {
 	FinSvc      *financeSvc.Service
 	KanRepo     *kanbanRepo.Repository
+	WkSvc       *workoutSvc.Service
 	UserUUID    uuid.UUID
 	FirebaseUID string
 	Logger      *zap.Logger
@@ -321,6 +324,155 @@ func toCardDTO(c *kanban.Card) cardDTO {
 		s := c.ArchivedAt.Format("2006-01-02T15:04:05Z07:00")
 		dto.ArchivedAt = &s
 	}
+	return dto
+}
+
+// ---- Workout output types ---------------------------------------------------
+
+type workoutPresetDTO struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Type        string `json:"type"`
+	Description string `json:"description,omitempty"`
+	Exercises   int    `json:"exercise_count"`
+}
+
+type scheduleEntryDTO struct {
+	DayOfWeek  int    `json:"day_of_week"`
+	DayName    string `json:"day_name"`
+	PresetID   string `json:"preset_id"`
+	PresetName string `json:"preset_name"`
+	PresetType string `json:"preset_type"`
+}
+
+type sessionExerciseDTO struct {
+	ID                    string  `json:"id"`
+	Section               string  `json:"section"`
+	OrderIndex            int     `json:"order_index"`
+	Name                  string  `json:"name"`
+	TargetSets            *int    `json:"target_sets,omitempty"`
+	TargetReps            *int    `json:"target_reps,omitempty"`
+	TargetDurationSeconds *int    `json:"target_duration_seconds,omitempty"`
+	RestSeconds           *int    `json:"rest_seconds,omitempty"`
+	ActualSets            *int    `json:"actual_sets,omitempty"`
+	ActualReps            *int    `json:"actual_reps,omitempty"`
+	ActualDurationSeconds *int    `json:"actual_duration_seconds,omitempty"`
+	WeightKg              *float64 `json:"weight_kg,omitempty"`
+	Completed             bool    `json:"completed"`
+	Notes                 string  `json:"notes,omitempty"`
+}
+
+type workoutSessionDTO struct {
+	ID              string               `json:"id"`
+	Name            string               `json:"name"`
+	Type            string               `json:"type"`
+	PerformedAt     string               `json:"performed_at"`
+	DurationMinutes *int                 `json:"duration_minutes,omitempty"`
+	Notes           string               `json:"notes,omitempty"`
+	Exercises       []sessionExerciseDTO `json:"exercises"`
+}
+
+type listPresetsOut struct {
+	Presets []workoutPresetDTO `json:"presets"`
+}
+
+type getScheduleOut struct {
+	Schedule []scheduleEntryDTO `json:"schedule"`
+}
+
+type listWorkoutSessionsOut struct {
+	Sessions []workoutSessionDTO `json:"sessions"`
+}
+
+type startSessionOut struct {
+	Session workoutSessionDTO `json:"session"`
+}
+
+type updateSessionOut struct {
+	Session workoutSessionDTO `json:"session"`
+}
+
+type logExerciseOut struct {
+	Exercise sessionExerciseDTO `json:"exercise"`
+}
+
+type addExerciseOut struct {
+	Exercise sessionExerciseDTO `json:"exercise"`
+}
+
+// ---- Workout DTO helpers ----------------------------------------------------
+
+var dayNames = [7]string{"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"}
+
+func toWorkoutPresetDTO(p *workout.Preset) workoutPresetDTO {
+	dto := workoutPresetDTO{
+		ID:        p.ID.String(),
+		Name:      p.Name,
+		Type:      string(p.Type),
+		Exercises: len(p.Exercises),
+	}
+	if p.Description != nil {
+		dto.Description = *p.Description
+	}
+	return dto
+}
+
+func toSessionExerciseDTO(ex workout.SessionExercise) sessionExerciseDTO {
+	dto := sessionExerciseDTO{
+		ID:         ex.ID.String(),
+		Section:    string(ex.Section),
+		OrderIndex: ex.OrderIndex,
+		Name:       ex.Name,
+		Completed:  ex.Completed,
+	}
+	if ex.TargetSets != nil {
+		dto.TargetSets = ex.TargetSets
+	}
+	if ex.TargetReps != nil {
+		dto.TargetReps = ex.TargetReps
+	}
+	if ex.TargetDurationSeconds != nil {
+		dto.TargetDurationSeconds = ex.TargetDurationSeconds
+	}
+	if ex.RestSeconds != nil {
+		dto.RestSeconds = ex.RestSeconds
+	}
+	if ex.ActualSets != nil {
+		dto.ActualSets = ex.ActualSets
+	}
+	if ex.ActualReps != nil {
+		dto.ActualReps = ex.ActualReps
+	}
+	if ex.ActualDurationSeconds != nil {
+		dto.ActualDurationSeconds = ex.ActualDurationSeconds
+	}
+	if ex.WeightKg != nil {
+		dto.WeightKg = ex.WeightKg
+	}
+	if ex.Notes != nil {
+		dto.Notes = *ex.Notes
+	}
+	return dto
+}
+
+func toWorkoutSessionDTO(s *workout.Session) workoutSessionDTO {
+	dto := workoutSessionDTO{
+		ID:          s.ID.String(),
+		Name:        s.Name,
+		Type:        string(s.Type),
+		PerformedAt: s.PerformedAt.Format("2006-01-02"),
+	}
+	if s.DurationMinutes != nil {
+		dto.DurationMinutes = s.DurationMinutes
+	}
+	if s.Notes != nil {
+		dto.Notes = *s.Notes
+	}
+	exs := make([]sessionExerciseDTO, len(s.Exercises))
+	for i, ex := range s.Exercises {
+		exs[i] = toSessionExerciseDTO(ex)
+	}
+	dto.Exercises = exs
 	return dto
 }
 
@@ -706,5 +858,223 @@ func registerTools(s *mcp.Server, d Deps) {
 			dtos[i] = toCardDTO(card)
 		}
 		return nil, listArchivedCardsOut{Cards: dtos}, nil
+	}))
+
+	// Workout
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        tools.WorkoutListSessions.Name,
+		Description: tools.WorkoutListSessions.Description,
+	}, withLog(d.Logger, tools.WorkoutListSessions.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.WorkoutListSessionsIn) (*mcp.CallToolResult, listWorkoutSessionsOut, error) {
+		now := time.Now().UTC().Truncate(24 * time.Hour)
+		from := now.AddDate(0, 0, -30)
+		to := now
+		if in.From != "" {
+			t, err := time.Parse("2006-01-02", in.From)
+			if err != nil {
+				return nil, listWorkoutSessionsOut{}, fmt.Errorf("invalid from date: %w", err)
+			}
+			from = t
+		}
+		if in.To != "" {
+			t, err := time.Parse("2006-01-02", in.To)
+			if err != nil {
+				return nil, listWorkoutSessionsOut{}, fmt.Errorf("invalid to date: %w", err)
+			}
+			to = t
+		}
+		sessions, err := d.WkSvc.ListSessions(ctx, d.UserUUID, from, to)
+		if err != nil {
+			return nil, listWorkoutSessionsOut{}, fmt.Errorf("list sessions: %w", err)
+		}
+		dtos := make([]workoutSessionDTO, len(sessions))
+		for i, s := range sessions {
+			dtos[i] = toWorkoutSessionDTO(s)
+		}
+		return nil, listWorkoutSessionsOut{Sessions: dtos}, nil
+	}))
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        tools.WorkoutListPresets.Name,
+		Description: tools.WorkoutListPresets.Description,
+	}, withLog(d.Logger, tools.WorkoutListPresets.Name, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, listPresetsOut, error) {
+		presets, err := d.WkSvc.ListPresets(ctx, d.UserUUID)
+		if err != nil {
+			return nil, listPresetsOut{}, fmt.Errorf("list presets: %w", err)
+		}
+		dtos := make([]workoutPresetDTO, len(presets))
+		for i, p := range presets {
+			dtos[i] = toWorkoutPresetDTO(p)
+		}
+		return nil, listPresetsOut{Presets: dtos}, nil
+	}))
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        tools.WorkoutGetSchedule.Name,
+		Description: tools.WorkoutGetSchedule.Description,
+	}, withLog(d.Logger, tools.WorkoutGetSchedule.Name, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, getScheduleOut, error) {
+		entries, err := d.WkSvc.GetSchedule(ctx, d.UserUUID)
+		if err != nil {
+			return nil, getScheduleOut{}, fmt.Errorf("get schedule: %w", err)
+		}
+		dtos := make([]scheduleEntryDTO, len(entries))
+		for i, e := range entries {
+			dtos[i] = scheduleEntryDTO{
+				DayOfWeek:  e.DayOfWeek,
+				DayName:    dayNames[e.DayOfWeek],
+				PresetID:   e.PresetID.String(),
+				PresetName: e.PresetName,
+				PresetType: string(e.PresetType),
+			}
+		}
+		return nil, getScheduleOut{Schedule: dtos}, nil
+	}))
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        tools.WorkoutStartSession.Name,
+		Description: tools.WorkoutStartSession.Description,
+	}, withLog(d.Logger, tools.WorkoutStartSession.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.WorkoutStartSessionIn) (*mcp.CallToolResult, startSessionOut, error) {
+		if in.PresetName == "" && in.Type == "" {
+			return nil, startSessionOut{}, fmt.Errorf("preset_name or type is required")
+		}
+		var nameOverride *string
+		if in.Name != "" {
+			nameOverride = &in.Name
+		}
+		input := workout.CreateSessionInput{
+			Date: in.Date,
+			Name: nameOverride,
+		}
+		if in.PresetName != "" {
+			presets, err := d.WkSvc.ListPresets(ctx, d.UserUUID)
+			if err != nil {
+				return nil, startSessionOut{}, fmt.Errorf("list presets: %w", err)
+			}
+			var presetID *uuid.UUID
+			for _, p := range presets {
+				if strings.EqualFold(p.Name, in.PresetName) {
+					id := p.ID
+					presetID = &id
+					break
+				}
+			}
+			if presetID == nil {
+				return nil, startSessionOut{}, fmt.Errorf("no preset named %q — call workout_list_presets to see available names", in.PresetName)
+			}
+			input.PresetID = presetID
+		} else {
+			t := workout.Type(in.Type)
+			input.Type = &t
+		}
+		session, err := d.WkSvc.CreateSession(ctx, d.UserUUID, input)
+		if err != nil {
+			return nil, startSessionOut{}, fmt.Errorf("start session: %w", err)
+		}
+		return nil, startSessionOut{Session: toWorkoutSessionDTO(session)}, nil
+	}))
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        tools.WorkoutUpdateSession.Name,
+		Description: tools.WorkoutUpdateSession.Description,
+	}, withLog(d.Logger, tools.WorkoutUpdateSession.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.WorkoutUpdateSessionIn) (*mcp.CallToolResult, updateSessionOut, error) {
+		if strings.TrimSpace(in.Name) == "" {
+			return nil, updateSessionOut{}, fmt.Errorf("name is required")
+		}
+		sessionID, err := uuid.Parse(in.SessionID)
+		if err != nil {
+			return nil, updateSessionOut{}, fmt.Errorf("invalid session_id %q: %w", in.SessionID, err)
+		}
+		var durationMinutes *int
+		if in.DurationMinutes > 0 {
+			durationMinutes = &in.DurationMinutes
+		}
+		var notes *string
+		if in.Notes != "" {
+			notes = &in.Notes
+		}
+		session, err := d.WkSvc.UpdateSession(ctx, sessionID, d.UserUUID, workout.UpdateSessionInput{
+			Name:            in.Name,
+			DurationMinutes: durationMinutes,
+			Notes:           notes,
+		})
+		if err != nil {
+			return nil, updateSessionOut{}, fmt.Errorf("update session: %w", err)
+		}
+		return nil, updateSessionOut{Session: toWorkoutSessionDTO(session)}, nil
+	}))
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        tools.WorkoutLogExercise.Name,
+		Description: tools.WorkoutLogExercise.Description,
+	}, withLog(d.Logger, tools.WorkoutLogExercise.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.WorkoutLogExerciseIn) (*mcp.CallToolResult, logExerciseOut, error) {
+		sessionID, err := uuid.Parse(in.SessionID)
+		if err != nil {
+			return nil, logExerciseOut{}, fmt.Errorf("invalid session_id %q: %w", in.SessionID, err)
+		}
+		exerciseID, err := uuid.Parse(in.ExerciseID)
+		if err != nil {
+			return nil, logExerciseOut{}, fmt.Errorf("invalid exercise_id %q: %w", in.ExerciseID, err)
+		}
+		input := workout.UpdateSessionExerciseInput{
+			Completed: in.Completed,
+		}
+		if in.ActualSets > 0 {
+			input.ActualSets = &in.ActualSets
+		}
+		if in.ActualReps > 0 {
+			input.ActualReps = &in.ActualReps
+		}
+		if in.ActualDurationSeconds > 0 {
+			input.ActualDurationSeconds = &in.ActualDurationSeconds
+		}
+		if in.WeightKg > 0 {
+			w := in.WeightKg
+			input.WeightKg = &w
+		}
+		if in.Notes != "" {
+			input.Notes = &in.Notes
+		}
+		ex, err := d.WkSvc.UpdateSessionExercise(ctx, exerciseID, sessionID, d.UserUUID, input)
+		if err != nil {
+			return nil, logExerciseOut{}, fmt.Errorf("log exercise: %w", err)
+		}
+		return nil, logExerciseOut{Exercise: toSessionExerciseDTO(*ex)}, nil
+	}))
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        tools.WorkoutAddExercise.Name,
+		Description: tools.WorkoutAddExercise.Description,
+	}, withLog(d.Logger, tools.WorkoutAddExercise.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.WorkoutAddExerciseIn) (*mcp.CallToolResult, addExerciseOut, error) {
+		if strings.TrimSpace(in.Name) == "" {
+			return nil, addExerciseOut{}, fmt.Errorf("name is required")
+		}
+		sessionID, err := uuid.Parse(in.SessionID)
+		if err != nil {
+			return nil, addExerciseOut{}, fmt.Errorf("invalid session_id %q: %w", in.SessionID, err)
+		}
+		section := workout.Section(in.Section)
+		if section == "" {
+			section = workout.SectionMain
+		}
+		input := workout.AddSessionExerciseInput{
+			Section: section,
+			Name:    in.Name,
+		}
+		if in.TargetSets > 0 {
+			input.TargetSets = &in.TargetSets
+		}
+		if in.TargetReps > 0 {
+			input.TargetReps = &in.TargetReps
+		}
+		if in.TargetDurationSeconds > 0 {
+			input.TargetDurationSeconds = &in.TargetDurationSeconds
+		}
+		if in.RestSeconds > 0 {
+			input.RestSeconds = &in.RestSeconds
+		}
+		ex, err := d.WkSvc.AddSessionExercise(ctx, sessionID, d.UserUUID, input)
+		if err != nil {
+			return nil, addExerciseOut{}, fmt.Errorf("add exercise: %w", err)
+		}
+		return nil, addExerciseOut{Exercise: toSessionExerciseDTO(*ex)}, nil
 	}))
 }

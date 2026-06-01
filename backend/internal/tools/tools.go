@@ -34,6 +34,13 @@ func All() []ToolDef {
 		KanbanArchiveCard,
 		KanbanUnarchiveCard,
 		KanbanListArchivedCards,
+		WorkoutListSessions,
+		WorkoutListPresets,
+		WorkoutGetSchedule,
+		WorkoutStartSession,
+		WorkoutUpdateSession,
+		WorkoutLogExercise,
+		WorkoutAddExercise,
 	}
 }
 
@@ -231,4 +238,89 @@ type ListArchivedCardsIn struct {
 	Reason  string `json:"reason"   jsonschema:"Filter: 'completed' for done-archive, 'general' for all non-completed, or empty for all archived cards"`
 	Month   int    `json:"month"    jsonschema:"Filter by month (1–12); 0 or omit for all months"`
 	Year    int    `json:"year"     jsonschema:"Filter by year (e.g. 2026); 0 or omit for all years"`
+}
+
+// ---- Workout ----------------------------------------------------------------
+
+var WorkoutListSessions = ToolDef{
+	Name:        "workout_list_sessions",
+	Description: "List workout sessions in a date range. Returns sessions with their exercises and logged actuals. Defaults to the last 30 days if dates are omitted.",
+	Input:       WorkoutListSessionsIn{},
+}
+
+var WorkoutListPresets = ToolDef{
+	Name:        "workout_list_presets",
+	Description: "List all saved workout preset templates. Returns preset name, type, description, and exercise list. Call before workout_start_session to get a valid preset name.",
+}
+
+var WorkoutGetSchedule = ToolDef{
+	Name:        "workout_get_schedule",
+	Description: "Get the weekly workout schedule: which preset template is assigned to each day of the week (0=Sun … 6=Sat). Days without an entry are rest days.",
+}
+
+var WorkoutStartSession = ToolDef{
+	Name:        "workout_start_session",
+	Description: "Start a new workout session. Provide preset_name to copy a saved template (call workout_list_presets first), or provide type for a quick start with no exercises. Returns the new session with its exercise list.",
+	Input:       WorkoutStartSessionIn{},
+}
+
+var WorkoutUpdateSession = ToolDef{
+	Name:        "workout_update_session",
+	Description: "Update a session's name, duration, and/or notes. Provide the current session name if you only want to change duration or notes.",
+	Input:       WorkoutUpdateSessionIn{},
+	Required:    []string{"session_id", "name"},
+}
+
+var WorkoutLogExercise = ToolDef{
+	Name:        "workout_log_exercise",
+	Description: "Log actual performance for a session exercise: sets, reps, duration, weight, and completion status. Pass 0 for any numeric field you don't want to update.",
+	Input:       WorkoutLogExerciseIn{},
+	Required:    []string{"session_id", "exercise_id"},
+}
+
+var WorkoutAddExercise = ToolDef{
+	Name:        "workout_add_exercise",
+	Description: "Add a new exercise to an existing session. Useful for quick-start sessions that begin with no exercises.",
+	Input:       WorkoutAddExerciseIn{},
+	Required:    []string{"session_id", "name"},
+}
+
+type WorkoutListSessionsIn struct {
+	From string `json:"from" jsonschema:"Start date YYYY-MM-DD (default: 30 days ago)"`
+	To   string `json:"to"   jsonschema:"End date YYYY-MM-DD (default: today)"`
+}
+
+type WorkoutStartSessionIn struct {
+	PresetName string `json:"preset_name" jsonschema:"Preset template name to start from (case-insensitive match). Call workout_list_presets to get available names. If omitted, type is required."`
+	Type       string `json:"type"        jsonschema:"Workout type for a quick start (no exercises): weight_training, body_weight, running, walking, cardio, mobility, or custom. Required when preset_name is not provided."`
+	Date       string `json:"date"        jsonschema:"Session date YYYY-MM-DD (default: today)"`
+	Name       string `json:"name"        jsonschema:"Optional session name override"`
+}
+
+type WorkoutUpdateSessionIn struct {
+	SessionID       string `json:"session_id"       jsonschema:"UUID of the session to update"`
+	Name            string `json:"name"             jsonschema:"Session name — use the existing name if you only want to change duration or notes"`
+	DurationMinutes int    `json:"duration_minutes" jsonschema:"Workout duration in minutes (0 to clear)"`
+	Notes           string `json:"notes"            jsonschema:"Session notes (empty string to clear)"`
+}
+
+type WorkoutLogExerciseIn struct {
+	SessionID             string  `json:"session_id"              jsonschema:"UUID of the workout session (from workout_list_sessions or workout_start_session)"`
+	ExerciseID            string  `json:"exercise_id"             jsonschema:"UUID of the session exercise to log"`
+	ActualSets            int     `json:"actual_sets"             jsonschema:"Sets completed (0 = not logging this field)"`
+	ActualReps            int     `json:"actual_reps"             jsonschema:"Reps completed (0 = not logging this field)"`
+	ActualDurationSeconds int     `json:"actual_duration_seconds" jsonschema:"Duration in seconds (0 = not logging this field)"`
+	WeightKg              float64 `json:"weight_kg"               jsonschema:"Weight used in kg (0 = not logging this field)"`
+	Completed             bool    `json:"completed"               jsonschema:"Mark exercise as completed"`
+	Notes                 string  `json:"notes"                   jsonschema:"Optional notes for this exercise"`
+}
+
+type WorkoutAddExerciseIn struct {
+	SessionID             string `json:"session_id"              jsonschema:"UUID of the session to add the exercise to"`
+	Name                  string `json:"name"                    jsonschema:"Exercise name (required)"`
+	Section               string `json:"section"                 jsonschema:"Exercise section: warmup, main, or cooldown (default: main)"`
+	TargetSets            int    `json:"target_sets"             jsonschema:"Target number of sets (0 = no target)"`
+	TargetReps            int    `json:"target_reps"             jsonschema:"Target reps per set (0 = no target)"`
+	TargetDurationSeconds int    `json:"target_duration_seconds" jsonschema:"Target duration in seconds (0 = no target)"`
+	RestSeconds           int    `json:"rest_seconds"            jsonschema:"Rest between sets in seconds (0 = no target)"`
 }

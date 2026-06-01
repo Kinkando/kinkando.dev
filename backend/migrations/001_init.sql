@@ -17,7 +17,6 @@ CREATE TABLE IF NOT EXISTS finance_records (
     user_id    UUID           NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     type       TEXT           NOT NULL CHECK (type IN ('income', 'expense')),
     amount     NUMERIC(12, 2) NOT NULL CHECK (amount > 0),
-    category   TEXT           NOT NULL DEFAULT '',
     note       TEXT           NOT NULL DEFAULT '',
     date       DATE           NOT NULL,
     created_at TIMESTAMPTZ    NOT NULL DEFAULT now()

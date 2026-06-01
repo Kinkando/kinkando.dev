@@ -21,16 +21,15 @@ type CategoryRef struct {
 }
 
 type Record struct {
-	ID           uuid.UUID    `json:"id"`
-	UserID       uuid.UUID    `json:"user_id"`
-	Type         RecordType   `json:"type"`
-	Amount       float64      `json:"amount"`
-	CategoryID   *uuid.UUID   `json:"category_id"`
-	Category     *CategoryRef `json:"category"`
-	CategoryName string       `json:"category_name"`
-	Note         string       `json:"note"`
-	Date         time.Time    `json:"date"`
-	CreatedAt    time.Time    `json:"created_at"`
+	ID         uuid.UUID    `json:"id"`
+	UserID     uuid.UUID    `json:"user_id"`
+	Type       RecordType   `json:"type"`
+	Amount     float64      `json:"amount"`
+	CategoryID *uuid.UUID   `json:"category_id"`
+	Category   *CategoryRef `json:"category"`
+	Note       string       `json:"note"`
+	Date       time.Time    `json:"date"`
+	CreatedAt  time.Time    `json:"created_at"`
 }
 
 type CreateRecordInput struct {

@@ -21,7 +21,6 @@ export type FinanceRecord = {
   amount: number
   category_id: string | null
   category: CategoryRef | null
-  category_name: string
   note: string
   date: string
   created_at: string

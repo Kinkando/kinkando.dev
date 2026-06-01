@@ -33,15 +33,14 @@ func New(d Deps) *mcp.Server {
 // ---- Finance output types ---------------------------------------------------
 
 type recordDTO struct {
-	ID           string  `json:"id"`
-	UserID       string  `json:"user_id"`
-	Type         string  `json:"type"`
-	Amount       float64 `json:"amount"`
-	CategoryID   *string `json:"category_id"`
-	CategoryName string  `json:"category_name"`
-	Note         string  `json:"note"`
-	Date         string  `json:"date"`
-	CreatedAt    string  `json:"created_at"`
+	ID         string  `json:"id"`
+	UserID     string  `json:"user_id"`
+	Type       string  `json:"type"`
+	Amount     float64 `json:"amount"`
+	CategoryID *string `json:"category_id"`
+	Note       string  `json:"note"`
+	Date       string  `json:"date"`
+	CreatedAt  string  `json:"created_at"`
 }
 
 type categoryDTO struct {
@@ -166,21 +165,17 @@ type listArchivedCardsOut struct {
 
 func toRecordDTO(r *finance.Record) recordDTO {
 	dto := recordDTO{
-		ID:           r.ID.String(),
-		UserID:       r.UserID.String(),
-		Type:         string(r.Type),
-		Amount:       r.Amount,
-		CategoryName: r.CategoryName,
-		Note:         r.Note,
-		Date:         r.Date.Format("2006-01-02"),
-		CreatedAt:    r.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		ID:        r.ID.String(),
+		UserID:    r.UserID.String(),
+		Type:      string(r.Type),
+		Amount:    r.Amount,
+		Note:      r.Note,
+		Date:      r.Date.Format("2006-01-02"),
+		CreatedAt: r.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 	}
 	if r.CategoryID != nil {
 		s := r.CategoryID.String()
 		dto.CategoryID = &s
-	}
-	if r.Category != nil {
-		dto.CategoryName = r.Category.Name
 	}
 	return dto
 }

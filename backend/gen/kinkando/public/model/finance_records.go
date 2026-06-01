@@ -18,7 +18,6 @@ type FinanceRecords struct {
 	UserID     uuid.UUID
 	Type       string
 	Amount     decimal.Decimal
-	Category   string
 	Note       string
 	Date       time.Time
 	CreatedAt  time.Time

@@ -141,7 +141,6 @@ func (r *Repository) Create(ctx context.Context, userID uuid.UUID, in finance.Cr
 		table.FinanceRecords.UserID,
 		table.FinanceRecords.Type,
 		table.FinanceRecords.Amount,
-		table.FinanceRecords.Category,
 		table.FinanceRecords.CategoryID,
 		table.FinanceRecords.Note,
 		table.FinanceRecords.Date,
@@ -224,7 +223,7 @@ func (r *Repository) MonthlySummary(ctx context.Context, userID uuid.UUID, month
 		return nil, err
 	}
 
-	catName := postgres.COALESCE(table.FinanceCategories.Name, table.FinanceRecords.Category)
+	catName := postgres.COALESCE(table.FinanceCategories.Name, postgres.String(""))
 	catIcon := postgres.COALESCE(table.FinanceCategories.Icon, postgres.String(""))
 	catColor := postgres.COALESCE(table.FinanceCategories.Color, postgres.String(""))
 	sumAmount := postgres.SUM(table.FinanceRecords.Amount)
@@ -322,15 +321,14 @@ func monthRange(month string) (time.Time, time.Time, error) {
 func toRecord(m model.FinanceRecords) *finance.Record {
 	amount, _ := m.Amount.Float64()
 	return &finance.Record{
-		ID:           m.ID,
-		UserID:       m.UserID,
-		Type:         finance.RecordType(m.Type),
-		Amount:       amount,
-		CategoryID:   m.CategoryID,
-		CategoryName: m.Category,
-		Note:         m.Note,
-		Date:         m.Date,
-		CreatedAt:    m.CreatedAt,
+		ID:         m.ID,
+		UserID:     m.UserID,
+		Type:       finance.RecordType(m.Type),
+		Amount:     amount,
+		CategoryID: m.CategoryID,
+		Note:       m.Note,
+		Date:       m.Date,
+		CreatedAt:  m.CreatedAt,
 	}
 }
 
@@ -345,4 +343,3 @@ func toCategory(m model.FinanceCategories) *finance.Category {
 		CreatedAt: m.CreatedAt,
 	}
 }
-

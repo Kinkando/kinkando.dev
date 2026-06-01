@@ -78,7 +78,7 @@ export default function RecordList({
             </div>
             <ul className="flex flex-col gap-2">
               {groupRecords.map((record) => {
-                const catName = record.category?.name ?? record.category_name
+                const catName = record.category?.name
                 const catIcon = record.category?.icon
                 const catColor = record.category?.color
                 const Icon = catIcon ? getIcon(catIcon) : null

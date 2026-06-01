@@ -21,7 +21,6 @@ type financeRecordsTable struct {
 	UserID     postgres.ColumnString
 	Type       postgres.ColumnString
 	Amount     postgres.ColumnFloat
-	Category   postgres.ColumnString
 	Note       postgres.ColumnString
 	Date       postgres.ColumnDate
 	CreatedAt  postgres.ColumnTimestampz
@@ -71,14 +70,13 @@ func newFinanceRecordsTableImpl(schemaName, tableName, alias string) financeReco
 		UserIDColumn     = postgres.StringColumn("user_id")
 		TypeColumn       = postgres.StringColumn("type")
 		AmountColumn     = postgres.FloatColumn("amount")
-		CategoryColumn   = postgres.StringColumn("category")
 		NoteColumn       = postgres.StringColumn("note")
 		DateColumn       = postgres.DateColumn("date")
 		CreatedAtColumn  = postgres.TimestampzColumn("created_at")
 		CategoryIDColumn = postgres.StringColumn("category_id")
-		allColumns       = postgres.ColumnList{IDColumn, UserIDColumn, TypeColumn, AmountColumn, CategoryColumn, NoteColumn, DateColumn, CreatedAtColumn, CategoryIDColumn}
-		mutableColumns   = postgres.ColumnList{UserIDColumn, TypeColumn, AmountColumn, CategoryColumn, NoteColumn, DateColumn, CreatedAtColumn, CategoryIDColumn}
-		defaultColumns   = postgres.ColumnList{IDColumn, CategoryColumn, NoteColumn, CreatedAtColumn}
+		allColumns       = postgres.ColumnList{IDColumn, UserIDColumn, TypeColumn, AmountColumn, NoteColumn, DateColumn, CreatedAtColumn, CategoryIDColumn}
+		mutableColumns   = postgres.ColumnList{UserIDColumn, TypeColumn, AmountColumn, NoteColumn, DateColumn, CreatedAtColumn, CategoryIDColumn}
+		defaultColumns   = postgres.ColumnList{IDColumn, NoteColumn, CreatedAtColumn}
 	)
 
 	return financeRecordsTable{
@@ -89,7 +87,6 @@ func newFinanceRecordsTableImpl(schemaName, tableName, alias string) financeReco
 		UserID:     UserIDColumn,
 		Type:       TypeColumn,
 		Amount:     AmountColumn,
-		Category:   CategoryColumn,
 		Note:       NoteColumn,
 		Date:       DateColumn,
 		CreatedAt:  CreatedAtColumn,

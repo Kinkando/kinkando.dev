@@ -19,4 +19,4 @@ When a migration is added, the commit **must** include all of these together:
 2. The regenerated jet code (`backend/gen/kinkando/public/`)
 3. The updated repository / service / handler code
 
-Run migration + codegen **before** committing — see [Backend Database & Migrations](backend-database.md).
+Run migration + codegen **before** committing — see [Backend Database & Migrations](../backend/database.md).

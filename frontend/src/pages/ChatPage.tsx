@@ -4,6 +4,7 @@ import { streamChat } from '../lib/api/chat'
 import type { ChatMessage, ChatUsage } from '../lib/api/types'
 import MessageBubble from '../components/chat/MessageBubble'
 import ChatInput from '../components/chat/ChatInput'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
 
 // Maximum number of history turns sent to the backend per request.
 const MAX_HISTORY = 20
@@ -64,6 +65,7 @@ const SUGGESTIONS = [
 ]
 
 export default function ChatPage() {
+  useDocumentTitle('Chat')
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [streaming, setStreaming] = useState(false)
   const [error, setError] = useState<string | null>(null)

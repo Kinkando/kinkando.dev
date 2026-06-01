@@ -8,6 +8,7 @@ import {
   useUnarchiveCard,
   useDeleteCard,
 } from '../queries/useKanban'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
 
 type Tab = 'completed' | 'general'
 
@@ -90,6 +91,7 @@ function getAvailableMonths(
 }
 
 export default function KanbanArchivePage() {
+  useDocumentTitle('Kanban Archive')
   const [tab, setTab] = useState<Tab>('completed')
   const [selectedBoardId, setSelectedBoardId] = useState('')
   const [selectedYear, setSelectedYear] = useState(0)

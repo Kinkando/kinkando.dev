@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useBoards, useBoard } from '../queries/useKanban'
 import KanbanBoard from '../components/kanban/Board'
 import BoardSwitcher from '../components/kanban/BoardSwitcher'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
 
 function Spinner() {
   return (
@@ -13,6 +14,7 @@ function Spinner() {
 }
 
 export default function KanbanPage() {
+  useDocumentTitle('Kanban')
   const {
     data: boards,
     isLoading: boardsLoading,

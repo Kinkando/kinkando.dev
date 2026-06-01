@@ -1,6 +1,8 @@
 import { useProjects, useSkills } from '../queries/usePortfolio'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
 
 export default function PortfolioPage() {
+  useDocumentTitle('Portfolio')
   const {
     data: projects,
     isLoading: loadingProjects,

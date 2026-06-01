@@ -5,8 +5,10 @@ import SummaryPanel from '../components/finance/SummaryPanel'
 import CategoryManager from '../components/finance/CategoryManager'
 import { useRecords, useSummary } from '../queries/useFinance'
 import { todayMonth } from '../lib/date'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
 
 export default function FinancePage() {
+  useDocumentTitle('Finance')
   const [month, setMonth] = useState(todayMonth)
   const { data: records, isLoading: loadingRecords } = useRecords(month)
   const { data: summary, isLoading: loadingSummary } = useSummary(month)

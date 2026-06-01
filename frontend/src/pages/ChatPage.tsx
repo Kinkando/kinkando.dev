@@ -64,9 +64,15 @@ const SUGGESTIONS = [
   },
 ]
 
-const RESPONSE_MODES: { value: ChatResponseMode; label: string }[] = [
-  { value: 'text', label: 'Text' },
-  { value: 'voice', label: 'Text + Voice' },
+const RESPONSE_MODES: {
+  value: ChatResponseMode
+  label: string
+  disabled: boolean
+}[] = [
+  { value: 'text', label: 'Text', disabled: false },
+
+  /* TTS is currently unreliable, so hide this option for now */
+  { value: 'voice', label: 'Voice', disabled: true },
 ]
 
 export default function ChatPage() {
@@ -223,8 +229,9 @@ export default function ChatPage() {
                 <button
                   key={m.value}
                   type="button"
+                  disabled={m.disabled}
                   onClick={() => setResponseMode(m.value)}
-                  className={`rounded-md px-3 py-1 text-xs transition ${
+                  className={`rounded-md px-3 py-1 text-xs transition disabled:cursor-not-allowed disabled:opacity-50 ${
                     responseMode === m.value
                       ? 'bg-gray-800 text-gray-100'
                       : 'text-gray-500 hover:text-gray-300'

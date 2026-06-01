@@ -11,6 +11,20 @@ make gen-sql-builder-windows  # regenerate gen/kinkando/public/ (use gen-sql-bui
 
 Skipping codegen causes `undefined: table.XxxYyy` build errors.
 
+### Finding the right env values
+
+Both commands need database credentials. Check `backend/.env`:
+
+- **`POSTGRES_MIGRATION_URL`** — used by `make run-db-migrations`. If this key is **absent** from `.env` (common — only `POSTGRES_DSN` is set), source `.env` and pass `POSTGRES_DSN` as the override:
+
+  ```bash
+  cd backend
+  set -a && source .env && set +a
+  make run-db-migrations DB_MIGRATION_URL="$POSTGRES_DSN"
+  ```
+
+- **`POSTGRES_DSN`** — used by `make gen-sql-builder-*`. The script already sources `.env` automatically, so no extra steps are needed.
+
 ## Migration tool: dbmate
 
 Migrations live in `migrations/`. Every file **must** contain both sections:

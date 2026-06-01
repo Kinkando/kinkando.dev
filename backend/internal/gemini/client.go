@@ -72,6 +72,10 @@ func New(ctx context.Context, d Deps) (*Client, error) {
 			Tools:             []*genai.Tool{{FunctionDeclarations: toolDecls("finance_")}},
 			SystemInstruction: genai.NewContentFromText(mintInstruction, genai.RoleUser),
 		},
+		personaTensei: {
+			Tools:             []*genai.Tool{{FunctionDeclarations: toolDecls("workout_")}},
+			SystemInstruction: genai.NewContentFromText(tenseiInstruction, genai.RoleUser),
+		},
 	}
 	return &Client{
 		gc:         gc,

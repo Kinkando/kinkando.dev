@@ -35,26 +35,40 @@ var (
 	rMint  = regexp.MustCompile(`(?i)\bmint\b`)
 )
 
+// Thai spellings of each persona's name. Thai script has no case and no ASCII word
+// boundaries, so these are matched with plain substring search.
+const (
+	thaiKaito    = "ไคโตะ"
+	thaiMint     = "มิ้นต์"
+	thaiMintAlt  = "มินต์" // alternative spelling without tone mark
+)
+
 // kanbanKeywords trigger personaKaito when no name is explicitly mentioned.
 var kanbanKeywords = []string{
-	"card", "board", "task", "todo", "to do", "to-do", "column",
-	"kanban", "sprint", "backlog",
+	// English
+	"card", "board", "task", "todo", "to do", "to-do", "column", "kanban", "sprint", "backlog",
+	// Thai transliterations / native
+	"การ์ด", "บอร์ด", "แคนบัน", "คอลัมน์", "สปรินต์",
 }
 
 // financeKeywords trigger personaMint when no name is explicitly mentioned.
 var financeKeywords = []string{
+	// English
 	"expense", "income", "spend", "spending", "budget", "salary",
-	"baht", "฿", "บาท", "category", "finance", "record", "cost", "payment",
+	"baht", "฿", "category", "finance", "record", "cost", "payment",
+	// Thai
+	"บาท", "รายรับ", "รายจ่าย", "ค่าใช้จ่าย", "งบประมาณ", "เงินเดือน", "สรุปการเงิน",
 }
 
 // detectPersona scans text for a persona signal.
-// Name mention is checked first; keyword fallback is applied when no name is found.
+// Name mention is checked first (both English and Thai); keyword fallback is applied
+// when no name is found.
 // Returns (persona, true) on a match, (_, false) when nothing matches.
 func detectPersona(text string) (persona, bool) {
-	if rKaito.MatchString(text) {
+	if rKaito.MatchString(text) || strings.Contains(text, thaiKaito) {
 		return personaKaito, true
 	}
-	if rMint.MatchString(text) {
+	if rMint.MatchString(text) || strings.Contains(text, thaiMint) || strings.Contains(text, thaiMintAlt) {
 		return personaMint, true
 	}
 	lower := strings.ToLower(text)

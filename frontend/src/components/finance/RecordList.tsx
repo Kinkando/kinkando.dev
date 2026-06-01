@@ -86,73 +86,68 @@ export default function RecordList({
                 return (
                   <li
                     key={record.id}
-                    className="rounded-xl border border-gray-800 bg-gray-900 px-4 py-3"
+                    className={`relative rounded-xl border px-3 pt-2 pb-3 ${
+                      record.type === 'income'
+                        ? 'border-green-900/40 bg-green-950/30'
+                        : 'border-red-900/40 bg-red-950/30'
+                    }`}
                   >
-                    <div className="flex items-center gap-3">
-                      {/* Category icon */}
-                      {Icon && catColor ? (
-                        <span
-                          className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg"
-                          style={{
-                            backgroundColor: catColor + '26',
-                            color: catColor,
-                          }}
-                        >
-                          <Icon size={15} />
-                        </span>
-                      ) : catColor ? (
-                        <span
-                          className="h-3 w-3 flex-shrink-0 rounded-full"
-                          style={{ backgroundColor: catColor }}
-                        />
-                      ) : null}
+                    {/* Delete — top right */}
+                    <button
+                      onClick={() => deleteMutation.mutate(record.id)}
+                      disabled={deleteMutation.isPending}
+                      className="absolute top-2 right-2 text-xs text-gray-600 hover:text-red-400 disabled:opacity-40"
+                    >
+                      ✕
+                    </button>
 
-                      {/* Info */}
+                    <div className="flex items-center gap-3 pr-5">
+                      {/* Category icon — bg tinted by type */}
+                      <span
+                        className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl"
+                        style={{
+                          backgroundColor:
+                            record.type === 'income'
+                              ? '#16a34a26'
+                              : '#dc262626',
+                          color:
+                            catColor ??
+                            (record.type === 'income' ? '#4ade80' : '#f87171'),
+                        }}
+                      >
+                        {Icon ? (
+                          <Icon size={16} />
+                        ) : (
+                          <span className="text-xs">?</span>
+                        )}
+                      </span>
+
+                      {/* Info — priority: category › note › time */}
                       <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <span
-                            className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                              record.type === 'income'
-                                ? 'bg-green-900 text-green-300'
-                                : 'bg-red-900 text-red-300'
-                            }`}
-                          >
-                            {record.type}
-                          </span>
-                          {catName && (
-                            <span className="truncate text-sm font-medium text-gray-200">
-                              {catName}
-                            </span>
-                          )}
-                        </div>
-                        <div className="mt-0.5 flex items-center gap-2">
-                          <span className="text-xs text-gray-500">
-                            {formatTime(record.created_at)}
-                          </span>
-                          {record.note && (
-                            <span className="truncate text-xs text-gray-500">
-                              {record.note}
-                            </span>
-                          )}
-                        </div>
+                        <span className="truncate text-sm font-medium text-gray-200">
+                          {catName ?? '—'}
+                        </span>
+                        {record.note && (
+                          <p className="mt-0.5 text-xs text-gray-400">
+                            {record.note}
+                          </p>
+                        )}
+                        <p className="mt-0.5 text-xs text-gray-600">
+                          {formatTime(record.created_at)}
+                        </p>
                       </div>
 
-                      {/* Amount + delete */}
-                      <div className="flex flex-shrink-0 items-center gap-2">
-                        <span
-                          className={`text-sm font-semibold ${record.type === 'income' ? 'text-green-400' : 'text-red-400'}`}
-                        >
-                          {record.type === 'income' ? '+' : '-'}
-                          {formatCurrency(record.amount)}
-                        </span>
-                        <button
-                          onClick={() => deleteMutation.mutate(record.id)}
-                          disabled={deleteMutation.isPending}
-                          className="text-xs text-gray-600 hover:text-red-400"
-                        >
-                          ✕
-                        </button>
-                      </div>
+                      {/* Amount */}
+                      <span
+                        className={`shrink-0 text-sm font-semibold whitespace-nowrap ${
+                          record.type === 'income'
+                            ? 'text-green-400'
+                            : 'text-red-400'
+                        }`}
+                      >
+                        {record.type === 'income' ? '+' : '-'}
+                        {formatCurrency(record.amount)}
+                      </span>
                     </div>
                   </li>
                 )

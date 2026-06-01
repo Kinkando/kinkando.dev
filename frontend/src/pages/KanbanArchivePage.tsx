@@ -148,7 +148,7 @@ export default function KanbanArchivePage() {
         <h1 className="text-xl font-bold text-gray-100">Archive</h1>
 
         {/* Board selector */}
-        {(boards.data?.length ?? 0) > 1 && (
+        {boards.data && boards.data.length > 0 && (
           <select
             value={boardId}
             onChange={(e) => {
@@ -157,7 +157,7 @@ export default function KanbanArchivePage() {
             }}
             className="rounded-lg border border-gray-700 bg-gray-800 px-3 py-1.5 text-sm text-gray-100 focus:border-indigo-500 focus:outline-none"
           >
-            {boards.data?.map((b) => (
+            {boards.data.map((b) => (
               <option key={b.id} value={b.id}>
                 {b.name}
               </option>

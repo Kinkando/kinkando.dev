@@ -237,12 +237,14 @@ export default function KanbanBoard({ boardId, data }: Props) {
               />
               <div className="flex gap-2">
                 <button
+                  onMouseDown={(e) => e.preventDefault()}
                   onClick={handleAddColumn}
                   className="flex-1 rounded-lg bg-indigo-600 py-1.5 text-sm font-medium text-white hover:bg-indigo-500"
                 >
                   Add
                 </button>
                 <button
+                  onMouseDown={(e) => e.preventDefault()}
                   onClick={() => {
                     setAddingColumn(false)
                     setNewColumnName('')

@@ -95,11 +95,11 @@ export default function KanbanColumn({
       >
         {/* Column header */}
         <div className="flex items-center gap-2">
-          {/* Drag handle */}
+          {/* Column drag handle — desktop only */}
           <button
             {...attributes}
             {...listeners}
-            className="flex-shrink-0 cursor-grab touch-none text-sm text-gray-600 select-none hover:text-gray-400"
+            className="hidden flex-shrink-0 cursor-grab touch-none text-sm text-gray-600 select-none hover:text-gray-400 sm:block"
             title="Drag to reorder column"
           >
             ⠿

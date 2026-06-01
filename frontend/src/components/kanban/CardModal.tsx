@@ -7,11 +7,13 @@ import {
   useCreateCard,
   useUpdateCard,
   useArchiveCard,
+  useMoveCard,
 } from '../../queries/useKanban'
 
 type Props = {
   boardId: string
   columns: Column[]
+  cards?: Card[]
   columnId?: string
   initial?: Card
   onClose: () => void
@@ -23,6 +25,7 @@ const inputClass =
 export default function CardModal({
   boardId,
   columns,
+  cards,
   columnId,
   initial,
   onClose,
@@ -31,6 +34,7 @@ export default function CardModal({
   const createCard = useCreateCard(boardId)
   const updateCard = useUpdateCard(boardId)
   const archiveCard = useArchiveCard(boardId)
+  const moveCard = useMoveCard(boardId)
 
   const [title, setTitle] = useState(initial?.title ?? '')
   const [description, setDescription] = useState(initial?.description ?? '')
@@ -41,6 +45,9 @@ export default function CardModal({
   const [tags, setTags] = useState<string[]>(initial?.tags ?? [])
   const [tagInput, setTagInput] = useState('')
   const [showArchiveReason, setShowArchiveReason] = useState(false)
+  const [selectedColumnId, setSelectedColumnId] = useState(
+    initial?.column_id ?? columnId ?? '',
+  )
 
   const backdropRef = useRef<HTMLDivElement>(null)
 
@@ -76,6 +83,15 @@ export default function CardModal({
           tags,
         },
       })
+      if (selectedColumnId && selectedColumnId !== initial!.column_id) {
+        const targetCards = (cards ?? []).filter(
+          (c) => c.column_id === selectedColumnId,
+        )
+        await moveCard.mutateAsync({
+          id: initial!.id,
+          input: { column_id: selectedColumnId, order: targetCards.length },
+        })
+      }
     } else {
       await createCard.mutateAsync({
         board_id: boardId,
@@ -117,7 +133,10 @@ export default function CardModal({
   }
 
   const isPending =
-    createCard.isPending || updateCard.isPending || archiveCard.isPending
+    createCard.isPending ||
+    updateCard.isPending ||
+    archiveCard.isPending ||
+    moveCard.isPending
 
   return createPortal(
     <div
@@ -212,6 +231,26 @@ export default function CardModal({
                 className={inputClass + ' resize-none'}
               />
             </div>
+
+            {/* Column (edit mode only) */}
+            {isEdit && columns.length > 1 && (
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-400">
+                  Column
+                </label>
+                <select
+                  value={selectedColumnId}
+                  onChange={(e) => setSelectedColumnId(e.target.value)}
+                  className={inputClass}
+                >
+                  {columns.map((col) => (
+                    <option key={col.id} value={col.id}>
+                      {col.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             {/* Priority */}
             <div>

@@ -86,50 +86,74 @@ export default function RecordList({
                 return (
                   <li
                     key={record.id}
-                    className="flex items-center gap-3 rounded-xl border border-gray-800 bg-gray-900 px-4 py-3"
+                    className="rounded-xl border border-gray-800 bg-gray-900 px-4 py-3"
                   >
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                        record.type === 'income'
-                          ? 'bg-green-900 text-green-300'
-                          : 'bg-red-900 text-red-300'
-                      }`}
-                    >
-                      {record.type}
-                    </span>
-                    <span className="text-xs text-gray-500">
-                      {formatTime(record.created_at)}
-                    </span>
-                    <span className="flex flex-1 items-center gap-1.5 text-sm font-medium text-gray-200">
-                      {Icon && catColor && (
-                        <Icon size={13} style={{ color: catColor }} />
-                      )}
-                      {catColor && (
+                    <div className="flex items-center gap-3">
+                      {/* Category icon */}
+                      {Icon && catColor ? (
                         <span
-                          className="h-2 w-2 flex-shrink-0 rounded-full"
+                          className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg"
+                          style={{
+                            backgroundColor: catColor + '26',
+                            color: catColor,
+                          }}
+                        >
+                          <Icon size={15} />
+                        </span>
+                      ) : catColor ? (
+                        <span
+                          className="h-3 w-3 flex-shrink-0 rounded-full"
                           style={{ backgroundColor: catColor }}
                         />
-                      )}
-                      {catName}
-                    </span>
-                    {record.note && (
-                      <span className="max-w-32 truncate text-xs text-gray-500">
-                        {record.note}
-                      </span>
-                    )}
-                    <span
-                      className={`text-sm font-semibold ${record.type === 'income' ? 'text-green-400' : 'text-red-400'}`}
-                    >
-                      {record.type === 'income' ? '+' : '-'}
-                      {formatCurrency(record.amount)}
-                    </span>
-                    <button
-                      onClick={() => deleteMutation.mutate(record.id)}
-                      disabled={deleteMutation.isPending}
-                      className="ml-1 text-xs text-gray-600 hover:text-red-400"
-                    >
-                      ✕
-                    </button>
+                      ) : null}
+
+                      {/* Info */}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                              record.type === 'income'
+                                ? 'bg-green-900 text-green-300'
+                                : 'bg-red-900 text-red-300'
+                            }`}
+                          >
+                            {record.type}
+                          </span>
+                          {catName && (
+                            <span className="truncate text-sm font-medium text-gray-200">
+                              {catName}
+                            </span>
+                          )}
+                        </div>
+                        <div className="mt-0.5 flex items-center gap-2">
+                          <span className="text-xs text-gray-500">
+                            {formatTime(record.created_at)}
+                          </span>
+                          {record.note && (
+                            <span className="truncate text-xs text-gray-500">
+                              {record.note}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Amount + delete */}
+                      <div className="flex flex-shrink-0 items-center gap-2">
+                        <span
+                          className={`text-sm font-semibold ${record.type === 'income' ? 'text-green-400' : 'text-red-400'}`}
+                        >
+                          {record.type === 'income' ? '+' : '-'}
+                          {formatCurrency(record.amount)}
+                        </span>
+                        <button
+                          onClick={() => deleteMutation.mutate(record.id)}
+                          disabled={deleteMutation.isPending}
+                          className="text-xs text-gray-600 hover:text-red-400"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </div>
                   </li>
                 )
               })}

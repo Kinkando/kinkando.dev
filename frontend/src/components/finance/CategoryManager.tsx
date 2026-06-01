@@ -76,7 +76,7 @@ function CategoryForm({
   const updateMutation = useUpdateCategory()
 
   const [name, setName] = useState(initial?.name ?? '')
-  const [type, setType] = useState<RecordType>(initial?.type ?? typeDefault)
+  const type: RecordType = initial?.type ?? typeDefault
   const [icon, setIcon] = useState(initial?.icon ?? 'CircleDollarSign')
   const [color, setColor] = useState(initial?.color ?? '#6366f1')
 
@@ -104,26 +104,6 @@ function CategoryForm({
       onSubmit={handleSubmit}
       className="flex flex-col gap-3 rounded-lg border border-gray-700 bg-gray-950 p-3"
     >
-      {!isEdit && (
-        <div className="flex gap-2">
-          {(['income', 'expense'] as RecordType[]).map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => setType(t)}
-              className={`flex-1 rounded-lg py-1 text-xs font-medium ${
-                type === t
-                  ? t === 'income'
-                    ? 'bg-green-700 text-white'
-                    : 'bg-red-700 text-white'
-                  : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
-              }`}
-            >
-              {t.charAt(0).toUpperCase() + t.slice(1)}
-            </button>
-          ))}
-        </div>
-      )}
       <input
         type="text"
         placeholder="Category name"

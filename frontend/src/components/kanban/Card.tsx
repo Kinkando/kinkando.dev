@@ -73,10 +73,10 @@ export default function KanbanCard({
         className={`group rounded-lg bg-gray-800 p-3 ${priorityMeta ? 'border-l-2' : ''}`}
       >
         <div className="flex items-start gap-2">
-          {/* Drag handle */}
+          {/* Drag handle — desktop only */}
           <div
             {...listeners}
-            className="mt-0.5 flex-shrink-0 cursor-grab text-sm text-gray-600 select-none hover:text-gray-400"
+            className="mt-0.5 hidden flex-shrink-0 cursor-grab text-sm text-gray-600 select-none hover:text-gray-400 sm:block"
           >
             ⠿
           </div>

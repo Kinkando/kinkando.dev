@@ -24,6 +24,7 @@ import {
   useCreateColumn,
 } from '../../queries/useKanban'
 import { isOverdue, isDueSoon } from '../../lib/kanban'
+import { useIsMobile } from '../../hooks/useIsMobile'
 import KanbanColumn from './Column'
 import KanbanCard from './Card'
 import CardModal from './CardModal'
@@ -44,6 +45,7 @@ export default function KanbanBoard({ boardId, data }: Props) {
   const moveCard = useMoveCard(boardId)
   const reorderColumns = useReorderColumns(boardId)
   const createColumn = useCreateColumn(boardId)
+  const isMobile = useIsMobile()
 
   const [activeCard, setActiveCard] = useState<CardType | null>(null)
   const [activeColumn, setActiveColumn] = useState<ColumnType | null>(null)
@@ -198,7 +200,7 @@ export default function KanbanBoard({ boardId, data }: Props) {
       <FilterBar filter={filter} onChange={setFilter} allTags={allTags} />
 
       <DndContext
-        sensors={sensors}
+        sensors={isMobile ? [] : sensors}
         onDragStart={onDragStart}
         onDragEnd={onDragEnd}
       >
@@ -287,6 +289,7 @@ export default function KanbanBoard({ boardId, data }: Props) {
         <CardModal
           boardId={boardId}
           columns={columns}
+          cards={data.cards}
           columnId={
             modalState.mode === 'create' ? modalState.columnId : undefined
           }

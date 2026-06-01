@@ -37,6 +37,7 @@ func All() []ToolDef {
 		WorkoutListSessions,
 		WorkoutListPresets,
 		WorkoutGetSchedule,
+		WorkoutCreatePreset,
 		WorkoutStartSession,
 		WorkoutUpdateSession,
 		WorkoutLogExercise,
@@ -285,6 +286,13 @@ var WorkoutAddExercise = ToolDef{
 	Required:    []string{"session_id", "name"},
 }
 
+var WorkoutCreatePreset = ToolDef{
+	Name:        "workout_create_preset",
+	Description: "Create a new workout preset template with a list of exercises. Each exercise belongs to a section (warmup, main, or cooldown) and may have sets, reps, duration, rest, weight, and notes.",
+	Input:       WorkoutCreatePresetIn{},
+	Required:    []string{"name", "type"},
+}
+
 type WorkoutListSessionsIn struct {
 	From string `json:"from" jsonschema:"Start date YYYY-MM-DD (default: 30 days ago)"`
 	To   string `json:"to"   jsonschema:"End date YYYY-MM-DD (default: today)"`
@@ -323,4 +331,25 @@ type WorkoutAddExerciseIn struct {
 	TargetReps            int    `json:"target_reps"             jsonschema:"Target reps per set (0 = no target)"`
 	TargetDurationSeconds int    `json:"target_duration_seconds" jsonschema:"Target duration in seconds (0 = no target)"`
 	RestSeconds           int    `json:"rest_seconds"            jsonschema:"Rest between sets in seconds (0 = no target)"`
+}
+
+type WorkoutPresetExerciseIn struct {
+	Section         string  `json:"section"          jsonschema:"Exercise section: warmup, main, or cooldown (default: main)"`
+	Name            string  `json:"name"             jsonschema:"Exercise name (required)"`
+	TargetMuscles   string  `json:"target_muscles"   jsonschema:"Target muscle groups (optional)"`
+	Instructions    string  `json:"instructions"     jsonschema:"Exercise instructions (optional)"`
+	Sets            int     `json:"sets"             jsonschema:"Number of sets (0 = no target)"`
+	Reps            int     `json:"reps"             jsonschema:"Reps per set (0 = no target)"`
+	DurationSeconds int     `json:"duration_seconds" jsonschema:"Duration in seconds (0 = no target)"`
+	RestSeconds     int     `json:"rest_seconds"     jsonschema:"Rest between sets in seconds (0 = no target)"`
+	WeightKg        float64 `json:"weight_kg"        jsonschema:"Weight in kg (0 = no target)"`
+	Equipment       string  `json:"equipment"        jsonschema:"Equipment needed (optional)"`
+	Notes           string  `json:"notes"            jsonschema:"Additional notes (optional)"`
+}
+
+type WorkoutCreatePresetIn struct {
+	Name        string                    `json:"name"        jsonschema:"Preset name (required)"`
+	Type        string                    `json:"type"        jsonschema:"Workout type: weight_training, body_weight, running, walking, cardio, mobility, or custom"`
+	Description string                    `json:"description" jsonschema:"Optional description"`
+	Exercises   []WorkoutPresetExerciseIn `json:"exercises"   jsonschema:"Ordered list of exercises in the preset"`
 }

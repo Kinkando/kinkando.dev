@@ -400,9 +400,87 @@ type addExerciseOut struct {
 	Exercise sessionExerciseDTO `json:"exercise"`
 }
 
+type presetExerciseDTO struct {
+	ID              string   `json:"id"`
+	Section         string   `json:"section"`
+	OrderIndex      int      `json:"order_index"`
+	Name            string   `json:"name"`
+	TargetMuscles   string   `json:"target_muscles,omitempty"`
+	Sets            *int     `json:"sets,omitempty"`
+	Reps            *int     `json:"reps,omitempty"`
+	DurationSeconds *int     `json:"duration_seconds,omitempty"`
+	RestSeconds     *int     `json:"rest_seconds,omitempty"`
+	WeightKg        *float64 `json:"weight_kg,omitempty"`
+	Equipment       string   `json:"equipment,omitempty"`
+	Notes           string   `json:"notes,omitempty"`
+}
+
+type workoutPresetDetailDTO struct {
+	ID          string              `json:"id"`
+	Name        string              `json:"name"`
+	Type        string              `json:"type"`
+	Description string              `json:"description,omitempty"`
+	Exercises   []presetExerciseDTO `json:"exercises"`
+}
+
+type createPresetOut struct {
+	Preset workoutPresetDetailDTO `json:"preset"`
+}
+
 // ---- Workout DTO helpers ----------------------------------------------------
 
 var dayNames = [7]string{"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"}
+
+func toPresetExerciseDTO(ex workout.PresetExercise) presetExerciseDTO {
+	dto := presetExerciseDTO{
+		ID:         ex.ID.String(),
+		Section:    string(ex.Section),
+		OrderIndex: ex.OrderIndex,
+		Name:       ex.Name,
+	}
+	if ex.TargetMuscles != nil {
+		dto.TargetMuscles = *ex.TargetMuscles
+	}
+	if ex.Sets != nil {
+		dto.Sets = ex.Sets
+	}
+	if ex.Reps != nil {
+		dto.Reps = ex.Reps
+	}
+	if ex.DurationSeconds != nil {
+		dto.DurationSeconds = ex.DurationSeconds
+	}
+	if ex.RestSeconds != nil {
+		dto.RestSeconds = ex.RestSeconds
+	}
+	if ex.WeightKg != nil {
+		dto.WeightKg = ex.WeightKg
+	}
+	if ex.Equipment != nil {
+		dto.Equipment = *ex.Equipment
+	}
+	if ex.Notes != nil {
+		dto.Notes = *ex.Notes
+	}
+	return dto
+}
+
+func toWorkoutPresetDetailDTO(p *workout.Preset) workoutPresetDetailDTO {
+	dto := workoutPresetDetailDTO{
+		ID:   p.ID.String(),
+		Name: p.Name,
+		Type: string(p.Type),
+	}
+	if p.Description != nil {
+		dto.Description = *p.Description
+	}
+	exs := make([]presetExerciseDTO, len(p.Exercises))
+	for i, ex := range p.Exercises {
+		exs[i] = toPresetExerciseDTO(ex)
+	}
+	dto.Exercises = exs
+	return dto
+}
 
 func toWorkoutPresetDTO(p *workout.Preset) workoutPresetDTO {
 	dto := workoutPresetDTO{
@@ -1076,5 +1154,73 @@ func registerTools(s *mcp.Server, d Deps) {
 			return nil, addExerciseOut{}, fmt.Errorf("add exercise: %w", err)
 		}
 		return nil, addExerciseOut{Exercise: toSessionExerciseDTO(*ex)}, nil
+	}))
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        tools.WorkoutCreatePreset.Name,
+		Description: tools.WorkoutCreatePreset.Description,
+	}, withLog(d.Logger, tools.WorkoutCreatePreset.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.WorkoutCreatePresetIn) (*mcp.CallToolResult, createPresetOut, error) {
+		if strings.TrimSpace(in.Name) == "" {
+			return nil, createPresetOut{}, fmt.Errorf("name is required")
+		}
+		t := workout.Type(in.Type)
+		switch t {
+		case workout.TypeWeightTraining, workout.TypeBodyWeight, workout.TypeRunning,
+			workout.TypeWalking, workout.TypeCardio, workout.TypeMobility, workout.TypeCustom:
+		default:
+			return nil, createPresetOut{}, fmt.Errorf("invalid type %q: must be weight_training, body_weight, running, walking, cardio, mobility, or custom", in.Type)
+		}
+		exInputs := make([]workout.PresetExerciseInput, len(in.Exercises))
+		for i, ex := range in.Exercises {
+			section := workout.Section(ex.Section)
+			if section == "" {
+				section = workout.SectionMain
+			}
+			exIn := workout.PresetExerciseInput{
+				Section: section,
+				Name:    ex.Name,
+			}
+			if ex.TargetMuscles != "" {
+				exIn.TargetMuscles = &ex.TargetMuscles
+			}
+			if ex.Instructions != "" {
+				exIn.Instructions = &ex.Instructions
+			}
+			if ex.Sets > 0 {
+				exIn.Sets = &ex.Sets
+			}
+			if ex.Reps > 0 {
+				exIn.Reps = &ex.Reps
+			}
+			if ex.DurationSeconds > 0 {
+				exIn.DurationSeconds = &ex.DurationSeconds
+			}
+			if ex.RestSeconds > 0 {
+				exIn.RestSeconds = &ex.RestSeconds
+			}
+			if ex.WeightKg > 0 {
+				exIn.WeightKg = &ex.WeightKg
+			}
+			if ex.Equipment != "" {
+				exIn.Equipment = &ex.Equipment
+			}
+			if ex.Notes != "" {
+				exIn.Notes = &ex.Notes
+			}
+			exInputs[i] = exIn
+		}
+		input := workout.CreatePresetInput{
+			Name:      in.Name,
+			Type:      t,
+			Exercises: exInputs,
+		}
+		if in.Description != "" {
+			input.Description = &in.Description
+		}
+		preset, err := d.WkSvc.CreatePreset(ctx, d.UserUUID, input)
+		if err != nil {
+			return nil, createPresetOut{}, fmt.Errorf("create preset: %w", err)
+		}
+		return nil, createPresetOut{Preset: toWorkoutPresetDetailDTO(preset)}, nil
 	}))
 }

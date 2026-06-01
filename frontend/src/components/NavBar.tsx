@@ -63,6 +63,13 @@ export default function NavBar() {
           >
             Chat
           </Link>
+          <Link
+            to="/health"
+            className={linkClass('/health')}
+            onClick={() => setOpen(false)}
+          >
+            Health
+          </Link>
           <button
             onClick={() => {
               setOpen(false)

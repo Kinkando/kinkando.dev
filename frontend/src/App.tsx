@@ -7,6 +7,7 @@ import FinancePage from './pages/FinancePage'
 import KanbanPage from './pages/KanbanPage'
 import KanbanArchivePage from './pages/KanbanArchivePage'
 import ChatPage from './pages/ChatPage'
+import HealthPage from './pages/HealthPage'
 import ProtectedRoute from './auth/ProtectedRoute'
 
 export default function App() {
@@ -47,6 +48,14 @@ export default function App() {
           element={
             <ProtectedRoute>
               <ChatPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/health"
+          element={
+            <ProtectedRoute>
+              <HealthPage />
             </ProtectedRoute>
           }
         />

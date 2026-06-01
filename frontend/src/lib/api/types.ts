@@ -209,3 +209,63 @@ export type PortfolioSkill = {
   category: string
   items: string[]
 }
+
+// ---- Health
+
+export type Gender = 'male' | 'female' | 'other'
+
+export type HealthGoal = 'lose_weight' | 'maintain' | 'gain_muscle'
+
+export type ExerciseType = 'cardio' | 'strength' | 'flexibility'
+
+export type HealthProfile = {
+  id: string
+  user_id: string
+  height: number | null // cm
+  age: number | null
+  gender: Gender | null
+  goal: HealthGoal | null
+  created_at: string
+  updated_at: string
+}
+
+export type UpsertProfileInput = {
+  height: number | null
+  age: number | null
+  gender: Gender | null
+  goal: HealthGoal | null
+}
+
+export type WeightLog = {
+  id: string
+  weight: number // kg
+  logged_at: string // ISO date
+}
+
+export type CreateWeightInput = {
+  weight: number
+  logged_at?: string // YYYY-MM-DD, optional
+}
+
+export type HealthExercise = {
+  id: string
+  user_id: string
+  name: string
+  type: ExerciseType
+  duration_minutes: number | null
+  calories: number | null
+  notes: string | null
+  performed_at: string // ISO date
+  created_at: string
+}
+
+export type CreateExerciseInput = {
+  name: string
+  type: ExerciseType
+  duration_minutes: number | null
+  calories: number | null
+  notes: string | null
+  performed_at: string // YYYY-MM-DD
+}
+
+export type UpdateExerciseInput = CreateExerciseInput

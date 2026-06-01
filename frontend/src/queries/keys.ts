@@ -11,4 +11,7 @@ export const keys = {
   kanbanStats: (id: string) => ['kanban', 'stats', id] as const,
   kanbanArchive: (id: string, filter?: ArchiveFilter) =>
     ['kanban', 'archive', id, filter] as const,
+  healthProfile: ['health', 'profile'] as const,
+  healthWeight: ['health', 'weight'] as const,
+  healthExercises: ['health', 'exercises'] as const,
 }

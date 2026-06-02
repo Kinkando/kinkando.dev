@@ -241,7 +241,7 @@ export default function KanbanBoard({ boardId, data }: Props) {
                 <button
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={handleAddColumn}
-                  className="flex-1 rounded-lg bg-indigo-600 py-1.5 text-sm font-medium text-white hover:bg-indigo-500"
+                  className="flex-1 cursor-pointer rounded-lg bg-indigo-600 py-1.5 text-sm font-medium text-white hover:bg-indigo-500"
                 >
                   Add
                 </button>
@@ -251,7 +251,7 @@ export default function KanbanBoard({ boardId, data }: Props) {
                     setAddingColumn(false)
                     setNewColumnName('')
                   }}
-                  className="flex-1 rounded-lg bg-gray-800 py-1.5 text-sm font-medium text-gray-400 hover:bg-gray-700"
+                  className="flex-1 cursor-pointer rounded-lg bg-gray-800 py-1.5 text-sm font-medium text-gray-400 hover:bg-gray-700"
                 >
                   Cancel
                 </button>
@@ -260,7 +260,7 @@ export default function KanbanBoard({ boardId, data }: Props) {
           ) : (
             <button
               onClick={() => setAddingColumn(true)}
-              className="flex h-fit w-72 shrink-0 items-center gap-2 rounded-xl border border-dashed border-gray-700 px-4 py-3 text-sm text-gray-500 hover:border-gray-600 hover:text-gray-400"
+              className="flex h-fit w-72 shrink-0 cursor-pointer items-center gap-2 rounded-xl border border-dashed border-gray-700 px-4 py-3 text-sm text-gray-500 hover:border-gray-600 hover:text-gray-400"
             >
               + Add column
             </button>

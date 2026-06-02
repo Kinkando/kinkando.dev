@@ -72,7 +72,7 @@ export default function FilterBar({ filter, onChange, allTags }: Props) {
             <button
               key={p}
               onClick={() => togglePriority(p)}
-              className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-all ${
+              className={`cursor-pointer rounded-lg px-2.5 py-1 text-xs font-medium transition-all ${
                 filter.priorities.includes(p)
                   ? 'ring-1'
                   : 'opacity-50 hover:opacity-80'
@@ -96,7 +96,7 @@ export default function FilterBar({ filter, onChange, allTags }: Props) {
           <button
             key={opt.value}
             onClick={() => onChange({ ...filter, dueStatus: opt.value })}
-            className={`rounded-md px-2.5 py-1 text-xs transition-colors ${
+            className={`cursor-pointer rounded-md px-2.5 py-1 text-xs transition-colors ${
               filter.dueStatus === opt.value
                 ? 'bg-gray-700 text-gray-100'
                 : 'text-gray-500 hover:text-gray-300'
@@ -114,7 +114,7 @@ export default function FilterBar({ filter, onChange, allTags }: Props) {
             <button
               key={tag}
               onClick={() => toggleTag(tag)}
-              className={`rounded-full px-2.5 py-0.5 text-xs transition-colors ${
+              className={`cursor-pointer rounded-full px-2.5 py-0.5 text-xs transition-colors ${
                 filter.tags.includes(tag)
                   ? 'bg-indigo-600 text-white'
                   : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
@@ -130,7 +130,7 @@ export default function FilterBar({ filter, onChange, allTags }: Props) {
       {hasFilters && (
         <button
           onClick={() => onChange(DEFAULT_FILTER)}
-          className="text-xs text-gray-500 hover:text-gray-300"
+          className="cursor-pointer text-xs text-gray-500 hover:text-gray-300"
         >
           Clear filters
         </button>

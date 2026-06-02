@@ -223,7 +223,7 @@ export default function PresetForm({
           <button
             type="button"
             onClick={addExercise}
-            className="rounded-md bg-gray-800 px-3 py-1 text-xs font-medium text-indigo-400 hover:bg-gray-700"
+            className="cursor-pointer rounded-md bg-gray-800 px-3 py-1 text-xs font-medium text-indigo-400 hover:bg-gray-700"
           >
             + Add exercise
           </button>
@@ -244,7 +244,7 @@ export default function PresetForm({
                   type="button"
                   onClick={() => moveExercise(i, -1)}
                   disabled={i === 0}
-                  className="rounded p-0.5 text-gray-500 hover:text-gray-200 disabled:opacity-30"
+                  className="cursor-pointer rounded p-0.5 text-gray-500 hover:text-gray-200 disabled:opacity-30"
                   title="Move up"
                 >
                   ↑
@@ -253,7 +253,7 @@ export default function PresetForm({
                   type="button"
                   onClick={() => moveExercise(i, 1)}
                   disabled={i === exercises.length - 1}
-                  className="rounded p-0.5 text-gray-500 hover:text-gray-200 disabled:opacity-30"
+                  className="cursor-pointer rounded p-0.5 text-gray-500 hover:text-gray-200 disabled:opacity-30"
                   title="Move down"
                 >
                   ↓
@@ -261,7 +261,7 @@ export default function PresetForm({
                 <button
                   type="button"
                   onClick={() => removeExercise(i)}
-                  className="ml-1 rounded px-1.5 py-0.5 text-xs text-red-500 hover:text-red-400"
+                  className="ml-1 cursor-pointer rounded px-1.5 py-0.5 text-xs text-red-500 hover:text-red-400"
                 >
                   Remove
                 </button>
@@ -418,14 +418,14 @@ export default function PresetForm({
         <button
           type="submit"
           disabled={saving}
-          className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
+          className="cursor-pointer rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
         >
           {saving ? 'Saving…' : preset ? 'Update Preset' : 'Create Preset'}
         </button>
         <button
           type="button"
           onClick={onCancel}
-          className="rounded-lg bg-gray-800 px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-700"
+          className="cursor-pointer rounded-lg bg-gray-800 px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-700"
         >
           Cancel
         </button>

@@ -48,7 +48,7 @@ export default function WorkoutPage() {
           <button
             key={key}
             onClick={() => setTab(key)}
-            className={`flex-1 rounded-md py-1.5 text-sm font-medium transition-colors ${
+            className={`flex-1 cursor-pointer rounded-md py-1.5 text-sm font-medium transition-colors ${
               tab === key
                 ? 'bg-gray-800 text-gray-100'
                 : 'text-gray-500 hover:text-gray-300'

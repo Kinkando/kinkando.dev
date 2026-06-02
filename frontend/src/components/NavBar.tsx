@@ -192,7 +192,7 @@ export default function NavBar() {
             <div ref={avatarRef} className="relative">
               <button
                 onClick={() => setAvatarOpen((o) => !o)}
-                className="flex items-center gap-2 rounded-md px-1 py-0.5 text-gray-300 transition-colors hover:text-gray-100"
+                className="flex cursor-pointer items-center gap-2 rounded-md px-1 py-0.5 text-gray-300 transition-colors hover:text-gray-100"
               >
                 {user.photoURL ? (
                   <img
@@ -230,7 +230,7 @@ export default function NavBar() {
                       setAvatarOpen(false)
                       handleLogout()
                     }}
-                    className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-300 transition-colors hover:bg-gray-700 hover:text-gray-100"
+                    className="flex w-full cursor-pointer items-center gap-2 px-4 py-2 text-left text-sm text-gray-300 transition-colors hover:bg-gray-700 hover:text-gray-100"
                   >
                     <NavIcon name="logout" />
                     Logout
@@ -243,7 +243,7 @@ export default function NavBar() {
 
         {/* Hamburger */}
         <button
-          className="flex items-center justify-center rounded-md p-1.5 text-gray-400 hover:text-gray-100 xl:hidden"
+          className="flex cursor-pointer items-center justify-center rounded-md p-1.5 text-gray-400 hover:text-gray-100 xl:hidden"
           onClick={() => setOpen((o) => !o)}
           aria-label="Toggle menu"
         >
@@ -308,7 +308,7 @@ export default function NavBar() {
                   setOpen(false)
                   handleLogout()
                 }}
-                className="flex items-center gap-1.5 text-left text-gray-400 transition-colors hover:text-gray-100"
+                className="flex cursor-pointer items-center gap-1.5 text-left text-gray-400 transition-colors hover:text-gray-100"
               >
                 <NavIcon name="logout" />
                 Logout

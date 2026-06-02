@@ -146,7 +146,7 @@ export default function HistoryTab({ sessions }: Props) {
             className="rounded-xl border border-gray-800 bg-gray-900"
           >
             <button
-              className="flex w-full items-center gap-3 p-4 text-left"
+              className="flex w-full cursor-pointer items-center gap-3 p-4 text-left"
               onClick={() => toggleExpand(session.id)}
             >
               <div className="min-w-0 flex-1">

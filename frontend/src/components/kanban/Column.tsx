@@ -139,7 +139,7 @@ export default function KanbanColumn({
           <div className="relative flex-shrink-0" ref={menuRef}>
             <button
               onClick={() => setMenuOpen((o) => !o)}
-              className="text-gray-600 hover:text-gray-300"
+              className="cursor-pointer text-gray-600 hover:text-gray-300"
               title="Column options"
             >
               ⋯
@@ -147,20 +147,20 @@ export default function KanbanColumn({
             {menuOpen && (
               <div className="absolute top-6 right-0 z-20 min-w-32 rounded-lg border border-gray-700 bg-gray-900 py-1 shadow-xl">
                 <button
-                  className="w-full px-3 py-1.5 text-left text-sm text-gray-300 hover:bg-gray-800"
+                  className="w-full cursor-pointer px-3 py-1.5 text-left text-sm text-gray-300 hover:bg-gray-800"
                   onClick={() => onAddCard(column.id)}
                 >
                   Add card
                 </button>
                 <button
-                  className="w-full px-3 py-1.5 text-left text-sm text-gray-300 hover:bg-gray-800"
+                  className="w-full cursor-pointer px-3 py-1.5 text-left text-sm text-gray-300 hover:bg-gray-800"
                   onClick={startRename}
                 >
                   Rename
                 </button>
                 {!column.is_system && (
                   <button
-                    className="w-full px-3 py-1.5 text-left text-sm text-red-400 hover:bg-gray-800"
+                    className="w-full cursor-pointer px-3 py-1.5 text-left text-sm text-red-400 hover:bg-gray-800"
                     onClick={() => {
                       setMenuOpen(false)
                       setShowDeleteDialog(true)
@@ -194,7 +194,7 @@ export default function KanbanColumn({
 
         <button
           onClick={() => onAddCard(column.id)}
-          className="text-left text-sm text-gray-500 hover:text-gray-300"
+          className="cursor-pointer text-left text-sm text-gray-500 hover:text-gray-300"
         >
           + Add card
         </button>
@@ -328,13 +328,13 @@ function DeleteColumnDialog({
           <button
             onClick={handleConfirm}
             disabled={action === 'move' && !targetColumnId}
-            className="flex-1 rounded-lg bg-red-600 py-2 text-sm font-medium text-white hover:bg-red-500 disabled:opacity-50"
+            className="flex-1 cursor-pointer rounded-lg bg-red-600 py-2 text-sm font-medium text-white hover:bg-red-500 disabled:opacity-50"
           >
             Delete Column
           </button>
           <button
             onClick={onClose}
-            className="flex-1 rounded-lg bg-gray-800 py-2 text-sm font-medium text-gray-400 hover:bg-gray-700"
+            className="flex-1 cursor-pointer rounded-lg bg-gray-800 py-2 text-sm font-medium text-gray-400 hover:bg-gray-700"
           >
             Cancel
           </button>

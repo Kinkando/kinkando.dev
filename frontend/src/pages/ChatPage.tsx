@@ -231,7 +231,7 @@ export default function ChatPage() {
                   type="button"
                   disabled={m.disabled}
                   onClick={() => setResponseMode(m.value)}
-                  className={`rounded-md px-3 py-1 text-xs transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                  className={`cursor-pointer rounded-md px-3 py-1 text-xs transition disabled:cursor-not-allowed disabled:opacity-50 ${
                     responseMode === m.value
                       ? 'bg-gray-800 text-gray-100'
                       : 'text-gray-500 hover:text-gray-300'
@@ -243,7 +243,7 @@ export default function ChatPage() {
             </div>
             <button
               onClick={handleNewSession}
-              className="flex h-8 items-center gap-1.5 rounded-lg border border-gray-700 px-3 py-1.5 text-xs text-gray-400 transition hover:border-gray-500 hover:text-gray-200"
+              className="flex h-8 cursor-pointer items-center gap-1.5 rounded-lg border border-gray-700 px-3 py-1.5 text-xs text-gray-400 transition hover:border-gray-500 hover:text-gray-200"
             >
               <RotateCcw size={12} />
             </button>
@@ -288,7 +288,7 @@ export default function ChatPage() {
                 <button
                   key={s.label}
                   onClick={() => handleSend(s.prompt)}
-                  className="flex flex-col gap-1 rounded-xl border border-gray-700 bg-gray-800/50 px-4 py-3 text-left transition hover:border-indigo-500/60 hover:bg-gray-800"
+                  className="flex cursor-pointer flex-col gap-1 rounded-xl border border-gray-700 bg-gray-800/50 px-4 py-3 text-left transition hover:border-indigo-500/60 hover:bg-gray-800"
                 >
                   <span className="text-sm font-medium text-gray-200">
                     {s.label}

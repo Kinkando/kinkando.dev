@@ -97,7 +97,7 @@ export default function PresetsTab({ presets, onStarted }: Props) {
         </p>
         <button
           onClick={handleNew}
-          className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
+          className="cursor-pointer rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
         >
           New Preset
         </button>
@@ -228,13 +228,13 @@ export default function PresetsTab({ presets, onStarted }: Props) {
               <button
                 onClick={() => handleDelete(deleteConfirm)}
                 disabled={deletePreset.isPending}
-                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-500 disabled:opacity-50"
+                className="cursor-pointer rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-500 disabled:opacity-50"
               >
                 {deletePreset.isPending ? 'Deleting…' : 'Delete'}
               </button>
               <button
                 onClick={() => setDeleteConfirm(null)}
-                className="rounded-lg bg-gray-800 px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-700"
+                className="cursor-pointer rounded-lg bg-gray-800 px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-700"
               >
                 Cancel
               </button>

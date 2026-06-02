@@ -67,7 +67,7 @@ export default function RecordForm({ month }: { month: string }) {
             key={t}
             type="button"
             onClick={() => handleTypeChange(t)}
-            className={`flex-1 rounded-lg py-1.5 text-sm font-medium ${
+            className={`flex-1 cursor-pointer rounded-lg py-1.5 text-sm font-medium ${
               type === t
                 ? t === 'income'
                   ? 'bg-green-700 text-white'
@@ -98,7 +98,7 @@ export default function RecordForm({ month }: { month: string }) {
           <button
             type="button"
             onClick={() => setDropdownOpen((o) => !o)}
-            className={`${inputClass} flex w-full items-center justify-between gap-2`}
+            className={`cursor-pointer ${inputClass} flex w-full items-center justify-between gap-2`}
           >
             {categoryID ? (
               (() => {
@@ -133,7 +133,7 @@ export default function RecordForm({ month }: { month: string }) {
                         setCategoryID(cat.id)
                         setDropdownOpen(false)
                       }}
-                      className={`flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-gray-700 ${categoryID === cat.id ? 'bg-gray-700' : ''}`}
+                      className={`flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-sm hover:bg-gray-700 ${categoryID === cat.id ? 'bg-gray-700' : ''}`}
                     >
                       <span
                         className="flex h-5 w-5 shrink-0 items-center justify-center rounded"
@@ -175,7 +175,7 @@ export default function RecordForm({ month }: { month: string }) {
       <button
         type="submit"
         disabled={mutation.isPending || filtered.length === 0}
-        className="rounded-lg bg-indigo-600 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
+        className="cursor-pointer rounded-lg bg-indigo-600 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
       >
         {mutation.isPending ? 'Adding…' : 'Add record'}
       </button>

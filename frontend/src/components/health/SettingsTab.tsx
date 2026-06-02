@@ -160,7 +160,7 @@ export default function SettingsTab({ profile }: Props) {
           <button
             type="submit"
             disabled={upsertProfile.isPending}
-            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
+            className="cursor-pointer rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
           >
             {upsertProfile.isPending ? 'Saving…' : 'Save Profile'}
           </button>
@@ -195,7 +195,7 @@ export default function SettingsTab({ profile }: Props) {
           <button
             type="submit"
             disabled={createWeight.isPending}
-            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
+            className="cursor-pointer rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
           >
             {createWeight.isPending ? 'Saving…' : 'Log Weight'}
           </button>

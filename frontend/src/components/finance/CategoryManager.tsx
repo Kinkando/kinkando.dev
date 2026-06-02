@@ -44,7 +44,7 @@ function CategoryRow({
       <span className="flex-1 text-sm text-gray-200">{cat.name}</span>
       <button
         onClick={() => onEdit(cat)}
-        className="text-xs text-gray-500 hover:text-gray-300"
+        className="cursor-pointer text-xs text-gray-500 hover:text-gray-300"
       >
         Edit
       </button>
@@ -55,7 +55,7 @@ function CategoryRow({
           }
         }}
         disabled={deleteMutation.isPending}
-        className="text-xs text-gray-600 hover:text-red-400"
+        className="cursor-pointer text-xs text-gray-600 hover:text-red-400"
       >
         ✕
       </button>
@@ -123,7 +123,7 @@ function CategoryForm({
                 type="button"
                 title={n}
                 onClick={() => setIcon(n)}
-                className={`flex items-center justify-center rounded-md p-1.5 text-sm ${
+                className={`flex cursor-pointer items-center justify-center rounded-md p-1.5 text-sm ${
                   icon === n
                     ? 'bg-indigo-600 text-white'
                     : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
@@ -143,7 +143,7 @@ function CategoryForm({
               key={c}
               type="button"
               onClick={() => setColor(c)}
-              className={`h-6 w-6 rounded-full ${color === c ? 'ring-2 ring-white ring-offset-1 ring-offset-gray-900' : ''}`}
+              className={`h-6 w-6 cursor-pointer rounded-full ${color === c ? 'ring-2 ring-white ring-offset-1 ring-offset-gray-900' : ''}`}
               style={{ backgroundColor: c }}
             />
           ))}
@@ -160,14 +160,14 @@ function CategoryForm({
         <button
           type="submit"
           disabled={isPending}
-          className="flex-1 rounded-lg bg-indigo-600 py-1.5 text-xs font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
+          className="flex-1 cursor-pointer rounded-lg bg-indigo-600 py-1.5 text-xs font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
         >
           {isPending ? 'Saving…' : isEdit ? 'Save' : 'Add category'}
         </button>
         <button
           type="button"
           onClick={onDone}
-          className="rounded-lg bg-gray-800 px-3 py-1.5 text-xs text-gray-400 hover:bg-gray-700"
+          className="cursor-pointer rounded-lg bg-gray-800 px-3 py-1.5 text-xs text-gray-400 hover:bg-gray-700"
         >
           Cancel
         </button>
@@ -195,7 +195,7 @@ export default function CategoryManager() {
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
-        className="flex items-center justify-between px-5 py-4 text-left"
+        className="flex cursor-pointer items-center justify-between px-5 py-4 text-left"
       >
         <h2 className="text-sm font-semibold text-gray-300">Categories</h2>
         <ChevronDown
@@ -222,7 +222,7 @@ export default function CategoryManager() {
                     {adding !== t && editing?.type !== t && (
                       <button
                         onClick={() => setAdding(t)}
-                        className="text-xs text-gray-500 hover:text-indigo-400"
+                        className="cursor-pointer text-xs text-gray-500 hover:text-indigo-400"
                       >
                         + Add
                       </button>

@@ -58,7 +58,7 @@ export default function DashboardTab({
         </p>
         <button
           onClick={onGoToSettings}
-          className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
+          className="cursor-pointer rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
         >
           Go to Settings
         </button>

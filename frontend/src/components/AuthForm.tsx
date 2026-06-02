@@ -99,7 +99,7 @@ export default function AuthForm({ mode }: Props) {
         <button
           type="submit"
           disabled={loading}
-          className="rounded-lg bg-indigo-600 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
+          className="cursor-pointer rounded-lg bg-indigo-600 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
         >
           {mode === 'login' ? 'Sign in' : 'Register'}
         </button>
@@ -108,7 +108,7 @@ export default function AuthForm({ mode }: Props) {
       <button
         onClick={handleGoogle}
         disabled={loading}
-        className="flex w-full items-center justify-center gap-3 rounded-lg border border-gray-700 bg-gray-800 py-2 text-sm text-gray-200 hover:bg-gray-700 disabled:opacity-50"
+        className="flex w-full cursor-pointer items-center justify-center gap-3 rounded-lg border border-gray-700 bg-gray-800 py-2 text-sm text-gray-200 hover:bg-gray-700 disabled:opacity-50"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"

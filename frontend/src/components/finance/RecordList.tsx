@@ -100,7 +100,7 @@ export default function RecordList({
                       <button
                         onClick={() => setPendingDelete(record)}
                         disabled={deleteMutation.isPending}
-                        className="absolute top-2 right-2 text-xs text-gray-600 hover:text-red-400 disabled:opacity-40"
+                        className="absolute top-2 right-2 cursor-pointer text-xs text-gray-600 hover:text-red-400 disabled:opacity-40"
                       >
                         ✕
                       </button>
@@ -232,13 +232,13 @@ function ConfirmDeleteDialog({
         <div className="flex gap-2">
           <button
             onClick={onConfirm}
-            className="flex-1 rounded-lg bg-red-600 py-2 text-sm font-medium text-white hover:bg-red-500"
+            className="flex-1 cursor-pointer rounded-lg bg-red-600 py-2 text-sm font-medium text-white hover:bg-red-500"
           >
             Delete
           </button>
           <button
             onClick={onClose}
-            className="flex-1 rounded-lg bg-gray-800 py-2 text-sm font-medium text-gray-400 hover:bg-gray-700"
+            className="flex-1 cursor-pointer rounded-lg bg-gray-800 py-2 text-sm font-medium text-gray-400 hover:bg-gray-700"
           >
             Cancel
           </button>

@@ -157,7 +157,7 @@ function ExerciseLogRow({
           {!isLocked && (
             <button
               onClick={() => onDelete(ex.id)}
-              className="shrink-0 text-xs text-gray-600 hover:text-red-400"
+              className="shrink-0 cursor-pointer text-xs text-gray-600 hover:text-red-400"
               title="Remove exercise"
             >
               ✕
@@ -279,7 +279,7 @@ function ExerciseLogRow({
           <button
             onClick={handleSave}
             disabled={saving}
-            className="rounded-md bg-gray-700 px-3 py-1 text-xs font-medium text-gray-200 hover:bg-gray-600 disabled:opacity-50"
+            className="cursor-pointer rounded-md bg-gray-700 px-3 py-1 text-xs font-medium text-gray-200 hover:bg-gray-600 disabled:opacity-50"
           >
             {saving ? 'Saving…' : 'Save'}
           </button>
@@ -363,7 +363,7 @@ function AddExerciseForm({
     return (
       <button
         onClick={() => setOpen(true)}
-        className="mt-2 w-full rounded-lg border border-dashed border-gray-700 py-2 text-xs font-medium text-gray-500 hover:border-gray-500 hover:text-gray-300"
+        className="mt-2 w-full cursor-pointer rounded-lg border border-dashed border-gray-700 py-2 text-xs font-medium text-gray-500 hover:border-gray-500 hover:text-gray-300"
       >
         + Add exercise
       </button>
@@ -453,13 +453,13 @@ function AddExerciseForm({
         <button
           onClick={handleAdd}
           disabled={addExercise.isPending}
-          className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
+          className="cursor-pointer rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
         >
           {addExercise.isPending ? 'Adding…' : 'Add'}
         </button>
         <button
           onClick={reset}
-          className="rounded-lg bg-gray-700 px-3 py-1.5 text-xs font-medium text-gray-300 hover:bg-gray-600"
+          className="cursor-pointer rounded-lg bg-gray-700 px-3 py-1.5 text-xs font-medium text-gray-300 hover:bg-gray-600"
         >
           Cancel
         </button>
@@ -709,13 +709,13 @@ function SessionView({
               <>
                 <button
                   onClick={handleFinishedClick}
-                  className="text-xs font-medium text-green-500 hover:text-green-400"
+                  className="cursor-pointer text-xs font-medium text-green-500 hover:text-green-400"
                 >
                   Finished
                 </button>
                 <button
                   onClick={onDelete}
-                  className="text-xs text-red-500 hover:text-red-400"
+                  className="cursor-pointer text-xs text-red-500 hover:text-red-400"
                 >
                   Delete
                 </button>
@@ -723,7 +723,7 @@ function SessionView({
             )}
             <button
               onClick={() => setBodyExpanded((b) => !b)}
-              className="text-gray-600 hover:text-gray-400"
+              className="cursor-pointer text-gray-600 hover:text-gray-400"
               aria-label={bodyExpanded ? 'Collapse' : 'Expand'}
             >
               <svg
@@ -807,14 +807,14 @@ function SessionView({
                 <button
                   onClick={handleSaveFields}
                   disabled={saving}
-                  className="rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
+                  className="cursor-pointer rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
                 >
                   {saving ? 'Saving…' : 'Save'}
                 </button>
                 <button
                   onClick={handleResetFields}
                   disabled={saving}
-                  className="rounded-md bg-gray-700 px-3 py-1.5 text-xs font-medium text-gray-300 hover:bg-gray-600 disabled:opacity-50"
+                  className="cursor-pointer rounded-md bg-gray-700 px-3 py-1.5 text-xs font-medium text-gray-300 hover:bg-gray-600 disabled:opacity-50"
                 >
                   Reset
                 </button>
@@ -827,14 +827,14 @@ function SessionView({
             <div className="flex items-center gap-2">
               <button
                 onClick={handleCheckAll}
-                className="rounded-md bg-green-900/30 px-3 py-1.5 text-xs font-medium text-green-400 hover:bg-green-900/50"
+                className="cursor-pointer rounded-md bg-green-900/30 px-3 py-1.5 text-xs font-medium text-green-400 hover:bg-green-900/50"
               >
                 Check All
               </button>
               <button
                 onClick={handleSaveAll}
                 disabled={savingAll}
-                className="rounded-md bg-indigo-900/30 px-3 py-1.5 text-xs font-medium text-indigo-400 hover:bg-indigo-900/50 disabled:opacity-50"
+                className="cursor-pointer rounded-md bg-indigo-900/30 px-3 py-1.5 text-xs font-medium text-indigo-400 hover:bg-indigo-900/50 disabled:opacity-50"
               >
                 {savingAll ? 'Saving…' : 'Save All'}
               </button>
@@ -892,13 +892,13 @@ function SessionView({
               <button
                 onClick={() => handleDeleteExercise(deleteExConfirm)}
                 disabled={deleteExercise.isPending}
-                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-500 disabled:opacity-50"
+                className="cursor-pointer rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-500 disabled:opacity-50"
               >
                 {deleteExercise.isPending ? 'Removing…' : 'Remove'}
               </button>
               <button
                 onClick={() => setDeleteExConfirm(null)}
-                className="rounded-lg bg-gray-800 px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-700"
+                className="cursor-pointer rounded-lg bg-gray-800 px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-700"
               >
                 Cancel
               </button>
@@ -921,13 +921,13 @@ function SessionView({
               <button
                 onClick={handleFinish}
                 disabled={finishSessionMutation.isPending}
-                className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-500 disabled:opacity-50"
+                className="cursor-pointer rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-500 disabled:opacity-50"
               >
                 {finishSessionMutation.isPending ? 'Finishing…' : 'Finished'}
               </button>
               <button
                 onClick={() => setFinishConfirm(false)}
-                className="rounded-lg bg-gray-800 px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-700"
+                className="cursor-pointer rounded-lg bg-gray-800 px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-700"
               >
                 Cancel
               </button>
@@ -1030,13 +1030,13 @@ export default function TodayTab({
                 <button
                   onClick={() => handleDeleteSession(deleteConfirm)}
                   disabled={deleteSession.isPending}
-                  className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-500 disabled:opacity-50"
+                  className="cursor-pointer rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-500 disabled:opacity-50"
                 >
                   {deleteSession.isPending ? 'Deleting…' : 'Delete'}
                 </button>
                 <button
                   onClick={() => setDeleteConfirm(null)}
-                  className="rounded-lg bg-gray-800 px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-700"
+                  className="cursor-pointer rounded-lg bg-gray-800 px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-700"
                 >
                   Cancel
                 </button>
@@ -1065,7 +1065,7 @@ export default function TodayTab({
           <button
             onClick={handleGenerate}
             disabled={generating}
-            className="mt-4 rounded-lg bg-indigo-600 px-5 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
+            className="mt-4 cursor-pointer rounded-lg bg-indigo-600 px-5 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
           >
             {generating ? 'Starting…' : "Start today's workout →"}
           </button>
@@ -1095,7 +1095,7 @@ export default function TodayTab({
               key={type}
               onClick={() => handleQuickStart(type, label)}
               disabled={generating}
-              className="rounded-lg border border-gray-700 bg-gray-800 px-3 py-2.5 text-left text-sm font-medium text-gray-200 hover:border-gray-600 hover:bg-gray-700 disabled:opacity-50"
+              className="cursor-pointer rounded-lg border border-gray-700 bg-gray-800 px-3 py-2.5 text-left text-sm font-medium text-gray-200 hover:border-gray-600 hover:bg-gray-700 disabled:opacity-50"
             >
               {label}
             </button>

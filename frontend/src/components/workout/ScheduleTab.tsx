@@ -90,7 +90,7 @@ export default function ScheduleTab({ schedule, presets }: Props) {
         <button
           onClick={handleSave}
           disabled={setSchedule.isPending}
-          className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
+          className="cursor-pointer rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
         >
           {setSchedule.isPending ? 'Saving…' : 'Save Schedule'}
         </button>

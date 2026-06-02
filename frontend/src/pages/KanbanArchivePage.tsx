@@ -174,7 +174,7 @@ export default function KanbanArchivePage() {
           <button
             key={t}
             onClick={() => handleTabChange(t)}
-            className={`flex-1 rounded-md py-1.5 text-sm font-medium transition-colors ${
+            className={`flex-1 cursor-pointer rounded-md py-1.5 text-sm font-medium transition-colors ${
               tab === t
                 ? 'bg-gray-800 text-gray-100'
                 : 'text-gray-500 hover:text-gray-300'
@@ -358,13 +358,13 @@ function ArchivedCard({
       <div className="flex flex-shrink-0 items-center gap-2 opacity-0 group-hover:opacity-100">
         <button
           onClick={onRestore}
-          className="rounded-md border border-gray-700 px-2.5 py-1 text-xs text-gray-300 hover:border-indigo-500 hover:text-indigo-400"
+          className="cursor-pointer rounded-md border border-gray-700 px-2.5 py-1 text-xs text-gray-300 hover:border-indigo-500 hover:text-indigo-400"
         >
           Restore
         </button>
         <button
           onClick={() => setShowDeleteConfirm(true)}
-          className="rounded-md border border-gray-700 px-2.5 py-1 text-xs text-gray-500 hover:border-red-700 hover:text-red-400"
+          className="cursor-pointer rounded-md border border-gray-700 px-2.5 py-1 text-xs text-gray-500 hover:border-red-700 hover:text-red-400"
         >
           Delete
         </button>
@@ -393,13 +393,13 @@ function ArchivedCard({
                     onDelete()
                     setShowDeleteConfirm(false)
                   }}
-                  className="flex-1 rounded-lg bg-red-600 py-2 text-sm font-medium text-white hover:bg-red-500"
+                  className="flex-1 cursor-pointer rounded-lg bg-red-600 py-2 text-sm font-medium text-white hover:bg-red-500"
                 >
                   Delete
                 </button>
                 <button
                   onClick={() => setShowDeleteConfirm(false)}
-                  className="flex-1 rounded-lg bg-gray-800 py-2 text-sm font-medium text-gray-400 hover:bg-gray-700"
+                  className="flex-1 cursor-pointer rounded-lg bg-gray-800 py-2 text-sm font-medium text-gray-400 hover:bg-gray-700"
                 >
                   Cancel
                 </button>

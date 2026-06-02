@@ -157,7 +157,7 @@ export default function KanbanCard({
             {/* Archive */}
             <button
               onClick={handleArchiveClick}
-              className="text-xs text-gray-600 hover:text-amber-400"
+              className="cursor-pointer text-xs text-gray-600 hover:text-amber-400"
               title={columnType === 'done' ? 'Archive as completed' : 'Archive'}
             >
               ⊙
@@ -165,7 +165,7 @@ export default function KanbanCard({
             {/* Delete */}
             <button
               onClick={() => setShowDeleteConfirm(true)}
-              className="text-xs text-gray-600 hover:text-red-400"
+              className="cursor-pointer text-xs text-gray-600 hover:text-red-400"
               title="Delete permanently"
             >
               ✕
@@ -238,13 +238,13 @@ function ConfirmDeleteModal({
         <div className="flex gap-2">
           <button
             onClick={onConfirm}
-            className="flex-1 rounded-lg bg-red-600 py-2 text-sm font-medium text-white hover:bg-red-500"
+            className="flex-1 cursor-pointer rounded-lg bg-red-600 py-2 text-sm font-medium text-white hover:bg-red-500"
           >
             Delete
           </button>
           <button
             onClick={onClose}
-            className="flex-1 rounded-lg bg-gray-800 py-2 text-sm font-medium text-gray-400 hover:bg-gray-700"
+            className="flex-1 cursor-pointer rounded-lg bg-gray-800 py-2 text-sm font-medium text-gray-400 hover:bg-gray-700"
           >
             Cancel
           </button>
@@ -342,13 +342,13 @@ function ArchiveReasonModal({
         <div className="flex gap-2">
           <button
             onClick={() => onConfirm(selected)}
-            className="flex-1 rounded-lg bg-amber-600 py-2 text-sm font-medium text-white hover:bg-amber-500"
+            className="flex-1 cursor-pointer rounded-lg bg-amber-600 py-2 text-sm font-medium text-white hover:bg-amber-500"
           >
             Archive
           </button>
           <button
             onClick={onClose}
-            className="flex-1 rounded-lg bg-gray-800 py-2 text-sm font-medium text-gray-400 hover:bg-gray-700"
+            className="flex-1 cursor-pointer rounded-lg bg-gray-800 py-2 text-sm font-medium text-gray-400 hover:bg-gray-700"
           >
             Cancel
           </button>

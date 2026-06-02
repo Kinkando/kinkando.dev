@@ -161,7 +161,7 @@ export default function ChatInput({ onSend, disabled, onError }: Props) {
             type="button"
             onClick={handleMicClick}
             disabled={disabled}
-            className={`flex h-8 w-8 items-center justify-center rounded-lg transition ${
+            className={`flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg transition ${
               recording
                 ? 'bg-red-600 text-white hover:bg-red-500'
                 : transcribing
@@ -192,7 +192,7 @@ export default function ChatInput({ onSend, disabled, onError }: Props) {
                 type="button"
                 onClick={handleCancelRecording}
                 disabled={disabled}
-                className="flex h-5 w-5 items-center justify-center rounded hover:bg-red-950 disabled:opacity-40"
+                className="flex h-5 w-5 cursor-pointer items-center justify-center rounded hover:bg-red-950 disabled:opacity-40"
                 aria-label="Cancel recording"
               >
                 <X size={12} />
@@ -208,7 +208,7 @@ export default function ChatInput({ onSend, disabled, onError }: Props) {
         <button
           type="submit"
           disabled={sendDisabled}
-          className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-600 text-white transition hover:bg-indigo-500 disabled:opacity-40"
+          className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg bg-indigo-600 text-white transition hover:bg-indigo-500 disabled:opacity-40"
           aria-label="Send message"
         >
           <SendHorizonal size={16} />

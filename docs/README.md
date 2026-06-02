@@ -8,6 +8,7 @@
 
 ## Backend
 - [Architecture](backend/architecture.md)
+- [Rules](backend/rules.md)
 - [Commands](backend/commands.md)
 - [Database & Migrations](backend/database.md)
 - [Environment Variables](backend/env.md)

@@ -13,6 +13,7 @@ import MedicinePage from './pages/MedicinePage'
 import FoodPage from './pages/FoodPage'
 import SleepPage from './pages/SleepPage'
 import NewsPage from './pages/NewsPage'
+import QuestPage from './pages/QuestPage'
 import ProtectedRoute from './auth/ProtectedRoute'
 
 export default function App() {
@@ -95,6 +96,14 @@ export default function App() {
           element={
             <ProtectedRoute>
               <SleepPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/quest"
+          element={
+            <ProtectedRoute>
+              <QuestPage />
             </ProtectedRoute>
           }
         />

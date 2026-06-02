@@ -565,3 +565,80 @@ export type AdjustStockResponse = {
   adjustment: MedicineStockAdjustment
   medicine: Medicine
 }
+
+// ---- Quest
+
+export type QuestType = 'daily' | 'weekly'
+
+export type SourceType = 'manual' | 'medicine' | 'workout'
+
+export type Quest = {
+  id: string
+  user_id: string
+  type: QuestType
+  source_type: SourceType
+  title: string
+  description: string
+  xp_reward: number
+  target_count: number
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export type DailyQuestStatus = Quest & {
+  completed_today: boolean
+}
+
+export type WeeklyQuestStatus = Quest & {
+  current_count: number
+  completed: boolean
+}
+
+export type XPSummary = {
+  total_xp: number
+  level: number
+  xp_into_level: number
+  xp_for_level: number
+  xp_to_next: number
+}
+
+export type QuestOverview = {
+  date: string
+  week_start: string
+  xp: XPSummary
+  daily: DailyQuestStatus[]
+  weekly: WeeklyQuestStatus[]
+  daily_done: number
+  daily_total: number
+  weekly_done: number
+  weekly_total: number
+}
+
+export type XPEvent = {
+  id: string
+  quest_id: string | null
+  quest_title: string
+  source: string
+  period_start: string
+  xp: number
+  created_at: string
+}
+
+export type CreateQuestInput = {
+  type: QuestType
+  source_type?: SourceType
+  title: string
+  description: string
+  xp_reward: number
+  target_count: number
+}
+
+export type UpdateQuestInput = {
+  source_type?: SourceType
+  title: string
+  description: string
+  xp_reward: number
+  target_count: number
+  is_active: boolean
+}

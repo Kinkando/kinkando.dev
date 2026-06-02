@@ -25,4 +25,7 @@ export const keys = {
   medicineIntakes: (date?: string) => ['medicine', 'intakes', date] as const,
   medicineAdjustments: (date?: string) =>
     ['medicine', 'adjustments', date] as const,
+  questOverview: ['quest', 'overview'] as const,
+  questList: (type: string) => ['quest', 'list', type] as const,
+  questHistory: ['quest', 'history'] as const,
 }

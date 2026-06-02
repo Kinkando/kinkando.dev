@@ -5,7 +5,7 @@
 ```bash
 cd backend
 set -a && source .env && set +a          # load POSTGRES_DSN (needed if POSTGRES_MIGRATION_URL absent)
-make run-db-migrations DB_MIGRATION_URL="$POSTGRES_DSN"
+make run-db-migrations-windows
 make gen-sql-builder-windows             # or gen-sql-builder-macos on macOS/Linux
 ```
 

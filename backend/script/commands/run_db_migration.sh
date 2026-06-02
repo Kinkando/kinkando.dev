@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # run_db_migration.sh
 # Applies the most recent migration using dbmate.
-# Run via: make run-db-migration
+# Run via: make run-db-migrations-windows or make run-db-migrations-macos
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -16,8 +16,8 @@ if [ -f "$ENV_FILE" ]; then
   set +o allexport
 fi
 
-if [ -z "${POSTGRES_MIGRATION_URL:-}" ]; then
-  echo "Error: POSTGRES_MIGRATION_URL is not set. Add it to .env or export it before running." >&2
+if [ -z "${POSTGRES_DSN:-}" ]; then
+  echo "Error: POSTGRES_DSN is not set. Add it to .env or export it before running." >&2
   exit 1
 fi
 
@@ -25,7 +25,7 @@ echo "→ Applying the most recent migration..."
 cd "$ROOT_DIR"
 
 dbmate \
-  --url "$POSTGRES_MIGRATION_URL" \
+  --url "$POSTGRES_DSN" \
   --migrations-dir './migrations' \
   --no-dump-schema \
   migrate

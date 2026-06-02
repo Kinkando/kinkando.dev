@@ -3,7 +3,7 @@
 // NOTE: The generated go-jet types (table.Workout*, model.Workout*) are produced
 // by running:
 //
-//	make run-db-migrations && make gen-sql-builder-windows
+//	make run-db-migrations-windows && make gen-sql-builder-windows
 //
 // The package will not compile until that step has been executed.
 package repository
@@ -1063,8 +1063,8 @@ func (r *Repository) createSessionFromPreset(
 				ex.Name,
 				ex.TargetMuscles,
 				ex.Instructions,
-				ex.Sets,  // sets → target_sets
-				ex.Reps,  // reps → target_reps
+				ex.Sets,            // sets → target_sets
+				ex.Reps,            // reps → target_reps
 				ex.DurationSeconds, // duration_seconds → target_duration_seconds
 				ex.RestSeconds,
 			)

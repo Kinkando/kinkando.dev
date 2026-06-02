@@ -5,7 +5,7 @@
 **Every time you modify the PostgreSQL schema**, run these two commands before writing any repository code:
 
 ```bash
-make run-db-migrations        # apply the migration
+make run-db-migrations-windows        # apply the migration
 make gen-sql-builder-windows  # regenerate gen/kinkando/public/ (use gen-sql-builder-macos on macOS/Linux)
 ```
 
@@ -17,13 +17,7 @@ Skipping codegen causes `undefined: table.XxxYyy` build errors or `column does n
 
 Both commands need database credentials. Check `backend/.env`:
 
-- **`POSTGRES_MIGRATION_URL`** — used by `make run-db-migrations`. If this key is **absent** from `.env` (common — only `POSTGRES_DSN` is set), source `.env` and pass `POSTGRES_DSN` as the override:
-
-  ```bash
-  cd backend
-  set -a && source .env && set +a
-  make run-db-migrations DB_MIGRATION_URL="$POSTGRES_DSN"
-  ```
+- **`POSTGRES_MIGRATION_URL`** — used by `make run-db-migrations-*`. The script already sources `.env` automatically, so no extra steps are needed.
 
 - **`POSTGRES_DSN`** — used by `make gen-sql-builder-*`. The script already sources `.env` automatically, so no extra steps are needed.
 
@@ -50,7 +44,7 @@ Examples: `001_init.sql`, `002_add_currency_to_finance_records.sql`
 ## Checklist — adding/editing a migration
 
 1. Add a new numbered file in `migrations/` with both `migrate:up` and `migrate:down`. Never edit an already-applied migration.
-2. Apply: `make run-db-migrations`
+2. Apply: `make run-db-migrations-windows`
 3. Regenerate jet (**do not skip, do not edit `gen/` by hand**):
    ```bash
    make gen-sql-builder-macos    # macOS / Linux
@@ -72,4 +66,4 @@ After rollback, re-run `make gen-sql-builder-*` and update affected repository c
 | Variable | Used by |
 |---|---|
 | `POSTGRES_DSN` | Go server (runtime) and jet codegen |
-| `POSTGRES_MIGRATION_URL` | dbmate (`make run-db-migrations`, `make rollback-db-migration`) |
+| `POSTGRES_MIGRATION_URL` | dbmate (`make run-db-migrations-*`, `make rollback-db-migration-*`) |

@@ -37,12 +37,16 @@ import (
 	lineHandler "github.com/kinkando/personal-dashboard/internal/line/handler"
 	"github.com/kinkando/personal-dashboard/internal/mcpserver"
 	portfolioHandler "github.com/kinkando/personal-dashboard/internal/portfolio/handler"
+	questHandler "github.com/kinkando/personal-dashboard/internal/quest/handler"
+	questRepo "github.com/kinkando/personal-dashboard/internal/quest/repository"
+	questSvc "github.com/kinkando/personal-dashboard/internal/quest/service"
 	userHandler "github.com/kinkando/personal-dashboard/internal/user/handler"
 	userRepo "github.com/kinkando/personal-dashboard/internal/user/repository"
 	userSvc "github.com/kinkando/personal-dashboard/internal/user/service"
 	workoutHandler "github.com/kinkando/personal-dashboard/internal/workout/handler"
 	workoutRepo "github.com/kinkando/personal-dashboard/internal/workout/repository"
 	workoutSvc "github.com/kinkando/personal-dashboard/internal/workout/service"
+	"github.com/kinkando/personal-dashboard/pkg/event"
 	"github.com/kinkando/personal-dashboard/pkg/middleware"
 	"github.com/kinkando/personal-dashboard/pkg/mongo"
 	"github.com/kinkando/personal-dashboard/pkg/postgres"
@@ -92,6 +96,8 @@ func main() {
 	}
 
 	// wire modules
+	bus := event.New()
+
 	usrRepo := userRepo.New(pgDB.SQL())
 	usrSvc := userSvc.New(usrRepo)
 	usrH := userHandler.New(usrSvc)
@@ -108,12 +114,25 @@ func main() {
 	heaH := healthHandler.New(heaSvc, usrRepo)
 
 	wkRepo := workoutRepo.New(pgDB.SQL())
-	wkSvc := workoutSvc.New(wkRepo)
+	wkSvc := workoutSvc.New(wkRepo, bus)
 	wkH := workoutHandler.New(wkSvc, usrRepo)
 
 	medRepo := medicineRepo.New(pgDB.SQL())
-	medSvc := medicineSvc.New(medRepo)
+	medSvc := medicineSvc.New(medRepo, bus)
 	medH := medicineHandler.New(medSvc, usrRepo)
+
+	qstRepo := questRepo.New(pgDB.SQL())
+	qstSvc := questSvc.New(qstRepo)
+	qstH := questHandler.New(qstSvc, usrRepo)
+
+	// Subscribe quest to domain events — main.go is the only place that knows
+	// both producers and subscribers; neither side imports the other.
+	bus.Subscribe(event.MedicineTaken, func(ctx context.Context, e event.Event) {
+		_ = qstSvc.HandleSourceEvent(ctx, e.UserID, "medicine")
+	})
+	bus.Subscribe(event.WorkoutSessionFinished, func(ctx context.Context, e event.Event) {
+		_ = qstSvc.HandleSourceEvent(ctx, e.UserID, "workout")
+	})
 
 	portH := portfolioHandler.New()
 
@@ -158,6 +177,9 @@ func main() {
 
 	medicineGroup := api.Group("/medicines", authMW.Require())
 	medH.Register(medicineGroup)
+
+	questGroup := api.Group("/quest", authMW.Require())
+	qstH.Register(questGroup)
 
 	portfolioGroup := api.Group("/portfolio")
 	portH.Register(portfolioGroup)

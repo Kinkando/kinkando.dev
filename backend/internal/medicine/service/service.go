@@ -5,7 +5,14 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/kinkando/personal-dashboard/internal/medicine"
+	"github.com/kinkando/personal-dashboard/pkg/event"
 )
+
+// EventPublisher is the narrow interface medicine depends on.
+// *event.Bus satisfies it; medicine never imports the quest package.
+type EventPublisher interface {
+	Publish(ctx context.Context, e event.Event)
+}
 
 type Repository interface {
 	ListMedicines(ctx context.Context, userID uuid.UUID, includeArchived bool) ([]*medicine.Medicine, error)
@@ -23,11 +30,12 @@ type Repository interface {
 }
 
 type Service struct {
-	repo Repository
+	repo   Repository
+	events EventPublisher // nil-safe; set via New
 }
 
-func New(repo Repository) *Service {
-	return &Service{repo: repo}
+func New(repo Repository, events EventPublisher) *Service {
+	return &Service{repo: repo, events: events}
 }
 
 func (s *Service) ListMedicines(ctx context.Context, userID uuid.UUID, includeArchived bool) ([]*medicine.Medicine, error) {
@@ -47,7 +55,15 @@ func (s *Service) SetArchived(ctx context.Context, id uuid.UUID, userID uuid.UUI
 }
 
 func (s *Service) Take(ctx context.Context, userID uuid.UUID, medicineID uuid.UUID, in medicine.TakeMedicineInput) (*medicine.MedicineIntake, *medicine.Medicine, error) {
-	return s.repo.Take(ctx, userID, medicineID, in)
+	intake, med, err := s.repo.Take(ctx, userID, medicineID, in)
+	if err != nil {
+		return nil, nil, err
+	}
+	// Publish event so quest subscribers can react without medicine importing quest.
+	if s.events != nil {
+		s.events.Publish(ctx, event.Event{Type: event.MedicineTaken, UserID: userID})
+	}
+	return intake, med, nil
 }
 
 func (s *Service) AdjustStock(ctx context.Context, userID uuid.UUID, medicineID uuid.UUID, in medicine.AdjustStockInput) (*medicine.MedicineStockAdjustment, *medicine.Medicine, error) {

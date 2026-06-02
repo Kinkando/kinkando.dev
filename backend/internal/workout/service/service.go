@@ -6,7 +6,14 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/kinkando/personal-dashboard/internal/workout"
+	"github.com/kinkando/personal-dashboard/pkg/event"
 )
+
+// EventPublisher is the narrow interface workout depends on.
+// *event.Bus satisfies it; workout never imports the quest package.
+type EventPublisher interface {
+	Publish(ctx context.Context, e event.Event)
+}
 
 type Repository interface {
 	ListPresets(ctx context.Context, userID uuid.UUID) ([]*workout.Preset, error)
@@ -32,11 +39,12 @@ type Repository interface {
 }
 
 type Service struct {
-	repo Repository
+	repo   Repository
+	events EventPublisher // nil-safe; set via New
 }
 
-func New(repo Repository) *Service {
-	return &Service{repo: repo}
+func New(repo Repository, events EventPublisher) *Service {
+	return &Service{repo: repo, events: events}
 }
 
 func (s *Service) ListPresets(ctx context.Context, userID uuid.UUID) ([]*workout.Preset, error) {
@@ -100,7 +108,15 @@ func (s *Service) DeleteSession(ctx context.Context, id uuid.UUID, userID uuid.U
 }
 
 func (s *Service) FinishSession(ctx context.Context, id uuid.UUID, userID uuid.UUID) (*workout.Session, error) {
-	return s.repo.FinishSession(ctx, id, userID)
+	session, err := s.repo.FinishSession(ctx, id, userID)
+	if err != nil {
+		return nil, err
+	}
+	// Publish event so quest subscribers can react without workout importing quest.
+	if s.events != nil {
+		s.events.Publish(ctx, event.Event{Type: event.WorkoutSessionFinished, UserID: userID})
+	}
+	return session, nil
 }
 
 func (s *Service) AddSessionExercise(ctx context.Context, sessionID uuid.UUID, userID uuid.UUID, in workout.AddSessionExerciseInput) (*workout.SessionExercise, error) {

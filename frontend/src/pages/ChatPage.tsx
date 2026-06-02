@@ -224,7 +224,7 @@ export default function ChatPage() {
           <h1 className="text-xl font-semibold text-gray-100">AI Assistant</h1>
           <div className="flex items-center gap-2">
             {/* Response-mode toggle */}
-            <div className="flex rounded-lg border border-gray-800 bg-gray-900 p-1">
+            <div className="flex h-8 rounded-lg border border-gray-800 bg-gray-900 p-1">
               {RESPONSE_MODES.map((m) => (
                 <button
                   key={m.value}
@@ -243,10 +243,9 @@ export default function ChatPage() {
             </div>
             <button
               onClick={handleNewSession}
-              className="flex items-center gap-1.5 rounded-lg border border-gray-700 px-3 py-1.5 text-xs text-gray-400 transition hover:border-gray-500 hover:text-gray-200"
+              className="flex h-8 items-center gap-1.5 rounded-lg border border-gray-700 px-3 py-1.5 text-xs text-gray-400 transition hover:border-gray-500 hover:text-gray-200"
             >
               <RotateCcw size={12} />
-              New session
             </button>
           </div>
         </div>

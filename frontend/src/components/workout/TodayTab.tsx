@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type {
   WorkoutSession,
   WorkoutScheduleEntry,
@@ -83,13 +83,16 @@ function exToState(ex: WorkoutSessionExercise): ExerciseLogState {
 function ExerciseLogRow({
   exercise: ex,
   sessionId,
+  state,
+  onStateChange,
   onDelete,
 }: {
   exercise: WorkoutSessionExercise
   sessionId: string
+  state: ExerciseLogState
+  onStateChange: (s: ExerciseLogState) => void
   onDelete: (exId: string) => void
 }) {
-  const [state, setState] = useState<ExerciseLogState>(exToState(ex))
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const updateExercise = useUpdateSessionExercise()
@@ -135,7 +138,7 @@ function ExerciseLogRow({
               type="checkbox"
               checked={state.completed}
               onChange={(e) =>
-                setState({ ...state, completed: e.target.checked })
+                onStateChange({ ...state, completed: e.target.checked })
               }
               className="h-4 w-4 accent-indigo-500"
             />
@@ -187,7 +190,7 @@ function ExerciseLogRow({
                 placeholder={ex.target_sets ? String(ex.target_sets) : '—'}
                 value={state.actual_sets}
                 onChange={(e) =>
-                  setState({ ...state, actual_sets: e.target.value })
+                  onStateChange({ ...state, actual_sets: e.target.value })
                 }
               />
             </div>
@@ -202,7 +205,7 @@ function ExerciseLogRow({
                 placeholder={ex.target_reps ? String(ex.target_reps) : '—'}
                 value={state.actual_reps}
                 onChange={(e) =>
-                  setState({ ...state, actual_reps: e.target.value })
+                  onStateChange({ ...state, actual_reps: e.target.value })
                 }
               />
             </div>
@@ -223,7 +226,10 @@ function ExerciseLogRow({
               }
               value={state.actual_duration_seconds}
               onChange={(e) =>
-                setState({ ...state, actual_duration_seconds: e.target.value })
+                onStateChange({
+                  ...state,
+                  actual_duration_seconds: e.target.value,
+                })
               }
             />
           </div>
@@ -239,7 +245,9 @@ function ExerciseLogRow({
             step="0.5"
             placeholder="—"
             value={state.weight_kg}
-            onChange={(e) => setState({ ...state, weight_kg: e.target.value })}
+            onChange={(e) =>
+              onStateChange({ ...state, weight_kg: e.target.value })
+            }
           />
         </div>
         <div className="col-span-2 sm:col-span-4">
@@ -248,7 +256,7 @@ function ExerciseLogRow({
             className={inputClass}
             placeholder="Optional"
             value={state.notes}
-            onChange={(e) => setState({ ...state, notes: e.target.value })}
+            onChange={(e) => onStateChange({ ...state, notes: e.target.value })}
           />
         </div>
       </div>
@@ -459,6 +467,68 @@ function SessionView({
   const [deleteExConfirm, setDeleteExConfirm] = useState<string | null>(null)
   const updateSession = useUpdateSession()
   const deleteExercise = useDeleteSessionExercise()
+  const updateExercise = useUpdateSessionExercise()
+
+  const [exerciseStates, setExerciseStates] = useState<
+    Map<string, ExerciseLogState>
+  >(() => new Map(session.exercises.map((ex) => [ex.id, exToState(ex)])))
+
+  useEffect(() => {
+    setExerciseStates((prev) => {
+      const currentIds = new Set(session.exercises.map((e) => e.id))
+      const prevIds = new Set(prev.keys())
+      const added = session.exercises.filter((e) => !prevIds.has(e.id))
+      const removed = [...prevIds].filter((id) => !currentIds.has(id))
+      if (added.length === 0 && removed.length === 0) return prev
+      const next = new Map(prev)
+      for (const ex of added) next.set(ex.id, exToState(ex))
+      for (const id of removed) next.delete(id)
+      return next
+    })
+  }, [session.exercises])
+
+  const [savingAll, setSavingAll] = useState(false)
+  const [savedAll, setSavedAll] = useState(false)
+
+  function handleCheckAll() {
+    setExerciseStates((prev) => {
+      const next = new Map(prev)
+      for (const [id, s] of next) next.set(id, { ...s, completed: true })
+      return next
+    })
+  }
+
+  async function handleSaveAll() {
+    setSavingAll(true)
+    setSavedAll(false)
+    try {
+      await Promise.all(
+        session.exercises.map((ex) => {
+          const s = exerciseStates.get(ex.id) ?? exToState(ex)
+          return updateExercise.mutateAsync({
+            sessionId: session.id,
+            exId: ex.id,
+            input: {
+              actual_sets: s.actual_sets ? parseInt(s.actual_sets, 10) : null,
+              actual_reps: s.actual_reps ? parseInt(s.actual_reps, 10) : null,
+              actual_duration_seconds: s.actual_duration_seconds
+                ? parseInt(s.actual_duration_seconds, 10)
+                : null,
+              weight_kg: s.weight_kg ? parseFloat(s.weight_kg) : null,
+              completed: s.completed,
+              notes: s.notes.trim() || null,
+            },
+          })
+        }),
+      )
+      setSavedAll(true)
+      setTimeout(() => setSavedAll(false), 2000)
+    } catch {
+      // ignore — user can retry
+    } finally {
+      setSavingAll(false)
+    }
+  }
 
   async function saveDuration() {
     await updateSession.mutateAsync({
@@ -559,6 +629,28 @@ function SessionView({
         </div>
       </div>
 
+      {/* Bulk actions */}
+      {session.exercises.length > 0 && (
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleCheckAll}
+            className="rounded-md bg-green-900/30 px-3 py-1.5 text-xs font-medium text-green-400 hover:bg-green-900/50"
+          >
+            Check All
+          </button>
+          <button
+            onClick={handleSaveAll}
+            disabled={savingAll}
+            className="rounded-md bg-indigo-900/30 px-3 py-1.5 text-xs font-medium text-indigo-400 hover:bg-indigo-900/50 disabled:opacity-50"
+          >
+            {savingAll ? 'Saving…' : 'Save All'}
+          </button>
+          {savedAll && (
+            <span className="text-xs text-green-400">✓ All saved</span>
+          )}
+        </div>
+      )}
+
       {/* Exercises by section */}
       {SECTIONS.map((section) => {
         const exs = bySection[section]
@@ -573,6 +665,10 @@ function SessionView({
                 key={ex.id}
                 exercise={ex}
                 sessionId={session.id}
+                state={exerciseStates.get(ex.id) ?? exToState(ex)}
+                onStateChange={(s) =>
+                  setExerciseStates((prev) => new Map(prev).set(ex.id, s))
+                }
                 onDelete={(exId) => setDeleteExConfirm(exId)}
               />
             ))}

@@ -36,6 +36,11 @@ const TIMINGS: Array<{ value: MedicineTiming | ''; label: string }> = [
   { value: 'before_meal', label: 'Before meal' },
   { value: 'after_meal', label: 'After meal' },
   { value: 'before_breakfast', label: 'Before breakfast' },
+  { value: 'after_breakfast', label: 'After breakfast' },
+  { value: 'before_lunch', label: 'Before lunch' },
+  { value: 'after_lunch', label: 'After lunch' },
+  { value: 'before_dinner', label: 'Before dinner' },
+  { value: 'after_dinner', label: 'After dinner' },
   { value: 'before_bed', label: 'Before bed' },
 ]
 

@@ -17,6 +17,11 @@ const TIMING_LABELS: Record<string, string> = {
   before_meal: 'Before meal',
   after_meal: 'After meal',
   before_breakfast: 'Before breakfast',
+  after_breakfast: 'After breakfast',
+  before_lunch: 'Before lunch',
+  after_lunch: 'After lunch',
+  before_dinner: 'Before dinner',
+  after_dinner: 'After dinner',
   before_bed: 'Before bed',
   anytime: 'Anytime',
 }

@@ -28,6 +28,11 @@ const (
 	TimingBeforeMeal      Timing = "before_meal"
 	TimingAfterMeal       Timing = "after_meal"
 	TimingBeforeBreakfast Timing = "before_breakfast"
+	TimingAfterBreakfast  Timing = "after_breakfast"
+	TimingBeforeLunch     Timing = "before_lunch"
+	TimingAfterLunch      Timing = "after_lunch"
+	TimingBeforeDinner    Timing = "before_dinner"
+	TimingAfterDinner     Timing = "after_dinner"
 	TimingBeforeBed       Timing = "before_bed"
 	TimingAnytime         Timing = "anytime"
 )
@@ -51,39 +56,39 @@ const (
 // ── DTOs ──────────────────────────────────────────────────────────────────────
 
 type Medicine struct {
-	ID                uuid.UUID  `json:"id"`
-	UserID            uuid.UUID  `json:"user_id"`
-	Name              string     `json:"name"`
-	GenericName       *string    `json:"generic_name"`
-	Description       *string    `json:"description"`
-	StockQuantity     float64    `json:"stock_quantity"`
-	StockUnit         string     `json:"stock_unit"`
-	DosageAmount      float64    `json:"dosage_amount"`
-	DosageUnit        *string    `json:"dosage_unit"`
+	ID                uuid.UUID     `json:"id"`
+	UserID            uuid.UUID     `json:"user_id"`
+	Name              string        `json:"name"`
+	GenericName       *string       `json:"generic_name"`
+	Description       *string       `json:"description"`
+	StockQuantity     float64       `json:"stock_quantity"`
+	StockUnit         string        `json:"stock_unit"`
+	DosageAmount      float64       `json:"dosage_amount"`
+	DosageUnit        *string       `json:"dosage_unit"`
 	FrequencyType     FrequencyType `json:"frequency_type"`
-	FrequencyValue    *int       `json:"frequency_value"`
-	Timing            *Timing    `json:"timing"`
-	StartDate         *time.Time `json:"start_date"`
-	EndDate           *time.Time `json:"end_date"`
-	LowStockThreshold float64    `json:"low_stock_threshold"`
-	Note              *string    `json:"note"`
-	CreatedAt         time.Time  `json:"created_at"`
-	UpdatedAt         time.Time  `json:"updated_at"`
-	ArchivedAt        *time.Time `json:"archived_at"`
+	FrequencyValue    *int          `json:"frequency_value"`
+	Timing            *Timing       `json:"timing"`
+	StartDate         *time.Time    `json:"start_date"`
+	EndDate           *time.Time    `json:"end_date"`
+	LowStockThreshold float64       `json:"low_stock_threshold"`
+	Note              *string       `json:"note"`
+	CreatedAt         time.Time     `json:"created_at"`
+	UpdatedAt         time.Time     `json:"updated_at"`
+	ArchivedAt        *time.Time    `json:"archived_at"`
 }
 
 type MedicineIntake struct {
-	ID           uuid.UUID    `json:"id"`
-	MedicineID   uuid.UUID    `json:"medicine_id"`
-	UserID       uuid.UUID    `json:"user_id"`
-	MedicineName string       `json:"medicine_name"`
-	TakenAt      time.Time    `json:"taken_at"`
-	QuantityTaken float64     `json:"quantity_taken"`
-	StockBefore  float64      `json:"stock_before"`
-	StockAfter   float64      `json:"stock_after"`
-	Status       IntakeStatus `json:"status"`
-	Note         *string      `json:"note"`
-	CreatedAt    time.Time    `json:"created_at"`
+	ID            uuid.UUID    `json:"id"`
+	MedicineID    uuid.UUID    `json:"medicine_id"`
+	UserID        uuid.UUID    `json:"user_id"`
+	MedicineName  string       `json:"medicine_name"`
+	TakenAt       time.Time    `json:"taken_at"`
+	QuantityTaken float64      `json:"quantity_taken"`
+	StockBefore   float64      `json:"stock_before"`
+	StockAfter    float64      `json:"stock_after"`
+	Status        IntakeStatus `json:"status"`
+	Note          *string      `json:"note"`
+	CreatedAt     time.Time    `json:"created_at"`
 }
 
 type MedicineStockAdjustment struct {
@@ -111,8 +116,8 @@ type CreateMedicineInput struct {
 	FrequencyType     FrequencyType `json:"frequency_type"`
 	FrequencyValue    *int          `json:"frequency_value"`
 	Timing            *Timing       `json:"timing"`
-	StartDate         string        `json:"start_date"` // YYYY-MM-DD, optional
-	EndDate           string        `json:"end_date"`   // YYYY-MM-DD, optional
+	StartDate         string        `json:"start_date"`          // YYYY-MM-DD, optional
+	EndDate           string        `json:"end_date"`            // YYYY-MM-DD, optional
 	LowStockThreshold *float64      `json:"low_stock_threshold"` // defaults to 7
 	Note              *string       `json:"note"`
 }
@@ -120,11 +125,11 @@ type CreateMedicineInput struct {
 type UpdateMedicineInput = CreateMedicineInput
 
 type TakeMedicineInput struct {
-	QuantityTaken float64      `json:"quantity_taken"`
+	QuantityTaken float64       `json:"quantity_taken"`
 	Status        *IntakeStatus `json:"status"` // defaults to "taken"
-	Note          *string      `json:"note"`
-	TakenAt       *string      `json:"taken_at"`      // RFC3339, optional (defaults to now)
-	AllowNegative bool         `json:"allow_negative"` // override negative-stock guard
+	Note          *string       `json:"note"`
+	TakenAt       *string       `json:"taken_at"`       // RFC3339, optional (defaults to now)
+	AllowNegative bool          `json:"allow_negative"` // override negative-stock guard
 }
 
 type AdjustStockInput struct {

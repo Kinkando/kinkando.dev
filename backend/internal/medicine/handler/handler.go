@@ -351,9 +351,9 @@ func validateMedicineInput(in medicine.CreateMedicineInput) error {
 	}
 	if in.Timing != nil {
 		switch *in.Timing {
-		case medicine.TimingBeforeMeal, medicine.TimingAfterMeal, medicine.TimingBeforeBreakfast, medicine.TimingBeforeBed, medicine.TimingAnytime:
+		case medicine.TimingBeforeMeal, medicine.TimingAfterMeal, medicine.TimingBeforeBreakfast, medicine.TimingAfterBreakfast, medicine.TimingBeforeLunch, medicine.TimingAfterLunch, medicine.TimingBeforeDinner, medicine.TimingAfterDinner, medicine.TimingBeforeBed, medicine.TimingAnytime:
 		default:
-			return errors.New("timing must be before_meal, after_meal, before_breakfast, before_bed, or anytime")
+			return errors.New("timing must be before_meal, after_meal, before_breakfast, after_breakfast, before_lunch, after_lunch, before_dinner, after_dinner, before_bed, or anytime")
 		}
 	}
 	if in.LowStockThreshold != nil && *in.LowStockThreshold < 0 {

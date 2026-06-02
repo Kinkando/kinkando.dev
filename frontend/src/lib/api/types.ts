@@ -463,6 +463,11 @@ export type MedicineTiming =
   | 'before_meal'
   | 'after_meal'
   | 'before_breakfast'
+  | 'after_breakfast'
+  | 'before_lunch'
+  | 'after_lunch'
+  | 'before_dinner'
+  | 'after_dinner'
   | 'before_bed'
   | 'anytime'
 

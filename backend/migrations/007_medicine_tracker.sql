@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS medicines (
     dosage_unit         TEXT,
     frequency_type      TEXT         NOT NULL,                          -- daily|weekly|as_needed|custom
     frequency_value     INT,
-    timing              TEXT,                                           -- before_meal|after_meal|before_breakfast|before_bed|anytime
+    timing              TEXT,                                           -- before_meal|after_meal|before_breakfast|after_breakfast|before_lunch|after_lunch|before_dinner|after_dinner|before_bed|anytime
     start_date          DATE,
     end_date            DATE,
     low_stock_threshold NUMERIC(10,2) NOT NULL DEFAULT 7,

@@ -9,6 +9,8 @@ make run-db-migrations DB_MIGRATION_URL="$POSTGRES_DSN"
 make gen-sql-builder-windows             # or gen-sql-builder-macos on macOS/Linux
 ```
 
+**Never edit `gen/` files by hand.** They are overwritten entirely on every codegen run — manual edits will be lost and create drift between the real schema and the generated types. If running the migration requires a permission the agent doesn't have, stop and ask the user to run both commands before writing any repository code.
+
 Stage migration + `gen/` + code together in one commit.
 
 ## 2. Refactor / reuse

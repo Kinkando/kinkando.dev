@@ -4,13 +4,18 @@ import {
   useArchiveMedicine,
   useUnarchiveMedicine,
 } from '../../queries/useMedicine'
-import { isLowStock, estimatedDaysRemaining } from '../../lib/medicine'
+import {
+  isLowStock,
+  estimatedDaysRemaining,
+  requiredDailyDoses,
+} from '../../lib/medicine'
 import TakeDialog from './TakeDialog'
 import AdjustStockDialog from './AdjustStockDialog'
 import MedicineFormDialog from './MedicineFormDialog'
 
 type Props = {
   medicine: Medicine
+  takenToday: number
 }
 
 const TIMING_LABELS: Record<string, string> = {
@@ -33,7 +38,7 @@ const FREQUENCY_LABELS: Record<string, string> = {
   custom: 'Custom',
 }
 
-export default function MedicineCard({ medicine: med }: Props) {
+export default function MedicineCard({ medicine: med, takenToday }: Props) {
   const [showTake, setShowTake] = useState(false)
   const [showAdjust, setShowAdjust] = useState(false)
   const [showEdit, setShowEdit] = useState(false)
@@ -45,6 +50,8 @@ export default function MedicineCard({ medicine: med }: Props) {
   const isArchived = med.archived_at != null
   const lowStock = isLowStock(med)
   const daysLeft = estimatedDaysRemaining(med)
+  const requiredDoses = requiredDailyDoses(med) // null for non-daily frequencies
+  const doseComplete = requiredDoses !== null && takenToday >= requiredDoses
 
   const frequencyLabel =
     FREQUENCY_LABELS[med.frequency_type] ?? med.frequency_type
@@ -150,16 +157,29 @@ export default function MedicineCard({ medicine: med }: Props) {
               </span>
             </div>
           )}
+
+          {/* Today's intake progress (daily frequency only) */}
+          {requiredDoses !== null && (
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-gray-500">Today's Intake</span>
+              <span
+                className={`text-xs font-medium ${doseComplete ? 'text-emerald-400' : 'text-gray-400'}`}
+              >
+                {Math.min(takenToday, requiredDoses)}/{requiredDoses} doses
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Actions */}
         {!isArchived && (
           <div className="flex flex-wrap gap-2 border-t border-gray-800 pt-3">
             <button
-              onClick={() => setShowTake(true)}
-              className="cursor-pointer rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-500"
+              onClick={() => !doseComplete && setShowTake(true)}
+              disabled={doseComplete}
+              className="cursor-pointer rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Taken
+              {doseComplete ? 'Daily Dose Completed' : 'Take Medicine'}
             </button>
             <button
               onClick={() => setShowAdjust(true)}

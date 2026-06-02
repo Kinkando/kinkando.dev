@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import type { Medicine } from '../../lib/api/types'
-import { useMedicines } from '../../queries/useMedicine'
+import type { Medicine, MedicineIntake } from '../../lib/api/types'
+import { useMedicines, useMedicineIntakes } from '../../queries/useMedicine'
+import { isLocalToday } from '../../lib/medicine'
 import MedicineCard from './MedicineCard'
 import MedicineFormDialog from './MedicineFormDialog'
 
@@ -9,6 +10,21 @@ export default function MedicinesTab() {
   const [showAdd, setShowAdd] = useState(false)
 
   const { data: medicines, isLoading } = useMedicines(includeArchived)
+  // Fetch recent intakes (no date filter = up to 50 most recent, DESC by taken_at).
+  // Today's logs are always at the front, so today's count is never truncated.
+  const { data: intakes } = useMedicineIntakes()
+
+  // Build a per-medicine count of "taken" intakes logged today (local timezone).
+  const takenTodayByMedicine: Record<string, number> = {}
+  for (const it of intakes ?? []) {
+    if (
+      (it as MedicineIntake).status === 'taken' &&
+      isLocalToday((it as MedicineIntake).taken_at)
+    ) {
+      const mid = (it as MedicineIntake).medicine_id
+      takenTodayByMedicine[mid] = (takenTodayByMedicine[mid] ?? 0) + 1
+    }
+  }
 
   const active = medicines?.filter((m: Medicine) => !m.archived_at) ?? []
   const archived =
@@ -56,7 +72,11 @@ export default function MedicinesTab() {
       {active.length > 0 && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {active.map((m: Medicine) => (
-            <MedicineCard key={m.id} medicine={m} />
+            <MedicineCard
+              key={m.id}
+              medicine={m}
+              takenToday={takenTodayByMedicine[m.id] ?? 0}
+            />
           ))}
         </div>
       )}
@@ -69,7 +89,11 @@ export default function MedicinesTab() {
           </h3>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {archived.map((m: Medicine) => (
-              <MedicineCard key={m.id} medicine={m} />
+              <MedicineCard
+                key={m.id}
+                medicine={m}
+                takenToday={takenTodayByMedicine[m.id] ?? 0}
+              />
             ))}
           </div>
         </div>

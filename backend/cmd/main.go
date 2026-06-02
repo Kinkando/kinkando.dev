@@ -38,6 +38,9 @@ import (
 	lineHandler "github.com/kinkando/personal-dashboard/internal/line/handler"
 	"github.com/kinkando/personal-dashboard/internal/mcpserver"
 	portfolioHandler "github.com/kinkando/personal-dashboard/internal/portfolio/handler"
+	questHandler "github.com/kinkando/personal-dashboard/internal/quest/handler"
+	questRepo "github.com/kinkando/personal-dashboard/internal/quest/repository"
+	questSvc "github.com/kinkando/personal-dashboard/internal/quest/service"
 	userHandler "github.com/kinkando/personal-dashboard/internal/user/handler"
 	userRepo "github.com/kinkando/personal-dashboard/internal/user/repository"
 	userSvc "github.com/kinkando/personal-dashboard/internal/user/service"
@@ -108,6 +111,10 @@ func main() {
 	wkSvc := workoutSvc.New(wkRepo)
 	wkH := workoutHandler.New(wkSvc, usrRepo)
 
+	qstRepo := questRepo.New(pgDB.SQL())
+	qstSvc := questSvc.New(qstRepo)
+	qstH := questHandler.New(qstSvc, usrRepo)
+
 	portH := portfolioHandler.New()
 
 	app := fiber.New(fiber.Config{
@@ -148,6 +155,9 @@ func main() {
 
 	workoutGroup := api.Group("/workout", authMW.Require())
 	wkH.Register(workoutGroup)
+
+	questGroup := api.Group("/quest", authMW.Require())
+	qstH.Register(questGroup)
 
 	portfolioGroup := api.Group("/portfolio")
 	portH.Register(portfolioGroup)

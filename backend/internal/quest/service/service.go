@@ -1,0 +1,214 @@
+package service
+
+import (
+	"context"
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/kinkando/personal-dashboard/internal/quest"
+)
+
+type Repository interface {
+	CreateQuest(ctx context.Context, userID uuid.UUID, in quest.CreateQuestInput) (*quest.Quest, error)
+	ListQuests(ctx context.Context, userID uuid.UUID, questType string) ([]*quest.Quest, error)
+	GetQuest(ctx context.Context, id uuid.UUID, userID uuid.UUID) (*quest.Quest, error)
+	UpdateQuest(ctx context.Context, id uuid.UUID, userID uuid.UUID, in quest.UpdateQuestInput) (*quest.Quest, error)
+	DeleteQuest(ctx context.Context, id uuid.UUID, userID uuid.UUID) error
+
+	GetDailyStatus(ctx context.Context, userID uuid.UUID, today time.Time) ([]*quest.DailyQuestStatus, error)
+	GetWeeklyStatus(ctx context.Context, userID uuid.UUID, weekStart time.Time) ([]*quest.WeeklyQuestStatus, error)
+	TotalXP(ctx context.Context, userID uuid.UUID) (int, error)
+
+	CompleteDaily(ctx context.Context, userID uuid.UUID, questID uuid.UUID, date time.Time) error
+	UncompleteDaily(ctx context.Context, userID uuid.UUID, questID uuid.UUID, date time.Time) error
+	IncrementWeekly(ctx context.Context, userID uuid.UUID, questID uuid.UUID, weekStart time.Time) error
+	DecrementWeekly(ctx context.Context, userID uuid.UUID, questID uuid.UUID, weekStart time.Time) error
+
+	ListXPEvents(ctx context.Context, userID uuid.UUID, limit int) ([]*quest.XPEvent, error)
+}
+
+type Service struct {
+	repo Repository
+}
+
+func New(repo Repository) *Service {
+	return &Service{repo: repo}
+}
+
+// ── Quest CRUD ────────────────────────────────────────────────────────────────
+
+func (s *Service) CreateQuest(ctx context.Context, userID uuid.UUID, in quest.CreateQuestInput) (*quest.Quest, error) {
+	if in.Type != quest.QuestTypeDaily && in.Type != quest.QuestTypeWeekly {
+		return nil, fmt.Errorf("type must be daily or weekly")
+	}
+	if strings.TrimSpace(in.Title) == "" {
+		return nil, fmt.Errorf("title is required")
+	}
+	if in.XPReward < 0 {
+		return nil, fmt.Errorf("xp_reward cannot be negative")
+	}
+	if in.Type == quest.QuestTypeDaily {
+		in.TargetCount = 1
+	} else if in.TargetCount < 1 {
+		return nil, fmt.Errorf("target_count must be at least 1")
+	}
+	return s.repo.CreateQuest(ctx, userID, in)
+}
+
+func (s *Service) ListQuests(ctx context.Context, userID uuid.UUID, questType string) ([]*quest.Quest, error) {
+	return s.repo.ListQuests(ctx, userID, questType)
+}
+
+func (s *Service) UpdateQuest(ctx context.Context, id uuid.UUID, userID uuid.UUID, in quest.UpdateQuestInput) (*quest.Quest, error) {
+	if strings.TrimSpace(in.Title) == "" {
+		return nil, fmt.Errorf("title is required")
+	}
+	if in.XPReward < 0 {
+		return nil, fmt.Errorf("xp_reward cannot be negative")
+	}
+	if in.TargetCount < 1 {
+		return nil, fmt.Errorf("target_count must be at least 1")
+	}
+	return s.repo.UpdateQuest(ctx, id, userID, in)
+}
+
+func (s *Service) DeleteQuest(ctx context.Context, id uuid.UUID, userID uuid.UUID) error {
+	return s.repo.DeleteQuest(ctx, id, userID)
+}
+
+// ── Overview ──────────────────────────────────────────────────────────────────
+
+func (s *Service) GetOverview(ctx context.Context, userID uuid.UUID) (*quest.Overview, error) {
+	today := s.today()
+	weekStart := s.weekStart()
+
+	daily, err := s.repo.GetDailyStatus(ctx, userID, today)
+	if err != nil {
+		return nil, err
+	}
+	weekly, err := s.repo.GetWeeklyStatus(ctx, userID, weekStart)
+	if err != nil {
+		return nil, err
+	}
+	totalXP, err := s.repo.TotalXP(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	if daily == nil {
+		daily = []*quest.DailyQuestStatus{}
+	}
+	if weekly == nil {
+		weekly = []*quest.WeeklyQuestStatus{}
+	}
+
+	dailyDone := 0
+	for _, d := range daily {
+		if d.CompletedToday {
+			dailyDone++
+		}
+	}
+	weeklyDone := 0
+	for _, w := range weekly {
+		if w.Completed {
+			weeklyDone++
+		}
+	}
+
+	return &quest.Overview{
+		Date:        today.Format("2006-01-02"),
+		WeekStart:   weekStart.Format("2006-01-02"),
+		XP:          xpSummary(totalXP),
+		Daily:       daily,
+		Weekly:      weekly,
+		DailyDone:   dailyDone,
+		DailyTotal:  len(daily),
+		WeeklyDone:  weeklyDone,
+		WeeklyTotal: len(weekly),
+	}, nil
+}
+
+// ── Actions ───────────────────────────────────────────────────────────────────
+
+func (s *Service) CompleteDaily(ctx context.Context, userID uuid.UUID, questID uuid.UUID) error {
+	q, err := s.repo.GetQuest(ctx, questID, userID)
+	if err != nil {
+		return err
+	}
+	if q.Type != quest.QuestTypeDaily {
+		return fmt.Errorf("quest is not a daily quest")
+	}
+	return s.repo.CompleteDaily(ctx, userID, questID, s.today())
+}
+
+func (s *Service) UncompleteDaily(ctx context.Context, userID uuid.UUID, questID uuid.UUID) error {
+	q, err := s.repo.GetQuest(ctx, questID, userID)
+	if err != nil {
+		return err
+	}
+	if q.Type != quest.QuestTypeDaily {
+		return fmt.Errorf("quest is not a daily quest")
+	}
+	return s.repo.UncompleteDaily(ctx, userID, questID, s.today())
+}
+
+func (s *Service) IncrementWeekly(ctx context.Context, userID uuid.UUID, questID uuid.UUID) error {
+	q, err := s.repo.GetQuest(ctx, questID, userID)
+	if err != nil {
+		return err
+	}
+	if q.Type != quest.QuestTypeWeekly {
+		return fmt.Errorf("quest is not a weekly quest")
+	}
+	return s.repo.IncrementWeekly(ctx, userID, questID, s.weekStart())
+}
+
+func (s *Service) DecrementWeekly(ctx context.Context, userID uuid.UUID, questID uuid.UUID) error {
+	q, err := s.repo.GetQuest(ctx, questID, userID)
+	if err != nil {
+		return err
+	}
+	if q.Type != quest.QuestTypeWeekly {
+		return fmt.Errorf("quest is not a weekly quest")
+	}
+	return s.repo.DecrementWeekly(ctx, userID, questID, s.weekStart())
+}
+
+// ── History ───────────────────────────────────────────────────────────────────
+
+func (s *Service) ListXPEvents(ctx context.Context, userID uuid.UUID, limit int) ([]*quest.XPEvent, error) {
+	return s.repo.ListXPEvents(ctx, userID, limit)
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+// today returns midnight UTC for the current date in Asia/Bangkok timezone.
+func (s *Service) today() time.Time {
+	loc, _ := time.LoadLocation("Asia/Bangkok")
+	now := time.Now().In(loc)
+	return time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+}
+
+// weekStart returns midnight UTC for the Monday that starts the current week in Asia/Bangkok.
+func (s *Service) weekStart() time.Time {
+	today := s.today()
+	weekday := today.Weekday()
+	daysFromMonday := int(weekday-time.Monday+7) % 7
+	return today.AddDate(0, 0, -daysFromMonday)
+}
+
+// xpSummary derives level and progress from raw total XP.
+func xpSummary(totalXP int) quest.XPSummary {
+	const xpPerLevel = 100
+	level := totalXP/xpPerLevel + 1
+	xpInto := totalXP % xpPerLevel
+	return quest.XPSummary{
+		TotalXP:     totalXP,
+		Level:       level,
+		XPIntoLevel: xpInto,
+		XPForLevel:  xpPerLevel,
+		XPToNext:    xpPerLevel - xpInto,
+	}
+}

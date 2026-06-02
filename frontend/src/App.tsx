@@ -9,6 +9,7 @@ import KanbanArchivePage from './pages/KanbanArchivePage'
 import ChatPage from './pages/ChatPage'
 import HealthPage from './pages/HealthPage'
 import WorkoutPage from './pages/WorkoutPage'
+import QuestPage from './pages/QuestPage'
 import NewsPage from './pages/NewsPage'
 import ProtectedRoute from './auth/ProtectedRoute'
 
@@ -67,6 +68,14 @@ export default function App() {
           element={
             <ProtectedRoute>
               <WorkoutPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/quest"
+          element={
+            <ProtectedRoute>
+              <QuestPage />
             </ProtectedRoute>
           }
         />

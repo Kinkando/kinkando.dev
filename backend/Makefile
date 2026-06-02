@@ -1,15 +1,15 @@
-## ── Variables ────────────────────────────────────────────────────────────────
-## Override DB_MIGRATION_URL on the command line or via .env if needed.
-## Example: make run-db-migrations DB_MIGRATION_URL=postgresql://...
-DB_MIGRATION_URL ?= $(POSTGRES_MIGRATION_URL)
-MIGRATIONS_DIR   ?= ./migrations
-
 ## ── Database migrations ───────────────────────────────────────────────────────
-run-db-migrations:
-	dbmate --url $(DB_MIGRATION_URL) --migrations-dir $(MIGRATIONS_DIR) --no-dump-schema migrate
+run-db-migrations-macos:
+	. ./script/commands/run_db_migration.sh
 
-rollback-db-migration:
-	dbmate --url $(DB_MIGRATION_URL) --migrations-dir $(MIGRATIONS_DIR) --no-dump-schema rollback
+run-db-migrations-windows:
+	bash script/commands/run_db_migration.sh
+
+rollback-db-migration-macos:
+	. ./script/commands/rollback_db_migration.sh
+
+rollback-db-migration-windows:
+	bash script/commands/rollback_db_migration.sh
 
 ## ── SQL builder code generation ──────────────────────────────────────────────
 gen-sql-builder-macos:
@@ -18,4 +18,4 @@ gen-sql-builder-macos:
 gen-sql-builder-windows:
 	bash script/commands/gen_sql_builder.sh
 
-.PHONY: run-db-migrations rollback-db-migration gen-sql-builder-macos gen-sql-builder-windows
+.PHONY: run-db-migrations-windows run-db-migrations-macos rollback-db-migration-macos rollback-db-migration-windows gen-sql-builder-macos gen-sql-builder-windows

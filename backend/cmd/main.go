@@ -177,7 +177,7 @@ func main() {
 	// MCP server — used by both the in-process Gemini path and (optionally) the
 	// HTTP /mcp endpoint. Created unconditionally so Gemini always has a session.
 	mcpSrv := mcpserver.New(mcpserver.Deps{
-		FinSvc: finSvc, KanRepo: kanRepo, WkSvc: wkSvc, HeaSvc: heaSvc,
+		FinSvc: finSvc, KanRepo: kanRepo, WkSvc: wkSvc, HeaSvc: heaSvc, MedSvc: medSvc,
 		UserUUID: appUserUUID, FirebaseUID: cfg.MCPUserFirebaseUID,
 		Logger: logger,
 	})

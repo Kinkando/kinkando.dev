@@ -13,6 +13,8 @@ import (
 	healthSvc "github.com/kinkando/personal-dashboard/internal/health/service"
 	"github.com/kinkando/personal-dashboard/internal/kanban"
 	kanbanRepo "github.com/kinkando/personal-dashboard/internal/kanban/repository"
+	"github.com/kinkando/personal-dashboard/internal/medicine"
+	medicineSvc "github.com/kinkando/personal-dashboard/internal/medicine/service"
 	"github.com/kinkando/personal-dashboard/internal/tools"
 	"github.com/kinkando/personal-dashboard/internal/workout"
 	workoutSvc "github.com/kinkando/personal-dashboard/internal/workout/service"
@@ -28,6 +30,7 @@ type Deps struct {
 	KanRepo     *kanbanRepo.Repository
 	WkSvc       *workoutSvc.Service
 	HeaSvc      *healthSvc.Service
+	MedSvc      *medicineSvc.Service
 	UserUUID    uuid.UUID
 	FirebaseUID string
 	Logger      *zap.Logger
@@ -1556,6 +1559,9 @@ func registerTools(s *mcp.Server, d Deps) {
 		return nil, deleteFoodOut{Deleted: true}, nil
 	}))
 
+	// Medicine
+	registerMedicineTools(s, d)
+
 	// Sleep
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        tools.SleepListLogs.Name,
@@ -1649,6 +1655,265 @@ func registerTools(s *mcp.Server, d Deps) {
 			return nil, deleteSleepOut{}, fmt.Errorf("delete sleep log: %w", err)
 		}
 		return nil, deleteSleepOut{Deleted: true}, nil
+	}))
+}
+
+// ---- Medicine output types --------------------------------------------------
+
+type medicineDTO struct {
+	ID                string  `json:"id"`
+	Name              string  `json:"name"`
+	GenericName       *string `json:"generic_name,omitempty"`
+	StockQuantity     float64 `json:"stock_quantity"`
+	StockUnit         string  `json:"stock_unit"`
+	DosageAmount      float64 `json:"dosage_amount"`
+	DosageUnit        *string `json:"dosage_unit,omitempty"`
+	FrequencyType     string  `json:"frequency_type"`
+	FrequencyValue    *int    `json:"frequency_value,omitempty"`
+	Timing            *string `json:"timing,omitempty"`
+	LowStockThreshold float64 `json:"low_stock_threshold"`
+	ArchivedAt        *string `json:"archived_at,omitempty"`
+}
+
+type medicineIntakeDTO struct {
+	ID            string  `json:"id"`
+	MedicineName  string  `json:"medicine_name"`
+	TakenAt       string  `json:"taken_at"`
+	QuantityTaken float64 `json:"quantity_taken"`
+	StockBefore   float64 `json:"stock_before"`
+	StockAfter    float64 `json:"stock_after"`
+	Status        string  `json:"status"`
+	Note          *string `json:"note,omitempty"`
+	CreatedAt     string  `json:"created_at"`
+}
+
+type medicineStockAdjustmentDTO struct {
+	ID          string  `json:"id"`
+	MedicineName string `json:"medicine_name,omitempty"`
+	Type        string  `json:"type"`
+	Quantity    float64 `json:"quantity"`
+	StockBefore float64 `json:"stock_before"`
+	StockAfter  float64 `json:"stock_after"`
+	Reason      *string `json:"reason,omitempty"`
+	CreatedAt   string  `json:"created_at"`
+}
+
+type listMedicinesOut struct {
+	Medicines []medicineDTO `json:"medicines"`
+}
+
+type medicineTakeOut struct {
+	Intake   medicineIntakeDTO `json:"intake"`
+	Medicine medicineDTO       `json:"medicine"`
+}
+
+type medicineAdjustStockOut struct {
+	Adjustment medicineStockAdjustmentDTO `json:"adjustment"`
+	Medicine   medicineDTO                `json:"medicine"`
+}
+
+type listMedicineIntakesOut struct {
+	Intakes []medicineIntakeDTO `json:"intakes"`
+}
+
+type listMedicineStockAdjustmentsOut struct {
+	Adjustments []medicineStockAdjustmentDTO `json:"adjustments"`
+}
+
+func toMedicineDTO(m *medicine.Medicine) medicineDTO {
+	dto := medicineDTO{
+		ID:                m.ID.String(),
+		Name:              m.Name,
+		GenericName:       m.GenericName,
+		StockQuantity:     m.StockQuantity,
+		StockUnit:         m.StockUnit,
+		DosageAmount:      m.DosageAmount,
+		DosageUnit:        m.DosageUnit,
+		FrequencyType:     string(m.FrequencyType),
+		FrequencyValue:    m.FrequencyValue,
+		LowStockThreshold: m.LowStockThreshold,
+	}
+	if m.Timing != nil {
+		t := string(*m.Timing)
+		dto.Timing = &t
+	}
+	if m.ArchivedAt != nil {
+		s := m.ArchivedAt.Format(time.RFC3339)
+		dto.ArchivedAt = &s
+	}
+	return dto
+}
+
+func toMedicineIntakeDTO(i *medicine.MedicineIntake) medicineIntakeDTO {
+	return medicineIntakeDTO{
+		ID:            i.ID.String(),
+		MedicineName:  i.MedicineName,
+		TakenAt:       i.TakenAt.Format(time.RFC3339),
+		QuantityTaken: i.QuantityTaken,
+		StockBefore:   i.StockBefore,
+		StockAfter:    i.StockAfter,
+		Status:        string(i.Status),
+		Note:          i.Note,
+		CreatedAt:     i.CreatedAt.Format(time.RFC3339),
+	}
+}
+
+func toMedicineStockAdjustmentDTO(a *medicine.MedicineStockAdjustment) medicineStockAdjustmentDTO {
+	return medicineStockAdjustmentDTO{
+		ID:          a.ID.String(),
+		Type:        string(a.Type),
+		Quantity:    a.Quantity,
+		StockBefore: a.StockBefore,
+		StockAfter:  a.StockAfter,
+		Reason:      a.Reason,
+		CreatedAt:   a.CreatedAt.Format(time.RFC3339),
+	}
+}
+
+// registerMedicineTools appends Medicine tool handlers to the server.
+func registerMedicineTools(s *mcp.Server, d Deps) {
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        tools.MedicineList.Name,
+		Description: tools.MedicineList.Description,
+	}, middleware.MCPRequestLogger(d.Logger, tools.MedicineList.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.MedicineListIn) (*mcp.CallToolResult, listMedicinesOut, error) {
+		meds, err := d.MedSvc.ListMedicines(ctx, d.UserUUID, in.IncludeArchived)
+		if err != nil {
+			return nil, listMedicinesOut{}, fmt.Errorf("list medicines: %w", err)
+		}
+		dtos := make([]medicineDTO, len(meds))
+		for i, m := range meds {
+			dtos[i] = toMedicineDTO(m)
+		}
+		return nil, listMedicinesOut{Medicines: dtos}, nil
+	}))
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        tools.MedicineTake.Name,
+		Description: tools.MedicineTake.Description,
+	}, middleware.MCPRequestLogger(d.Logger, tools.MedicineTake.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.MedicineTakeIn) (*mcp.CallToolResult, medicineTakeOut, error) {
+		if strings.TrimSpace(in.MedicineName) == "" {
+			return nil, medicineTakeOut{}, fmt.Errorf("medicine_name is required")
+		}
+		meds, err := d.MedSvc.ListMedicines(ctx, d.UserUUID, false)
+		if err != nil {
+			return nil, medicineTakeOut{}, fmt.Errorf("list medicines: %w", err)
+		}
+		var target *medicine.Medicine
+		for _, m := range meds {
+			if strings.EqualFold(m.Name, in.MedicineName) {
+				target = m
+				break
+			}
+		}
+		if target == nil {
+			return nil, medicineTakeOut{}, fmt.Errorf("no active medicine named %q — call medicine_list to see available names", in.MedicineName)
+		}
+		qty := in.QuantityTaken
+		if qty <= 0 {
+			qty = target.DosageAmount
+		}
+		inp := medicine.TakeMedicineInput{
+			QuantityTaken: qty,
+			AllowNegative: in.AllowNegative,
+		}
+		if in.Note != "" {
+			inp.Note = &in.Note
+		}
+		intake, med, err := d.MedSvc.Take(ctx, d.UserUUID, target.ID, inp)
+		if err != nil {
+			return nil, medicineTakeOut{}, fmt.Errorf("take medicine: %w", err)
+		}
+		return nil, medicineTakeOut{Intake: toMedicineIntakeDTO(intake), Medicine: toMedicineDTO(med)}, nil
+	}))
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        tools.MedicineAdjustStock.Name,
+		Description: tools.MedicineAdjustStock.Description,
+	}, middleware.MCPRequestLogger(d.Logger, tools.MedicineAdjustStock.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.MedicineAdjustStockIn) (*mcp.CallToolResult, medicineAdjustStockOut, error) {
+		if strings.TrimSpace(in.MedicineName) == "" {
+			return nil, medicineAdjustStockOut{}, fmt.Errorf("medicine_name is required")
+		}
+		adjType := medicine.AdjustmentType(in.Type)
+		switch adjType {
+		case medicine.AdjustmentTypeAdd, medicine.AdjustmentTypeRemove, medicine.AdjustmentTypeCorrection:
+		default:
+			return nil, medicineAdjustStockOut{}, fmt.Errorf("type must be add, remove, or correction, got %q", in.Type)
+		}
+		if in.Quantity <= 0 {
+			return nil, medicineAdjustStockOut{}, fmt.Errorf("quantity must be greater than 0")
+		}
+		meds, err := d.MedSvc.ListMedicines(ctx, d.UserUUID, false)
+		if err != nil {
+			return nil, medicineAdjustStockOut{}, fmt.Errorf("list medicines: %w", err)
+		}
+		var target *medicine.Medicine
+		for _, m := range meds {
+			if strings.EqualFold(m.Name, in.MedicineName) {
+				target = m
+				break
+			}
+		}
+		if target == nil {
+			return nil, medicineAdjustStockOut{}, fmt.Errorf("no active medicine named %q — call medicine_list to see available names", in.MedicineName)
+		}
+		inp := medicine.AdjustStockInput{
+			Type:     adjType,
+			Quantity: in.Quantity,
+		}
+		if in.Reason != "" {
+			inp.Reason = &in.Reason
+		}
+		adj, med, err := d.MedSvc.AdjustStock(ctx, d.UserUUID, target.ID, inp)
+		if err != nil {
+			return nil, medicineAdjustStockOut{}, fmt.Errorf("adjust stock: %w", err)
+		}
+		return nil, medicineAdjustStockOut{Adjustment: toMedicineStockAdjustmentDTO(adj), Medicine: toMedicineDTO(med)}, nil
+	}))
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        tools.MedicineListIntakes.Name,
+		Description: tools.MedicineListIntakes.Description,
+	}, middleware.MCPRequestLogger(d.Logger, tools.MedicineListIntakes.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.MedicineListIntakesIn) (*mcp.CallToolResult, listMedicineIntakesOut, error) {
+		opts := medicine.ListIntakeOpts{Limit: in.Limit}
+		if in.Date != "" {
+			t, err := time.Parse("2006-01-02", in.Date)
+			if err != nil {
+				return nil, listMedicineIntakesOut{}, fmt.Errorf("invalid date %q (use YYYY-MM-DD): %w", in.Date, err)
+			}
+			opts.Date = &t
+		}
+		intakes, err := d.MedSvc.ListIntakes(ctx, d.UserUUID, opts)
+		if err != nil {
+			return nil, listMedicineIntakesOut{}, fmt.Errorf("list intakes: %w", err)
+		}
+		dtos := make([]medicineIntakeDTO, len(intakes))
+		for i, it := range intakes {
+			dtos[i] = toMedicineIntakeDTO(it)
+		}
+		return nil, listMedicineIntakesOut{Intakes: dtos}, nil
+	}))
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        tools.MedicineListStockAdjustments.Name,
+		Description: tools.MedicineListStockAdjustments.Description,
+	}, middleware.MCPRequestLogger(d.Logger, tools.MedicineListStockAdjustments.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.MedicineListStockAdjustmentsIn) (*mcp.CallToolResult, listMedicineStockAdjustmentsOut, error) {
+		opts := medicine.ListAdjustmentOpts{Limit: in.Limit}
+		if in.Date != "" {
+			t, err := time.Parse("2006-01-02", in.Date)
+			if err != nil {
+				return nil, listMedicineStockAdjustmentsOut{}, fmt.Errorf("invalid date %q (use YYYY-MM-DD): %w", in.Date, err)
+			}
+			opts.Date = &t
+		}
+		adjs, err := d.MedSvc.ListStockAdjustments(ctx, d.UserUUID, opts)
+		if err != nil {
+			return nil, listMedicineStockAdjustmentsOut{}, fmt.Errorf("list stock adjustments: %w", err)
+		}
+		dtos := make([]medicineStockAdjustmentDTO, len(adjs))
+		for i, a := range adjs {
+			dtos[i] = toMedicineStockAdjustmentDTO(a)
+		}
+		return nil, listMedicineStockAdjustmentsOut{Adjustments: dtos}, nil
 	}))
 }
 

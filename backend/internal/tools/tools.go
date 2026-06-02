@@ -54,6 +54,11 @@ func All() []ToolDef {
 		SleepLogNight,
 		SleepUpdateNight,
 		SleepDeleteNight,
+		MedicineList,
+		MedicineTake,
+		MedicineAdjustStock,
+		MedicineListIntakes,
+		MedicineListStockAdjustments,
 	}
 }
 
@@ -539,4 +544,66 @@ type SleepUpdateNightIn struct {
 
 type SleepDeleteNightIn struct {
 	LogID string `json:"log_id" jsonschema:"UUID of the sleep log to delete — get from sleep_list_logs"`
+}
+
+// ---- Medicine ---------------------------------------------------------------
+
+var MedicineList = ToolDef{
+	Name:        "medicine_list",
+	Description: "List medicines with their current stock, dosage, frequency, and timing. Call before medicine_take or medicine_adjust_stock to get valid medicine names.",
+	Input:       MedicineListIn{},
+}
+
+var MedicineTake = ToolDef{
+	Name:        "medicine_take",
+	Description: "Record taking a medicine. Finds the medicine by name, decrements stock by quantity_taken, and creates an intake log. Returns the intake log and updated medicine. Set allow_negative to true to proceed even if stock would go below zero.",
+	Input:       MedicineTakeIn{},
+	Required:    []string{"medicine_name", "quantity_taken"},
+}
+
+var MedicineAdjustStock = ToolDef{
+	Name:        "medicine_adjust_stock",
+	Description: "Adjust a medicine's stock: add (restock), remove (discard), or correction (set exact amount). Finds medicine by name. Returns the adjustment log and updated medicine.",
+	Input:       MedicineAdjustStockIn{},
+	Required:    []string{"medicine_name", "type", "quantity"},
+}
+
+var MedicineListIntakes = ToolDef{
+	Name:        "medicine_list_intakes",
+	Description: "List recent medicine intake logs, optionally filtered to a specific date. Returns up to 50 entries sorted newest first.",
+	Input:       MedicineListIntakesIn{},
+}
+
+var MedicineListStockAdjustments = ToolDef{
+	Name:        "medicine_list_stock_adjustments",
+	Description: "List recent medicine stock adjustment logs (restocks, removals, corrections), optionally filtered to a specific date. Returns up to 50 entries sorted newest first.",
+	Input:       MedicineListStockAdjustmentsIn{},
+}
+
+type MedicineListIn struct {
+	IncludeArchived bool `json:"include_archived" jsonschema:"Include archived medicines (default: false)"`
+}
+
+type MedicineTakeIn struct {
+	MedicineName  string  `json:"medicine_name"  jsonschema:"Medicine name (case-insensitive) — call medicine_list first to confirm the name"`
+	QuantityTaken float64 `json:"quantity_taken" jsonschema:"Amount taken (supports decimals like 0.5); defaults to the medicine's dosage_amount if omitted"`
+	Note          string  `json:"note"           jsonschema:"Optional note (e.g. 'taken with food')"`
+	AllowNegative bool    `json:"allow_negative" jsonschema:"Set to true to record the intake even if stock would go below zero"`
+}
+
+type MedicineAdjustStockIn struct {
+	MedicineName string  `json:"medicine_name" jsonschema:"Medicine name (case-insensitive) — call medicine_list first to confirm the name"`
+	Type         string  `json:"type"          jsonschema:"Adjustment type: add (restock), remove (discard/waste), or correction (set exact amount)"`
+	Quantity     float64 `json:"quantity"      jsonschema:"Quantity to add/remove, or the new exact stock for correction (must be > 0)"`
+	Reason       string  `json:"reason"        jsonschema:"Optional reason (e.g. 'bought new pack', 'expired tablets')"`
+}
+
+type MedicineListIntakesIn struct {
+	Date  string `json:"date"  jsonschema:"Filter to a specific date YYYY-MM-DD (optional; omit for recent 50)"`
+	Limit int    `json:"limit" jsonschema:"Max number of results (default: 50)"`
+}
+
+type MedicineListStockAdjustmentsIn struct {
+	Date  string `json:"date"  jsonschema:"Filter to a specific date YYYY-MM-DD (optional; omit for recent 50)"`
+	Limit int    `json:"limit" jsonschema:"Max number of results (default: 50)"`
 }

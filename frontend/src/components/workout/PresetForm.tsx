@@ -414,7 +414,7 @@ export default function PresetForm({
 
       {error && <p className="text-sm text-red-400">{error}</p>}
 
-      <div className="flex gap-2">
+      <div className="flex justify-end gap-2">
         <button
           type="submit"
           disabled={saving}

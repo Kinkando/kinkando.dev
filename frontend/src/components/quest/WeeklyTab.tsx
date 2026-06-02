@@ -184,7 +184,7 @@ export default function WeeklyTab({ weekly }: Props) {
             </div>
           </div>
           {formError && <p className="text-sm text-red-400">{formError}</p>}
-          <div className="flex gap-2">
+          <div className="flex justify-end gap-2">
             <button
               type="submit"
               disabled={formLoading}
@@ -311,11 +311,11 @@ export default function WeeklyTab({ weekly }: Props) {
               Delete this weekly quest? All completions and XP events will be
               removed.
             </p>
-            <div className="flex gap-2">
+            <div className="flex justify-end gap-2">
               <button
                 onClick={() => handleDelete(deleteConfirm)}
                 disabled={deleteQuest.isPending}
-                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-500 disabled:opacity-50"
+                className="cursor-pointer rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-500 disabled:opacity-50"
               >
                 {deleteQuest.isPending ? 'Deleting…' : 'Delete'}
               </button>

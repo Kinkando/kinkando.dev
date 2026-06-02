@@ -245,7 +245,7 @@ export default function FoodTab({ foodLogs }: Props) {
 
           {error && <p className="text-sm text-red-400">{error}</p>}
 
-          <div className="flex gap-2">
+          <div className="flex justify-end gap-2">
             <button
               type="submit"
               disabled={loading}
@@ -321,11 +321,11 @@ export default function FoodTab({ foodLogs }: Props) {
             <p className="mb-4 text-sm text-gray-300">
               Delete this food entry? This cannot be undone.
             </p>
-            <div className="flex gap-2">
+            <div className="flex justify-end gap-2">
               <button
                 onClick={() => handleDelete(deleteConfirm)}
                 disabled={deleteFoodLog.isPending}
-                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-500 disabled:opacity-50"
+                className="cursor-pointer rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-500 disabled:opacity-50"
               >
                 {deleteFoodLog.isPending ? 'Deleting…' : 'Delete'}
               </button>

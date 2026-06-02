@@ -236,7 +236,7 @@ export default function ProgressTab({ weightLogs, profile }: Props) {
             <p className="mb-4 text-sm text-gray-300">
               Delete this weight entry? This cannot be undone.
             </p>
-            <div className="flex gap-2">
+            <div className="flex justify-end gap-2">
               <button
                 onClick={() => handleDelete(deleteConfirm)}
                 disabled={deleteWeight.isPending}

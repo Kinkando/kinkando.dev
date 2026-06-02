@@ -888,7 +888,7 @@ function SessionView({
             <p className="mb-4 text-sm text-gray-300">
               Remove this exercise from the session?
             </p>
-            <div className="flex gap-2">
+            <div className="flex justify-end gap-2">
               <button
                 onClick={() => handleDeleteExercise(deleteExConfirm)}
                 disabled={deleteExercise.isPending}
@@ -917,7 +917,7 @@ function SessionView({
             <p className="mb-4 text-xs text-gray-500">
               You won&apos;t be able to edit or delete this session afterwards.
             </p>
-            <div className="flex gap-2">
+            <div className="flex justify-end gap-2">
               <button
                 onClick={handleFinish}
                 disabled={finishSessionMutation.isPending}
@@ -1026,7 +1026,7 @@ export default function TodayTab({
               <p className="mb-4 text-sm text-gray-300">
                 Delete this session? All logged data will be lost.
               </p>
-              <div className="flex gap-2">
+              <div className="flex justify-end gap-2">
                 <button
                   onClick={() => handleDeleteSession(deleteConfirm)}
                   disabled={deleteSession.isPending}

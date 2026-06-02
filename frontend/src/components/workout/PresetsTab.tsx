@@ -224,7 +224,7 @@ export default function PresetsTab({ presets, onStarted }: Props) {
               Delete this preset? Any scheduled days using it will also be
               cleared. This cannot be undone.
             </p>
-            <div className="flex gap-2">
+            <div className="flex justify-end gap-2">
               <button
                 onClick={() => handleDelete(deleteConfirm)}
                 disabled={deletePreset.isPending}

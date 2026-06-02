@@ -156,11 +156,11 @@ function CategoryForm({
           />
         </div>
       </div>
-      <div className="flex gap-2">
+      <div className="flex justify-end gap-2">
         <button
           type="submit"
           disabled={isPending}
-          className="flex-1 cursor-pointer rounded-lg bg-indigo-600 py-1.5 text-xs font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
+          className="cursor-pointer rounded-lg bg-indigo-600 px-4 py-1.5 text-xs font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
         >
           {isPending ? 'Saving…' : isEdit ? 'Save' : 'Add category'}
         </button>

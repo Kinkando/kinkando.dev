@@ -29,7 +29,15 @@ const (
 const MealTypeBreakfast = "breakfast"
 ```
 
-Validation helpers (`func ValidX(v X) bool`) belong in the same `model.go` file and are called from handlers. The matching frontend types in `src/lib/api/types.ts` must be TypeScript string literal unions (e.g. `type MealType = 'breakfast' | 'lunch'`), not plain `string`.
+Request structs use `validate` struct tags with `github.com/go-playground/validator/v10`. Enum fields use `oneof` to constrain valid values — no separate `ValidX` helper functions:
+
+```go
+type CreateFoodLogInput struct {
+    MealType MealType `json:"meal_type" validate:"required,oneof=breakfast lunch dinner snack"`
+}
+```
+
+The matching frontend types in `src/lib/api/types.ts` must be TypeScript string literal unions (e.g. `type MealType = 'breakfast' | 'lunch'`), not plain `string`.
 
 ## Features
 

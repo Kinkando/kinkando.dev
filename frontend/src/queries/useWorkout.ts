@@ -15,6 +15,7 @@ import {
   updateSessionExercise,
   bulkUpdateSessionExercises,
   deleteSession,
+  finishSession,
   addSessionExercise,
   deleteSessionExercise,
 } from '../lib/api/workout'
@@ -204,6 +205,17 @@ export function useDeleteSession() {
     mutationFn: (id: string) => deleteSession(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['workout', 'sessions'] })
+    },
+  })
+}
+
+export function useFinishSession() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => finishSession(id),
+    onSuccess: (_data, id) => {
+      queryClient.invalidateQueries({ queryKey: ['workout', 'sessions'] })
+      queryClient.invalidateQueries({ queryKey: keys.workoutSession(id) })
     },
   })
 }

@@ -26,6 +26,7 @@ type Repository interface {
 	UpdateSessionExercise(ctx context.Context, id uuid.UUID, sessionID uuid.UUID, userID uuid.UUID, in workout.UpdateSessionExerciseInput) (*workout.SessionExercise, error)
 	BulkUpdateSessionExercises(ctx context.Context, sessionID uuid.UUID, userID uuid.UUID, items []workout.BulkUpdateSessionExerciseItem) ([]workout.SessionExercise, error)
 	DeleteSession(ctx context.Context, id uuid.UUID, userID uuid.UUID) error
+	FinishSession(ctx context.Context, id uuid.UUID, userID uuid.UUID) (*workout.Session, error)
 	AddSessionExercise(ctx context.Context, sessionID uuid.UUID, userID uuid.UUID, in workout.AddSessionExerciseInput) (*workout.SessionExercise, error)
 	DeleteSessionExercise(ctx context.Context, exID uuid.UUID, sessionID uuid.UUID, userID uuid.UUID) error
 }
@@ -96,6 +97,10 @@ func (s *Service) BulkUpdateSessionExercises(ctx context.Context, sessionID uuid
 
 func (s *Service) DeleteSession(ctx context.Context, id uuid.UUID, userID uuid.UUID) error {
 	return s.repo.DeleteSession(ctx, id, userID)
+}
+
+func (s *Service) FinishSession(ctx context.Context, id uuid.UUID, userID uuid.UUID) (*workout.Session, error) {
+	return s.repo.FinishSession(ctx, id, userID)
 }
 
 func (s *Service) AddSessionExercise(ctx context.Context, sessionID uuid.UUID, userID uuid.UUID, in workout.AddSessionExerciseInput) (*workout.SessionExercise, error) {

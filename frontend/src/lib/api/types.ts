@@ -409,6 +409,7 @@ export type WorkoutSession = {
   performed_at: string // ISO date
   duration_minutes: number | null
   notes: string | null
+  completed_at: string | null // RFC3339, null if not yet finished
   exercises: WorkoutSessionExercise[]
   created_at: string
   updated_at: string

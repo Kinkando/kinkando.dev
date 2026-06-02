@@ -25,6 +25,7 @@ type workoutSessionsTable struct {
 	PerformedAt     postgres.ColumnDate
 	DurationMinutes postgres.ColumnInteger
 	Notes           postgres.ColumnString
+	CompletedAt     postgres.ColumnTimestampz
 	CreatedAt       postgres.ColumnTimestampz
 	UpdatedAt       postgres.ColumnTimestampz
 
@@ -76,10 +77,11 @@ func newWorkoutSessionsTableImpl(schemaName, tableName, alias string) workoutSes
 		PerformedAtColumn     = postgres.DateColumn("performed_at")
 		DurationMinutesColumn = postgres.IntegerColumn("duration_minutes")
 		NotesColumn           = postgres.StringColumn("notes")
+		CompletedAtColumn     = postgres.TimestampzColumn("completed_at")
 		CreatedAtColumn       = postgres.TimestampzColumn("created_at")
 		UpdatedAtColumn       = postgres.TimestampzColumn("updated_at")
-		allColumns            = postgres.ColumnList{IDColumn, UserIDColumn, PresetIDColumn, NameColumn, TypeColumn, PerformedAtColumn, DurationMinutesColumn, NotesColumn, CreatedAtColumn, UpdatedAtColumn}
-		mutableColumns        = postgres.ColumnList{UserIDColumn, PresetIDColumn, NameColumn, TypeColumn, PerformedAtColumn, DurationMinutesColumn, NotesColumn, CreatedAtColumn, UpdatedAtColumn}
+		allColumns            = postgres.ColumnList{IDColumn, UserIDColumn, PresetIDColumn, NameColumn, TypeColumn, PerformedAtColumn, DurationMinutesColumn, NotesColumn, CompletedAtColumn, CreatedAtColumn, UpdatedAtColumn}
+		mutableColumns        = postgres.ColumnList{UserIDColumn, PresetIDColumn, NameColumn, TypeColumn, PerformedAtColumn, DurationMinutesColumn, NotesColumn, CompletedAtColumn, CreatedAtColumn, UpdatedAtColumn}
 		defaultColumns        = postgres.ColumnList{IDColumn, PerformedAtColumn, CreatedAtColumn, UpdatedAtColumn}
 	)
 
@@ -95,6 +97,7 @@ func newWorkoutSessionsTableImpl(schemaName, tableName, alias string) workoutSes
 		PerformedAt:     PerformedAtColumn,
 		DurationMinutes: DurationMinutesColumn,
 		Notes:           NotesColumn,
+		CompletedAt:     CompletedAtColumn,
 		CreatedAt:       CreatedAtColumn,
 		UpdatedAt:       UpdatedAtColumn,
 

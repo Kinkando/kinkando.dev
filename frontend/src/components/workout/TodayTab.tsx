@@ -14,6 +14,7 @@ import {
   useBulkUpdateSessionExercises,
   useUpdateSession,
   useDeleteSession,
+  useFinishSession,
   useAddSessionExercise,
   useDeleteSessionExercise,
 } from '../../queries/useWorkout'
@@ -87,12 +88,14 @@ function ExerciseLogRow({
   state,
   onStateChange,
   onDelete,
+  isLocked,
 }: {
   exercise: WorkoutSessionExercise
   sessionId: string
   state: ExerciseLogState
   onStateChange: (s: ExerciseLogState) => void
   onDelete: (exId: string) => void
+  isLocked: boolean
 }) {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -138,10 +141,12 @@ function ExerciseLogRow({
             <input
               type="checkbox"
               checked={state.completed}
+              disabled={isLocked}
               onChange={(e) =>
+                !isLocked &&
                 onStateChange({ ...state, completed: e.target.checked })
               }
-              className="h-4 w-4 accent-indigo-500"
+              className="h-4 w-4 accent-indigo-500 disabled:opacity-60"
             />
             <span
               className={`text-sm font-medium ${state.completed ? 'text-gray-500 line-through' : 'text-gray-100'}`}
@@ -149,13 +154,15 @@ function ExerciseLogRow({
               {ex.name}
             </span>
           </div>
-          <button
-            onClick={() => onDelete(ex.id)}
-            className="shrink-0 text-xs text-gray-600 hover:text-red-400"
-            title="Remove exercise"
-          >
-            ✕
-          </button>
+          {!isLocked && (
+            <button
+              onClick={() => onDelete(ex.id)}
+              className="shrink-0 text-xs text-gray-600 hover:text-red-400"
+              title="Remove exercise"
+            >
+              ✕
+            </button>
+          )}
         </div>
         {ex.target_muscles && (
           <p className="mt-0.5 pl-6 text-xs text-gray-500">
@@ -190,6 +197,7 @@ function ExerciseLogRow({
                 min="0"
                 placeholder={ex.target_sets ? String(ex.target_sets) : '—'}
                 value={state.actual_sets}
+                disabled={isLocked}
                 onChange={(e) =>
                   onStateChange({ ...state, actual_sets: e.target.value })
                 }
@@ -205,6 +213,7 @@ function ExerciseLogRow({
                 min="0"
                 placeholder={ex.target_reps ? String(ex.target_reps) : '—'}
                 value={state.actual_reps}
+                disabled={isLocked}
                 onChange={(e) =>
                   onStateChange({ ...state, actual_reps: e.target.value })
                 }
@@ -226,6 +235,7 @@ function ExerciseLogRow({
                   : '—'
               }
               value={state.actual_duration_seconds}
+              disabled={isLocked}
               onChange={(e) =>
                 onStateChange({
                   ...state,
@@ -246,6 +256,7 @@ function ExerciseLogRow({
             step="0.5"
             placeholder="—"
             value={state.weight_kg}
+            disabled={isLocked}
             onChange={(e) =>
               onStateChange({ ...state, weight_kg: e.target.value })
             }
@@ -257,21 +268,24 @@ function ExerciseLogRow({
             className={inputClass}
             placeholder="Optional"
             value={state.notes}
+            disabled={isLocked}
             onChange={(e) => onStateChange({ ...state, notes: e.target.value })}
           />
         </div>
       </div>
 
-      <div className="mt-2 flex items-center gap-2">
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="rounded-md bg-gray-700 px-3 py-1 text-xs font-medium text-gray-200 hover:bg-gray-600 disabled:opacity-50"
-        >
-          {saving ? 'Saving…' : 'Save'}
-        </button>
-        {saved && <span className="text-xs text-green-400">✓</span>}
-      </div>
+      {!isLocked && (
+        <div className="mt-2 flex items-center gap-2">
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="rounded-md bg-gray-700 px-3 py-1 text-xs font-medium text-gray-200 hover:bg-gray-600 disabled:opacity-50"
+          >
+            {saving ? 'Saving…' : 'Save'}
+          </button>
+          {saved && <span className="text-xs text-green-400">✓</span>}
+        </div>
+      )}
     </div>
   )
 }
@@ -299,9 +313,11 @@ const defaultAddForm = (): AddExerciseFormState => ({
 function AddExerciseForm({
   sessionId,
   onAdded,
+  isLocked,
 }: {
   sessionId: string
   onAdded: () => void
+  isLocked: boolean
 }) {
   const [open, setOpen] = useState(false)
   const [form, setForm] = useState<AddExerciseFormState>(defaultAddForm())
@@ -340,6 +356,8 @@ function AddExerciseForm({
       setError(err instanceof Error ? err.message : 'Failed to add exercise.')
     }
   }
+
+  if (isLocked) return null
 
   if (!open) {
     return (
@@ -461,14 +479,18 @@ function SessionView({
   onDelete: () => void
   onExerciseChange: () => void
 }) {
+  const isLocked = session.completed_at != null
+
   const [editingDuration, setEditingDuration] = useState(false)
   const [duration, setDuration] = useState(
     session.duration_minutes != null ? String(session.duration_minutes) : '',
   )
   const [deleteExConfirm, setDeleteExConfirm] = useState<string | null>(null)
+  const [finishConfirm, setFinishConfirm] = useState(false)
   const updateSession = useUpdateSession()
   const deleteExercise = useDeleteSessionExercise()
   const bulkUpdate = useBulkUpdateSessionExercises()
+  const finishSession = useFinishSession()
 
   const [exerciseStates, setExerciseStates] = useState<
     Map<string, ExerciseLogState>
@@ -531,6 +553,11 @@ function SessionView({
     }
   }
 
+  async function handleFinish() {
+    await finishSession.mutateAsync(session.id)
+    setFinishConfirm(false)
+  }
+
   async function saveDuration() {
     await updateSession.mutateAsync({
       id: session.id,
@@ -561,10 +588,15 @@ function SessionView({
       <div className="rounded-xl border border-gray-800 bg-gray-900 p-4">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <span className="rounded bg-indigo-900/50 px-2 py-0.5 text-xs text-indigo-400">
                 {WORKOUT_TYPE_LABELS[session.type]}
               </span>
+              {isLocked && (
+                <span className="rounded bg-green-900/50 px-2 py-0.5 text-xs text-green-400">
+                  Finished
+                </span>
+              )}
               <h3 className="text-sm font-medium text-gray-100">
                 {session.name}
               </h3>
@@ -576,19 +608,40 @@ function SessionView({
                 day: 'numeric',
               })}
             </p>
+            {isLocked && session.completed_at && (
+              <p className="mt-0.5 text-xs text-gray-600">
+                Completed at{' '}
+                {new Date(session.completed_at).toLocaleTimeString(undefined, {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+              </p>
+            )}
           </div>
-          <button
-            onClick={onDelete}
-            className="shrink-0 text-xs text-red-500 hover:text-red-400"
-          >
-            Delete
-          </button>
+          <div className="flex shrink-0 items-center gap-2">
+            {!isLocked && (
+              <button
+                onClick={() => setFinishConfirm(true)}
+                className="text-xs font-medium text-green-500 hover:text-green-400"
+              >
+                Finished
+              </button>
+            )}
+            {!isLocked && (
+              <button
+                onClick={onDelete}
+                className="text-xs text-red-500 hover:text-red-400"
+              >
+                Delete
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Editable duration */}
         <div className="mt-3 flex items-center gap-2 text-xs text-gray-500">
           <span>Duration:</span>
-          {editingDuration ? (
+          {!isLocked && editingDuration ? (
             <div className="flex items-center gap-1">
               <input
                 className="w-16 rounded border border-gray-700 bg-gray-800 px-2 py-0.5 text-xs text-gray-100"
@@ -619,19 +672,21 @@ function SessionView({
                   ? `${session.duration_minutes} min`
                   : '—'}
               </span>
-              <button
-                onClick={() => setEditingDuration(true)}
-                className="text-gray-600 hover:text-gray-400"
-              >
-                edit
-              </button>
+              {!isLocked && (
+                <button
+                  onClick={() => setEditingDuration(true)}
+                  className="text-gray-600 hover:text-gray-400"
+                >
+                  edit
+                </button>
+              )}
             </>
           )}
         </div>
       </div>
 
       {/* Bulk actions */}
-      {session.exercises.length > 0 && (
+      {!isLocked && session.exercises.length > 0 && (
         <div className="flex items-center gap-2">
           <button
             onClick={handleCheckAll}
@@ -671,6 +726,7 @@ function SessionView({
                   setExerciseStates((prev) => new Map(prev).set(ex.id, s))
                 }
                 onDelete={(exId) => setDeleteExConfirm(exId)}
+                isLocked={isLocked}
               />
             ))}
           </div>
@@ -678,7 +734,11 @@ function SessionView({
       })}
 
       {/* Add exercise */}
-      <AddExerciseForm sessionId={session.id} onAdded={onExerciseChange} />
+      <AddExerciseForm
+        sessionId={session.id}
+        onAdded={onExerciseChange}
+        isLocked={isLocked}
+      />
 
       {/* Delete exercise confirm modal */}
       {deleteExConfirm && (
@@ -697,6 +757,35 @@ function SessionView({
               </button>
               <button
                 onClick={() => setDeleteExConfirm(null)}
+                className="rounded-lg bg-gray-800 px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-700"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Finish session confirm dialog */}
+      {finishConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-sm rounded-xl border border-gray-700 bg-gray-900 p-6 shadow-2xl">
+            <p className="mb-1 text-sm font-medium text-gray-100">
+              Mark workout as finished?
+            </p>
+            <p className="mb-4 text-xs text-gray-500">
+              You won&apos;t be able to edit or delete this session afterwards.
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={handleFinish}
+                disabled={finishSession.isPending}
+                className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-500 disabled:opacity-50"
+              >
+                {finishSession.isPending ? 'Finishing…' : 'Finished'}
+              </button>
+              <button
+                onClick={() => setFinishConfirm(false)}
                 className="rounded-lg bg-gray-800 px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-700"
               >
                 Cancel

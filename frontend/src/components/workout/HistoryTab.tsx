@@ -150,10 +150,15 @@ export default function HistoryTab({ sessions }: Props) {
               onClick={() => toggleExpand(session.id)}
             >
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <span className="rounded bg-indigo-900/50 px-2 py-0.5 text-xs text-indigo-400">
                     {WORKOUT_TYPE_LABELS[session.type]}
                   </span>
+                  {session.completed_at && (
+                    <span className="rounded bg-green-900/50 px-2 py-0.5 text-xs text-green-400">
+                      Finished
+                    </span>
+                  )}
                   <span className="truncate text-sm font-medium text-gray-100">
                     {session.name}
                   </span>

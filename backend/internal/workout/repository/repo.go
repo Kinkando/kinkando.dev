@@ -503,19 +503,8 @@ func (r *Repository) createQuickSession(
 }
 
 func (r *Repository) AddSessionExercise(ctx context.Context, sessionID uuid.UUID, userID uuid.UUID, in workout.AddSessionExerciseInput) (*workout.SessionExercise, error) {
-	// Verify the session exists and belongs to this user.
-	checkStmt := postgres.SELECT(table.WorkoutSessions.ID).
-		FROM(table.WorkoutSessions).
-		WHERE(
-			table.WorkoutSessions.ID.EQ(postgres.UUID(sessionID)).
-				AND(table.WorkoutSessions.UserID.EQ(postgres.UUID(userID))),
-		)
-	var check model.WorkoutSessions
-	if err := checkStmt.QueryContext(ctx, r.db, &check); err != nil {
-		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("session not found")
-		}
-		return nil, fmt.Errorf("verify session: %w", err)
+	if err := r.assertSessionMutable(ctx, sessionID, userID); err != nil {
+		return nil, err
 	}
 
 	// Compute next order_index.
@@ -599,6 +588,10 @@ func (r *Repository) AddSessionExercise(ctx context.Context, sessionID uuid.UUID
 }
 
 func (r *Repository) DeleteSessionExercise(ctx context.Context, exID uuid.UUID, sessionID uuid.UUID, userID uuid.UUID) error {
+	if err := r.assertSessionMutable(ctx, sessionID, userID); err != nil {
+		return err
+	}
+
 	stmt := table.WorkoutSessionExercises.DELETE().
 		WHERE(
 			table.WorkoutSessionExercises.ID.EQ(postgres.UUID(exID)).
@@ -625,6 +618,10 @@ func (r *Repository) DeleteSessionExercise(ctx context.Context, exID uuid.UUID, 
 }
 
 func (r *Repository) UpdateSession(ctx context.Context, id uuid.UUID, userID uuid.UUID, in workout.UpdateSessionInput) (*workout.Session, error) {
+	if err := r.assertSessionMutable(ctx, id, userID); err != nil {
+		return nil, err
+	}
+
 	var durationMinutes *int32
 	if in.DurationMinutes != nil {
 		d := int32(*in.DurationMinutes)
@@ -662,6 +659,10 @@ func (r *Repository) UpdateSession(ctx context.Context, id uuid.UUID, userID uui
 }
 
 func (r *Repository) UpdateSessionExercise(ctx context.Context, id uuid.UUID, sessionID uuid.UUID, userID uuid.UUID, in workout.UpdateSessionExerciseInput) (*workout.SessionExercise, error) {
+	if err := r.assertSessionMutable(ctx, sessionID, userID); err != nil {
+		return nil, err
+	}
+
 	var actualSets *int32
 	if in.ActualSets != nil {
 		s := int32(*in.ActualSets)
@@ -727,6 +728,10 @@ func (r *Repository) UpdateSessionExercise(ctx context.Context, id uuid.UUID, se
 func (r *Repository) BulkUpdateSessionExercises(ctx context.Context, sessionID uuid.UUID, userID uuid.UUID, items []workout.BulkUpdateSessionExerciseItem) ([]workout.SessionExercise, error) {
 	if len(items) == 0 {
 		return []workout.SessionExercise{}, nil
+	}
+
+	if err := r.assertSessionMutable(ctx, sessionID, userID); err != nil {
+		return nil, err
 	}
 
 	tx, err := r.db.BeginTx(ctx, nil)
@@ -809,6 +814,9 @@ func (r *Repository) BulkUpdateSessionExercises(ctx context.Context, sessionID u
 }
 
 func (r *Repository) DeleteSession(ctx context.Context, id uuid.UUID, userID uuid.UUID) error {
+	if err := r.assertSessionMutable(ctx, id, userID); err != nil {
+		return err
+	}
 	stmt := table.WorkoutSessions.DELETE().WHERE(
 		table.WorkoutSessions.ID.EQ(postgres.UUID(id)).
 			AND(table.WorkoutSessions.UserID.EQ(postgres.UUID(userID))),
@@ -824,6 +832,37 @@ func (r *Repository) DeleteSession(ctx context.Context, id uuid.UUID, userID uui
 	return nil
 }
 
+func (r *Repository) FinishSession(ctx context.Context, id uuid.UUID, userID uuid.UUID) (*workout.Session, error) {
+	if err := r.assertSessionMutable(ctx, id, userID); err != nil {
+		return nil, err
+	}
+
+	stmt := table.WorkoutSessions.UPDATE(
+		table.WorkoutSessions.CompletedAt,
+		table.WorkoutSessions.UpdatedAt,
+	).SET(
+		postgres.NOW(),
+		postgres.NOW(),
+	).WHERE(
+		table.WorkoutSessions.ID.EQ(postgres.UUID(id)).
+			AND(table.WorkoutSessions.UserID.EQ(postgres.UUID(userID))),
+	).RETURNING(table.WorkoutSessions.AllColumns)
+
+	var dest model.WorkoutSessions
+	if err := stmt.QueryContext(ctx, r.db, &dest); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("session not found")
+		}
+		return nil, fmt.Errorf("finish session: %w", err)
+	}
+
+	exRows, err := r.fetchSessionExercises(ctx, r.db, id)
+	if err != nil {
+		return nil, err
+	}
+	return toSession(dest, exRows), nil
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 // db is the interface satisfied by both *sql.DB and *sql.Tx, allowing go-jet
@@ -831,6 +870,27 @@ func (r *Repository) DeleteSession(ctx context.Context, id uuid.UUID, userID uui
 type db interface {
 	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
 	QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
+}
+
+// assertSessionMutable returns an error if the session doesn't exist or is already completed.
+func (r *Repository) assertSessionMutable(ctx context.Context, sessionID uuid.UUID, userID uuid.UUID) error {
+	stmt := postgres.SELECT(table.WorkoutSessions.ID, table.WorkoutSessions.CompletedAt).
+		FROM(table.WorkoutSessions).
+		WHERE(
+			table.WorkoutSessions.ID.EQ(postgres.UUID(sessionID)).
+				AND(table.WorkoutSessions.UserID.EQ(postgres.UUID(userID))),
+		)
+	var dest model.WorkoutSessions
+	if err := stmt.QueryContext(ctx, r.db, &dest); err != nil {
+		if err == sql.ErrNoRows {
+			return fmt.Errorf("session not found")
+		}
+		return fmt.Errorf("check session: %w", err)
+	}
+	if dest.CompletedAt != nil {
+		return fmt.Errorf("session is already completed")
+	}
+	return nil
 }
 
 func (r *Repository) fetchPresetExercises(ctx context.Context, qdb db, presetID uuid.UUID) ([]model.WorkoutPresetExercises, error) {
@@ -1104,6 +1164,7 @@ func toSession(m model.WorkoutSessions, exercises []model.WorkoutSessionExercise
 		Type:        workout.Type(m.Type),
 		PerformedAt: m.PerformedAt,
 		Notes:       m.Notes,
+		CompletedAt: m.CompletedAt,
 		CreatedAt:   m.CreatedAt,
 		UpdatedAt:   m.UpdatedAt,
 	}

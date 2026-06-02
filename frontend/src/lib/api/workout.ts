@@ -179,3 +179,10 @@ export function deleteSession(id: string): Promise<undefined> {
     auth: true,
   })
 }
+
+export function finishSession(id: string): Promise<WorkoutSession | undefined> {
+  return apiFetch<WorkoutSession>(`/workout/sessions/${id}/finish`, {
+    method: 'POST',
+    auth: true,
+  })
+}

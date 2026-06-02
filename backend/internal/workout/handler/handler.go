@@ -30,6 +30,7 @@ type Service interface {
 	UpdateSessionExercise(ctx context.Context, id uuid.UUID, sessionID uuid.UUID, userID uuid.UUID, in workout.UpdateSessionExerciseInput) (*workout.SessionExercise, error)
 	BulkUpdateSessionExercises(ctx context.Context, sessionID uuid.UUID, userID uuid.UUID, items []workout.BulkUpdateSessionExerciseItem) ([]workout.SessionExercise, error)
 	DeleteSession(ctx context.Context, id uuid.UUID, userID uuid.UUID) error
+	FinishSession(ctx context.Context, id uuid.UUID, userID uuid.UUID) (*workout.Session, error)
 	AddSessionExercise(ctx context.Context, sessionID uuid.UUID, userID uuid.UUID, in workout.AddSessionExerciseInput) (*workout.SessionExercise, error)
 	DeleteSessionExercise(ctx context.Context, exID uuid.UUID, sessionID uuid.UUID, userID uuid.UUID) error
 }
@@ -67,6 +68,7 @@ func (h *Handler) Register(router fiber.Router) {
 	router.Post("/sessions", h.createSession)
 	router.Get("/sessions/:id", h.getSession)
 	router.Patch("/sessions/:id", h.updateSession)
+	router.Post("/sessions/:id/finish", h.finishSession)
 	router.Post("/sessions/:id/exercises", h.addSessionExercise)
 	router.Patch("/sessions/:id/exercises", h.bulkUpdateSessionExercises)
 	router.Patch("/sessions/:id/exercises/:exId", h.updateSessionExercise)
@@ -342,6 +344,9 @@ func (h *Handler) addSessionExercise(c *fiber.Ctx) error {
 		if strings.Contains(err.Error(), "not found") {
 			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": err.Error()})
 		}
+		if strings.Contains(err.Error(), "already completed") {
+			return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": err.Error()})
+		}
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"data": ex})
@@ -368,6 +373,9 @@ func (h *Handler) bulkUpdateSessionExercises(c *fiber.Ctx) error {
 		if strings.Contains(err.Error(), "not found") {
 			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": err.Error()})
 		}
+		if strings.Contains(err.Error(), "already completed") {
+			return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": err.Error()})
+		}
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
 	return c.JSON(fiber.Map{"data": exercises})
@@ -389,6 +397,9 @@ func (h *Handler) deleteSessionExercise(c *fiber.Ctx) error {
 	if err := h.svc.DeleteSessionExercise(c.Context(), exID, sessionID, userID); err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "session exercise not found"})
+		}
+		if strings.Contains(err.Error(), "already completed") {
+			return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": err.Error()})
 		}
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
@@ -435,6 +446,9 @@ func (h *Handler) updateSession(c *fiber.Ctx) error {
 		if strings.Contains(err.Error(), "not found") {
 			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "session not found"})
 		}
+		if strings.Contains(err.Error(), "already completed") {
+			return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": err.Error()})
+		}
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
 	return c.JSON(fiber.Map{"data": session})
@@ -462,6 +476,9 @@ func (h *Handler) updateSessionExercise(c *fiber.Ctx) error {
 		if strings.Contains(err.Error(), "not found") {
 			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "session exercise not found"})
 		}
+		if strings.Contains(err.Error(), "already completed") {
+			return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": err.Error()})
+		}
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
 	return c.JSON(fiber.Map{"data": ex})
@@ -480,9 +497,34 @@ func (h *Handler) deleteSession(c *fiber.Ctx) error {
 		if strings.Contains(err.Error(), "not found") {
 			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "session not found"})
 		}
+		if strings.Contains(err.Error(), "already completed") {
+			return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": err.Error()})
+		}
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
 	return c.SendStatus(fiber.StatusNoContent)
+}
+
+func (h *Handler) finishSession(c *fiber.Ctx) error {
+	userID, err := h.resolveUserID(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
+	}
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid session id"})
+	}
+	session, err := h.svc.FinishSession(c.Context(), id, userID)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "session not found"})
+		}
+		if strings.Contains(err.Error(), "already completed") {
+			return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": err.Error()})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+	return c.JSON(fiber.Map{"data": session})
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

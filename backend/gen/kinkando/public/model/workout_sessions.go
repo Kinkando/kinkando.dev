@@ -21,6 +21,7 @@ type WorkoutSessions struct {
 	PerformedAt     time.Time
 	DurationMinutes *int32
 	Notes           *string
+	CompletedAt     *time.Time
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
 }

@@ -20,4 +20,9 @@ export const keys = {
   workoutSchedule: ['workout', 'schedule'] as const,
   workoutSessions: (range: string) => ['workout', 'sessions', range] as const,
   workoutSession: (id: string) => ['workout', 'session', id] as const,
+  medicines: (includeArchived: boolean) =>
+    ['medicine', 'list', includeArchived] as const,
+  medicineIntakes: (date?: string) => ['medicine', 'intakes', date] as const,
+  medicineAdjustments: (date?: string) =>
+    ['medicine', 'adjustments', date] as const,
 }

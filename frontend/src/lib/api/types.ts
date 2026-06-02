@@ -454,3 +454,109 @@ export type UpdateSessionInput = {
   duration_minutes: number | null
   notes: string | null
 }
+
+// ---- Medicine
+
+export type FrequencyType = 'daily' | 'weekly' | 'as_needed' | 'custom'
+
+export type MedicineTiming =
+  | 'before_meal'
+  | 'after_meal'
+  | 'before_breakfast'
+  | 'before_bed'
+  | 'anytime'
+
+export type IntakeStatus = 'taken' | 'skipped' | 'missed'
+
+export type AdjustmentType = 'add' | 'remove' | 'correction'
+
+export type Medicine = {
+  id: string
+  user_id: string
+  name: string
+  generic_name: string | null
+  description: string | null
+  stock_quantity: number
+  stock_unit: string
+  dosage_amount: number
+  dosage_unit: string | null
+  frequency_type: FrequencyType
+  frequency_value: number | null
+  timing: MedicineTiming | null
+  start_date: string | null // ISO date
+  end_date: string | null // ISO date
+  low_stock_threshold: number
+  note: string | null
+  created_at: string
+  updated_at: string
+  archived_at: string | null
+}
+
+export type MedicineIntake = {
+  id: string
+  medicine_id: string
+  user_id: string
+  medicine_name: string
+  taken_at: string
+  quantity_taken: number
+  stock_before: number
+  stock_after: number
+  status: IntakeStatus
+  note: string | null
+  created_at: string
+}
+
+export type MedicineStockAdjustment = {
+  id: string
+  medicine_id: string
+  user_id: string
+  type: AdjustmentType
+  quantity: number
+  stock_before: number
+  stock_after: number
+  reason: string | null
+  created_at: string
+}
+
+export type CreateMedicineInput = {
+  name: string
+  generic_name: string | null
+  description: string | null
+  stock_quantity: number
+  stock_unit: string
+  dosage_amount: number
+  dosage_unit: string | null
+  frequency_type: FrequencyType
+  frequency_value: number | null
+  timing: MedicineTiming | null
+  start_date?: string // YYYY-MM-DD, optional
+  end_date?: string // YYYY-MM-DD, optional
+  low_stock_threshold: number
+  note: string | null
+}
+
+export type UpdateMedicineInput = CreateMedicineInput
+
+export type TakeMedicineInput = {
+  quantity_taken: number
+  status?: IntakeStatus
+  note?: string | null
+  taken_at?: string // RFC3339, optional
+  allow_negative?: boolean
+}
+
+export type AdjustStockInput = {
+  type: AdjustmentType
+  quantity: number
+  reason?: string | null
+}
+
+export type TakeResponse = {
+  intake: MedicineIntake
+  medicine: Medicine
+}
+
+export type AdjustStockResponse = {
+  adjustment: MedicineStockAdjustment
+  medicine: Medicine
+}

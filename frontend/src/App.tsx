@@ -10,6 +10,7 @@ import ChatPage from './pages/ChatPage'
 import HealthPage from './pages/HealthPage'
 import WorkoutPage from './pages/WorkoutPage'
 import NewsPage from './pages/NewsPage'
+import MedicinePage from './pages/MedicinePage'
 import ProtectedRoute from './auth/ProtectedRoute'
 
 export default function App() {
@@ -67,6 +68,14 @@ export default function App() {
           element={
             <ProtectedRoute>
               <WorkoutPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/medicine"
+          element={
+            <ProtectedRoute>
+              <MedicinePage />
             </ProtectedRoute>
           }
         />

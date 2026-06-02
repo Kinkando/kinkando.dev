@@ -29,6 +29,9 @@ import (
 	healthRepo "github.com/kinkando/personal-dashboard/internal/health/repository"
 	healthSvc "github.com/kinkando/personal-dashboard/internal/health/service"
 	kanbanHandler "github.com/kinkando/personal-dashboard/internal/kanban/handler"
+	medicineHandler "github.com/kinkando/personal-dashboard/internal/medicine/handler"
+	medicineRepo "github.com/kinkando/personal-dashboard/internal/medicine/repository"
+	medicineSvc "github.com/kinkando/personal-dashboard/internal/medicine/service"
 	kanbanRepo "github.com/kinkando/personal-dashboard/internal/kanban/repository"
 	"github.com/kinkando/personal-dashboard/internal/line"
 	lineHandler "github.com/kinkando/personal-dashboard/internal/line/handler"
@@ -108,6 +111,10 @@ func main() {
 	wkSvc := workoutSvc.New(wkRepo)
 	wkH := workoutHandler.New(wkSvc, usrRepo)
 
+	medRepo := medicineRepo.New(pgDB.SQL())
+	medSvc := medicineSvc.New(medRepo)
+	medH := medicineHandler.New(medSvc, usrRepo)
+
 	portH := portfolioHandler.New()
 
 	app := fiber.New(fiber.Config{
@@ -148,6 +155,9 @@ func main() {
 
 	workoutGroup := api.Group("/workout", authMW.Require())
 	wkH.Register(workoutGroup)
+
+	medicineGroup := api.Group("/medicines", authMW.Require())
+	medH.Register(medicineGroup)
 
 	portfolioGroup := api.Group("/portfolio")
 	portH.Register(portfolioGroup)

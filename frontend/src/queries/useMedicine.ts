@@ -1,0 +1,105 @@
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import {
+  fetchMedicines,
+  createMedicine,
+  updateMedicine,
+  archiveMedicine,
+  unarchiveMedicine,
+  takeMedicine,
+  adjustStock,
+  fetchIntakes,
+  fetchStockAdjustments,
+} from '../lib/api/medicine'
+import type {
+  CreateMedicineInput,
+  UpdateMedicineInput,
+  TakeMedicineInput,
+  AdjustStockInput,
+} from '../lib/api/types'
+import { keys } from './keys'
+
+export function useMedicines(includeArchived = false) {
+  return useQuery({
+    queryKey: keys.medicines(includeArchived),
+    queryFn: () => fetchMedicines(includeArchived),
+  })
+}
+
+export function useCreateMedicine() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (input: CreateMedicineInput) => createMedicine(input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['medicine', 'list'] })
+    },
+  })
+}
+
+export function useUpdateMedicine() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: UpdateMedicineInput }) =>
+      updateMedicine(id, input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['medicine', 'list'] })
+    },
+  })
+}
+
+export function useArchiveMedicine() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => archiveMedicine(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['medicine', 'list'] })
+    },
+  })
+}
+
+export function useUnarchiveMedicine() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => unarchiveMedicine(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['medicine', 'list'] })
+    },
+  })
+}
+
+export function useTakeMedicine() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: TakeMedicineInput }) =>
+      takeMedicine(id, input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['medicine', 'list'] })
+      queryClient.invalidateQueries({ queryKey: ['medicine', 'intakes'] })
+    },
+  })
+}
+
+export function useAdjustStock() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: AdjustStockInput }) =>
+      adjustStock(id, input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['medicine', 'list'] })
+      queryClient.invalidateQueries({ queryKey: ['medicine', 'adjustments'] })
+    },
+  })
+}
+
+export function useMedicineIntakes(date?: string) {
+  return useQuery({
+    queryKey: keys.medicineIntakes(date),
+    queryFn: () => fetchIntakes({ date }),
+  })
+}
+
+export function useStockAdjustments(date?: string) {
+  return useQuery({
+    queryKey: keys.medicineAdjustments(date),
+    queryFn: () => fetchStockAdjustments({ date }),
+  })
+}

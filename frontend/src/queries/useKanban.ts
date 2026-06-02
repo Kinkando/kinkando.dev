@@ -220,6 +220,7 @@ export function useMoveCard(boardId: string) {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: keys.kanbanBoard(boardId) })
+      queryClient.invalidateQueries({ queryKey: keys.kanbanStats(boardId) })
     },
   })
 }

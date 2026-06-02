@@ -20,7 +20,4 @@ export const keys = {
   workoutSchedule: ['workout', 'schedule'] as const,
   workoutSessions: (range: string) => ['workout', 'sessions', range] as const,
   workoutSession: (id: string) => ['workout', 'session', id] as const,
-  questOverview: ['quest', 'overview'] as const,
-  questList: (type: string) => ['quest', 'list', type] as const,
-  questHistory: ['quest', 'history'] as const,
 }

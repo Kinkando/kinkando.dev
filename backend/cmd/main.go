@@ -17,7 +17,6 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/adaptor"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/recover"
-	"github.com/kinkando/personal-dashboard/pkg/middleware"
 	"github.com/google/uuid"
 	"github.com/kinkando/personal-dashboard/config"
 	aichatHandler "github.com/kinkando/personal-dashboard/internal/aichat/handler"
@@ -25,25 +24,23 @@ import (
 	financeHandler "github.com/kinkando/personal-dashboard/internal/finance/handler"
 	financeRepo "github.com/kinkando/personal-dashboard/internal/finance/repository"
 	financeSvc "github.com/kinkando/personal-dashboard/internal/finance/service"
+	"github.com/kinkando/personal-dashboard/internal/gemini"
 	healthHandler "github.com/kinkando/personal-dashboard/internal/health/handler"
 	healthRepo "github.com/kinkando/personal-dashboard/internal/health/repository"
 	healthSvc "github.com/kinkando/personal-dashboard/internal/health/service"
-	workoutHandler "github.com/kinkando/personal-dashboard/internal/workout/handler"
-	workoutRepo "github.com/kinkando/personal-dashboard/internal/workout/repository"
-	workoutSvc "github.com/kinkando/personal-dashboard/internal/workout/service"
-	"github.com/kinkando/personal-dashboard/internal/gemini"
 	kanbanHandler "github.com/kinkando/personal-dashboard/internal/kanban/handler"
 	kanbanRepo "github.com/kinkando/personal-dashboard/internal/kanban/repository"
 	"github.com/kinkando/personal-dashboard/internal/line"
 	lineHandler "github.com/kinkando/personal-dashboard/internal/line/handler"
 	"github.com/kinkando/personal-dashboard/internal/mcpserver"
 	portfolioHandler "github.com/kinkando/personal-dashboard/internal/portfolio/handler"
-	questHandler "github.com/kinkando/personal-dashboard/internal/quest/handler"
-	questRepo "github.com/kinkando/personal-dashboard/internal/quest/repository"
-	questSvc "github.com/kinkando/personal-dashboard/internal/quest/service"
 	userHandler "github.com/kinkando/personal-dashboard/internal/user/handler"
 	userRepo "github.com/kinkando/personal-dashboard/internal/user/repository"
 	userSvc "github.com/kinkando/personal-dashboard/internal/user/service"
+	workoutHandler "github.com/kinkando/personal-dashboard/internal/workout/handler"
+	workoutRepo "github.com/kinkando/personal-dashboard/internal/workout/repository"
+	workoutSvc "github.com/kinkando/personal-dashboard/internal/workout/service"
+	"github.com/kinkando/personal-dashboard/pkg/middleware"
 	"github.com/kinkando/personal-dashboard/pkg/mongo"
 	"github.com/kinkando/personal-dashboard/pkg/postgres"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -111,10 +108,6 @@ func main() {
 	wkSvc := workoutSvc.New(wkRepo)
 	wkH := workoutHandler.New(wkSvc, usrRepo)
 
-	qstRepo := questRepo.New(pgDB.SQL())
-	qstSvc := questSvc.New(qstRepo)
-	qstH := questHandler.New(qstSvc, usrRepo)
-
 	portH := portfolioHandler.New()
 
 	app := fiber.New(fiber.Config{
@@ -155,9 +148,6 @@ func main() {
 
 	workoutGroup := api.Group("/workout", authMW.Require())
 	wkH.Register(workoutGroup)
-
-	questGroup := api.Group("/quest", authMW.Require())
-	qstH.Register(questGroup)
 
 	portfolioGroup := api.Group("/portfolio")
 	portH.Register(portfolioGroup)

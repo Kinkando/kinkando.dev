@@ -11,7 +11,12 @@ make gen-sql-builder-windows             # or gen-sql-builder-macos on macOS/Lin
 
 Stage migration + `gen/` + code together in one commit.
 
-## 2. Commit (every edit, not just migrations)
+## 2. Refactor / reuse
 
+Check for duplicate logic. If the newly written code already exists elsewhere, replace it with a call to the shared function. Applies to both frontend and backend.
+
+## 3. Commit (every edit, not just migrations)
+
+After completing any task, always create a git commit without waiting to be asked.
 Stage only relevant files. Message format: `type: why` + co-author line.
 See [Commit Policy](commit-policy.md) for the full rules.

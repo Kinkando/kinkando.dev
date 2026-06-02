@@ -9,8 +9,10 @@ import KanbanArchivePage from './pages/KanbanArchivePage'
 import ChatPage from './pages/ChatPage'
 import HealthPage from './pages/HealthPage'
 import WorkoutPage from './pages/WorkoutPage'
-import NewsPage from './pages/NewsPage'
 import MedicinePage from './pages/MedicinePage'
+import FoodPage from './pages/FoodPage'
+import SleepPage from './pages/SleepPage'
+import NewsPage from './pages/NewsPage'
 import ProtectedRoute from './auth/ProtectedRoute'
 
 export default function App() {
@@ -55,6 +57,7 @@ export default function App() {
             </ProtectedRoute>
           }
         />
+        {/* Health group */}
         <Route
           path="/health"
           element={
@@ -64,7 +67,7 @@ export default function App() {
           }
         />
         <Route
-          path="/workout"
+          path="/health/workout"
           element={
             <ProtectedRoute>
               <WorkoutPage />
@@ -72,12 +75,37 @@ export default function App() {
           }
         />
         <Route
-          path="/medicine"
+          path="/health/medicine"
           element={
             <ProtectedRoute>
               <MedicinePage />
             </ProtectedRoute>
           }
+        />
+        <Route
+          path="/health/food"
+          element={
+            <ProtectedRoute>
+              <FoodPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/health/sleep"
+          element={
+            <ProtectedRoute>
+              <SleepPage />
+            </ProtectedRoute>
+          }
+        />
+        {/* Legacy redirects for moved routes */}
+        <Route
+          path="/workout"
+          element={<Navigate to="/health/workout" replace />}
+        />
+        <Route
+          path="/medicine"
+          element={<Navigate to="/health/medicine" replace />}
         />
       </Routes>
     </div>

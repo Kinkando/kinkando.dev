@@ -1,23 +1,14 @@
 import { useState } from 'react'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
-import {
-  useHealthProfile,
-  useWeightLogs,
-  useFoodLogs,
-  useSleepLogs,
-} from '../queries/useHealth'
+import { useHealthProfile, useWeightLogs } from '../queries/useHealth'
 import DashboardTab from '../components/health/DashboardTab'
-import FoodTab from '../components/health/FoodTab'
-import SleepTab from '../components/health/SleepTab'
 import ProgressTab from '../components/health/ProgressTab'
 import SettingsTab from '../components/health/SettingsTab'
 
-type Tab = 'dashboard' | 'food' | 'sleep' | 'progress' | 'settings'
+type Tab = 'dashboard' | 'progress' | 'settings'
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'dashboard', label: 'Dashboard' },
-  { key: 'food', label: 'Food' },
-  { key: 'sleep', label: 'Sleep' },
   { key: 'progress', label: 'Progress' },
   { key: 'settings', label: 'Settings' },
 ]
@@ -28,8 +19,6 @@ export default function HealthPage() {
 
   const profileQuery = useHealthProfile()
   const weightQuery = useWeightLogs()
-  const foodQuery = useFoodLogs()
-  const sleepQuery = useSleepLogs()
 
   return (
     <main className="mx-auto max-w-5xl px-6 py-12">
@@ -60,8 +49,6 @@ export default function HealthPage() {
           onGoToSettings={() => setTab('settings')}
         />
       )}
-      {tab === 'food' && <FoodTab foodLogs={foodQuery.data} />}
-      {tab === 'sleep' && <SleepTab sleepLogs={sleepQuery.data} />}
       {tab === 'progress' && (
         <ProgressTab
           weightLogs={weightQuery.data}

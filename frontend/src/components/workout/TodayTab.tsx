@@ -56,12 +56,24 @@ type ExerciseLogState = {
 
 function exToState(ex: WorkoutSessionExercise): ExerciseLogState {
   return {
-    actual_sets: ex.actual_sets != null ? String(ex.actual_sets) : '',
-    actual_reps: ex.actual_reps != null ? String(ex.actual_reps) : '',
+    actual_sets:
+      ex.actual_sets != null
+        ? String(ex.actual_sets)
+        : ex.target_sets != null
+          ? String(ex.target_sets)
+          : '',
+    actual_reps:
+      ex.actual_reps != null
+        ? String(ex.actual_reps)
+        : ex.target_reps != null
+          ? String(ex.target_reps)
+          : '',
     actual_duration_seconds:
       ex.actual_duration_seconds != null
         ? String(ex.actual_duration_seconds)
-        : '',
+        : ex.target_duration_seconds != null
+          ? String(ex.target_duration_seconds)
+          : '',
     weight_kg: ex.weight_kg != null ? String(ex.weight_kg) : '',
     completed: ex.completed,
     notes: ex.notes ?? '',

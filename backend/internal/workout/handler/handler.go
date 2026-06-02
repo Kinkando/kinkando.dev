@@ -28,6 +28,7 @@ type Service interface {
 	CreateSession(ctx context.Context, userID uuid.UUID, in workout.CreateSessionInput) (*workout.Session, error)
 	UpdateSession(ctx context.Context, id uuid.UUID, userID uuid.UUID, in workout.UpdateSessionInput) (*workout.Session, error)
 	UpdateSessionExercise(ctx context.Context, id uuid.UUID, sessionID uuid.UUID, userID uuid.UUID, in workout.UpdateSessionExerciseInput) (*workout.SessionExercise, error)
+	BulkUpdateSessionExercises(ctx context.Context, sessionID uuid.UUID, userID uuid.UUID, items []workout.BulkUpdateSessionExerciseItem) ([]workout.SessionExercise, error)
 	DeleteSession(ctx context.Context, id uuid.UUID, userID uuid.UUID) error
 	AddSessionExercise(ctx context.Context, sessionID uuid.UUID, userID uuid.UUID, in workout.AddSessionExerciseInput) (*workout.SessionExercise, error)
 	DeleteSessionExercise(ctx context.Context, exID uuid.UUID, sessionID uuid.UUID, userID uuid.UUID) error
@@ -67,6 +68,7 @@ func (h *Handler) Register(router fiber.Router) {
 	router.Get("/sessions/:id", h.getSession)
 	router.Patch("/sessions/:id", h.updateSession)
 	router.Post("/sessions/:id/exercises", h.addSessionExercise)
+	router.Patch("/sessions/:id/exercises", h.bulkUpdateSessionExercises)
 	router.Patch("/sessions/:id/exercises/:exId", h.updateSessionExercise)
 	router.Delete("/sessions/:id/exercises/:exId", h.deleteSessionExercise)
 	router.Delete("/sessions/:id", h.deleteSession)
@@ -343,6 +345,32 @@ func (h *Handler) addSessionExercise(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"data": ex})
+}
+
+func (h *Handler) bulkUpdateSessionExercises(c *fiber.Ctx) error {
+	userID, err := h.resolveUserID(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
+	}
+	sessionID, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid session id"})
+	}
+	var in workout.BulkUpdateSessionExercisesInput
+	if err := c.BodyParser(&in); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
+	}
+	if len(in.Items) == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "items must not be empty"})
+	}
+	exercises, err := h.svc.BulkUpdateSessionExercises(c.Context(), sessionID, userID, in.Items)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": err.Error()})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+	return c.JSON(fiber.Map{"data": exercises})
 }
 
 func (h *Handler) deleteSessionExercise(c *fiber.Ctx) error {

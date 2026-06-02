@@ -180,3 +180,17 @@ type UpdateSessionExerciseInput struct {
 	Completed             bool     `json:"completed"`
 	Notes                 *string  `json:"notes"`
 }
+
+type BulkUpdateSessionExerciseItem struct {
+	ID                    uuid.UUID `json:"id"`
+	ActualSets            *int      `json:"actual_sets"`
+	ActualReps            *int      `json:"actual_reps"`
+	ActualDurationSeconds *int      `json:"actual_duration_seconds"`
+	WeightKg              *float64  `json:"weight_kg"`
+	Completed             bool      `json:"completed"`
+	Notes                 *string   `json:"notes"`
+}
+
+type BulkUpdateSessionExercisesInput struct {
+	Items []BulkUpdateSessionExerciseItem `json:"items"`
+}

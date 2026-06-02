@@ -423,6 +423,20 @@ export type UpdateSessionExerciseInput = {
   notes: string | null
 }
 
+export type BulkUpdateSessionExerciseItem = {
+  id: string
+  actual_sets: number | null
+  actual_reps: number | null
+  actual_duration_seconds: number | null
+  weight_kg: number | null
+  completed: boolean
+  notes: string | null
+}
+
+export type BulkUpdateSessionExercisesInput = {
+  items: BulkUpdateSessionExerciseItem[]
+}
+
 export type AddSessionExerciseInput = {
   section: ExerciseSection
   name: string

@@ -45,6 +45,7 @@ func All() []ToolDef {
 		WorkoutUpdateSession,
 		WorkoutLogExercise,
 		WorkoutAddExercise,
+		WorkoutBulkLogExercises,
 		FoodListLogs,
 		FoodLogMeal,
 		FoodUpdateMeal,
@@ -325,6 +326,13 @@ var WorkoutDeletePreset = ToolDef{
 	Required:    []string{"preset_id"},
 }
 
+var WorkoutBulkLogExercises = ToolDef{
+	Name:        "workout_bulk_log_exercises",
+	Description: "Log actual performance for multiple session exercises in one call. Use instead of repeated workout_log_exercise calls when saving all exercises at once.",
+	Input:       WorkoutBulkLogExercisesIn{},
+	Required:    []string{"session_id", "items"},
+}
+
 type WorkoutListSessionsIn struct {
 	From string `json:"from" jsonschema:"Start date YYYY-MM-DD (default: 30 days ago)"`
 	To   string `json:"to"   jsonschema:"End date YYYY-MM-DD (default: today)"`
@@ -400,6 +408,21 @@ type WorkoutUpdatePresetIn struct {
 
 type WorkoutDeletePresetIn struct {
 	PresetID string `json:"preset_id" jsonschema:"UUID of the preset to delete — get from workout_list_presets"`
+}
+
+type WorkoutBulkLogExerciseItem struct {
+	ExerciseID            string  `json:"exercise_id"             jsonschema:"UUID of the session exercise to log"`
+	ActualSets            int     `json:"actual_sets"             jsonschema:"Sets completed (0 = not logging this field)"`
+	ActualReps            int     `json:"actual_reps"             jsonschema:"Reps completed (0 = not logging this field)"`
+	ActualDurationSeconds int     `json:"actual_duration_seconds" jsonschema:"Duration in seconds (0 = not logging this field)"`
+	WeightKg              float64 `json:"weight_kg"               jsonschema:"Weight used in kg (0 = not logging this field)"`
+	Completed             bool    `json:"completed"               jsonschema:"Mark exercise as completed"`
+	Notes                 string  `json:"notes"                   jsonschema:"Optional notes for this exercise"`
+}
+
+type WorkoutBulkLogExercisesIn struct {
+	SessionID string                       `json:"session_id" jsonschema:"UUID of the workout session"`
+	Items     []WorkoutBulkLogExerciseItem `json:"items"      jsonschema:"List of exercises to update; must include all exercises you want to save"`
 }
 
 // ---- Food -------------------------------------------------------------------

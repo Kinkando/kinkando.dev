@@ -9,6 +9,7 @@ import type {
   WorkoutSessionExercise,
   UpdateSessionInput,
   UpdateSessionExerciseInput,
+  BulkUpdateSessionExercisesInput,
   AddSessionExerciseInput,
 } from './types'
 
@@ -150,6 +151,20 @@ export function updateSessionExercise(
 ): Promise<WorkoutSessionExercise | undefined> {
   return apiFetch<WorkoutSessionExercise>(
     `/workout/sessions/${sessionId}/exercises/${exId}`,
+    {
+      method: 'PATCH',
+      body: input,
+      auth: true,
+    },
+  )
+}
+
+export function bulkUpdateSessionExercises(
+  sessionId: string,
+  input: BulkUpdateSessionExercisesInput,
+): Promise<WorkoutSessionExercise[] | undefined> {
+  return apiFetch<WorkoutSessionExercise[]>(
+    `/workout/sessions/${sessionId}/exercises`,
     {
       method: 'PATCH',
       body: input,

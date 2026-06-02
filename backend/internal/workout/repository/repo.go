@@ -724,6 +724,90 @@ func (r *Repository) UpdateSessionExercise(ctx context.Context, id uuid.UUID, se
 	return &ex, nil
 }
 
+func (r *Repository) BulkUpdateSessionExercises(ctx context.Context, sessionID uuid.UUID, userID uuid.UUID, items []workout.BulkUpdateSessionExerciseItem) ([]workout.SessionExercise, error) {
+	if len(items) == 0 {
+		return []workout.SessionExercise{}, nil
+	}
+
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("begin tx: %w", err)
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	results := make([]workout.SessionExercise, 0, len(items))
+	for _, item := range items {
+		var actualSets *int32
+		if item.ActualSets != nil {
+			s := int32(*item.ActualSets)
+			actualSets = &s
+		}
+		var actualReps *int32
+		if item.ActualReps != nil {
+			rp := int32(*item.ActualReps)
+			actualReps = &rp
+		}
+		var actualDurationSeconds *int32
+		if item.ActualDurationSeconds != nil {
+			d := int32(*item.ActualDurationSeconds)
+			actualDurationSeconds = &d
+		}
+		var weightKg *decimal.Decimal
+		if item.WeightKg != nil {
+			w := decimal.NewFromFloat(*item.WeightKg)
+			weightKg = &w
+		}
+
+		stmt := table.WorkoutSessionExercises.UPDATE(
+			table.WorkoutSessionExercises.ActualSets,
+			table.WorkoutSessionExercises.ActualReps,
+			table.WorkoutSessionExercises.ActualDurationSeconds,
+			table.WorkoutSessionExercises.WeightKg,
+			table.WorkoutSessionExercises.Completed,
+			table.WorkoutSessionExercises.Notes,
+		).SET(
+			actualSets,
+			actualReps,
+			actualDurationSeconds,
+			weightKg,
+			item.Completed,
+			item.Notes,
+		).WHERE(
+			table.WorkoutSessionExercises.ID.EQ(postgres.UUID(item.ID)).
+				AND(
+					table.WorkoutSessionExercises.SessionID.IN(
+						postgres.SELECT(table.WorkoutSessions.ID).
+							FROM(table.WorkoutSessions).
+							WHERE(
+								table.WorkoutSessions.ID.EQ(postgres.UUID(sessionID)).
+									AND(table.WorkoutSessions.UserID.EQ(postgres.UUID(userID))),
+							),
+					),
+				),
+		).RETURNING(table.WorkoutSessionExercises.AllColumns)
+
+		var dest model.WorkoutSessionExercises
+		if err = stmt.QueryContext(ctx, tx, &dest); err != nil {
+			if err == sql.ErrNoRows {
+				err = fmt.Errorf("session exercise %s not found", item.ID)
+				return nil, err
+			}
+			return nil, fmt.Errorf("update session exercise %s: %w", item.ID, err)
+		}
+		ex := toSessionExercise(dest)
+		results = append(results, ex)
+	}
+
+	if err = tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit: %w", err)
+	}
+	return results, nil
+}
+
 func (r *Repository) DeleteSession(ctx context.Context, id uuid.UUID, userID uuid.UUID) error {
 	stmt := table.WorkoutSessions.DELETE().WHERE(
 		table.WorkoutSessions.ID.EQ(postgres.UUID(id)).

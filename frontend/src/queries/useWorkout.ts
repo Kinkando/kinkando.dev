@@ -13,6 +13,7 @@ import {
   createSession,
   updateSession,
   updateSessionExercise,
+  bulkUpdateSessionExercises,
   deleteSession,
   addSessionExercise,
   deleteSessionExercise,
@@ -23,6 +24,7 @@ import type {
   SetScheduleInput,
   UpdateSessionInput,
   UpdateSessionExerciseInput,
+  BulkUpdateSessionExercisesInput,
   AddSessionExerciseInput,
 } from '../lib/api/types'
 import { keys } from './keys'
@@ -168,6 +170,25 @@ export function useUpdateSessionExercise() {
       exId: string
       input: UpdateSessionExerciseInput
     }) => updateSessionExercise(sessionId, exId, input),
+    onSuccess: (_data, { sessionId }) => {
+      queryClient.invalidateQueries({
+        queryKey: keys.workoutSession(sessionId),
+      })
+      queryClient.invalidateQueries({ queryKey: ['workout', 'sessions'] })
+    },
+  })
+}
+
+export function useBulkUpdateSessionExercises() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      sessionId,
+      input,
+    }: {
+      sessionId: string
+      input: BulkUpdateSessionExercisesInput
+    }) => bulkUpdateSessionExercises(sessionId, input),
     onSuccess: (_data, { sessionId }) => {
       queryClient.invalidateQueries({
         queryKey: keys.workoutSession(sessionId),

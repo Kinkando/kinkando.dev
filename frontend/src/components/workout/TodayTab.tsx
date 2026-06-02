@@ -11,6 +11,7 @@ import {
   useGenerateSession,
   useCreateSession,
   useUpdateSessionExercise,
+  useBulkUpdateSessionExercises,
   useUpdateSession,
   useDeleteSession,
   useAddSessionExercise,
@@ -467,7 +468,7 @@ function SessionView({
   const [deleteExConfirm, setDeleteExConfirm] = useState<string | null>(null)
   const updateSession = useUpdateSession()
   const deleteExercise = useDeleteSessionExercise()
-  const updateExercise = useUpdateSessionExercise()
+  const bulkUpdate = useBulkUpdateSessionExercises()
 
   const [exerciseStates, setExerciseStates] = useState<
     Map<string, ExerciseLogState>
@@ -502,13 +503,13 @@ function SessionView({
     setSavingAll(true)
     setSavedAll(false)
     try {
-      await Promise.all(
-        session.exercises.map((ex) => {
-          const s = exerciseStates.get(ex.id) ?? exToState(ex)
-          return updateExercise.mutateAsync({
-            sessionId: session.id,
-            exId: ex.id,
-            input: {
+      await bulkUpdate.mutateAsync({
+        sessionId: session.id,
+        input: {
+          items: session.exercises.map((ex) => {
+            const s = exerciseStates.get(ex.id) ?? exToState(ex)
+            return {
+              id: ex.id,
               actual_sets: s.actual_sets ? parseInt(s.actual_sets, 10) : null,
               actual_reps: s.actual_reps ? parseInt(s.actual_reps, 10) : null,
               actual_duration_seconds: s.actual_duration_seconds
@@ -517,10 +518,10 @@ function SessionView({
               weight_kg: s.weight_kg ? parseFloat(s.weight_kg) : null,
               completed: s.completed,
               notes: s.notes.trim() || null,
-            },
-          })
-        }),
-      )
+            }
+          }),
+        },
+      })
       setSavedAll(true)
       setTimeout(() => setSavedAll(false), 2000)
     } catch {

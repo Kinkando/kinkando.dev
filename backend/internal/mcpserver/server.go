@@ -483,6 +483,10 @@ type addExerciseOut struct {
 	Exercise sessionExerciseDTO `json:"exercise"`
 }
 
+type bulkLogExercisesOut struct {
+	Exercises []sessionExerciseDTO `json:"exercises"`
+}
+
 type presetExerciseDTO struct {
 	ID              string   `json:"id"`
 	Section         string   `json:"section"`
@@ -1264,6 +1268,59 @@ func registerTools(s *mcp.Server, d Deps) {
 			return nil, addExerciseOut{}, fmt.Errorf("add exercise: %w", err)
 		}
 		return nil, addExerciseOut{Exercise: toSessionExerciseDTO(*ex)}, nil
+	}))
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        tools.WorkoutBulkLogExercises.Name,
+		Description: tools.WorkoutBulkLogExercises.Description,
+	}, withLog(d.Logger, tools.WorkoutBulkLogExercises.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.WorkoutBulkLogExercisesIn) (*mcp.CallToolResult, bulkLogExercisesOut, error) {
+		if len(in.Items) == 0 {
+			return nil, bulkLogExercisesOut{}, fmt.Errorf("items must not be empty")
+		}
+		sessionID, err := uuid.Parse(in.SessionID)
+		if err != nil {
+			return nil, bulkLogExercisesOut{}, fmt.Errorf("invalid session_id %q: %w", in.SessionID, err)
+		}
+		items := make([]workout.BulkUpdateSessionExerciseItem, 0, len(in.Items))
+		for _, item := range in.Items {
+			exID, err := uuid.Parse(item.ExerciseID)
+			if err != nil {
+				return nil, bulkLogExercisesOut{}, fmt.Errorf("invalid exercise_id %q: %w", item.ExerciseID, err)
+			}
+			inp := workout.BulkUpdateSessionExerciseItem{
+				ID:        exID,
+				Completed: item.Completed,
+			}
+			if item.ActualSets > 0 {
+				s := item.ActualSets
+				inp.ActualSets = &s
+			}
+			if item.ActualReps > 0 {
+				rp := item.ActualReps
+				inp.ActualReps = &rp
+			}
+			if item.ActualDurationSeconds > 0 {
+				d := item.ActualDurationSeconds
+				inp.ActualDurationSeconds = &d
+			}
+			if item.WeightKg > 0 {
+				w := item.WeightKg
+				inp.WeightKg = &w
+			}
+			if item.Notes != "" {
+				inp.Notes = &item.Notes
+			}
+			items = append(items, inp)
+		}
+		exercises, err := d.WkSvc.BulkUpdateSessionExercises(ctx, sessionID, d.UserUUID, items)
+		if err != nil {
+			return nil, bulkLogExercisesOut{}, fmt.Errorf("bulk log exercises: %w", err)
+		}
+		dtos := make([]sessionExerciseDTO, len(exercises))
+		for i, ex := range exercises {
+			dtos[i] = toSessionExerciseDTO(ex)
+		}
+		return nil, bulkLogExercisesOut{Exercises: dtos}, nil
 	}))
 
 	mcp.AddTool(s, &mcp.Tool{

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import type {
   WorkoutSession,
   WorkoutScheduleEntry,
@@ -45,7 +45,7 @@ function todayStr() {
   return new Date().toISOString().slice(0, 10)
 }
 
-// ── Exercise log row (per-exercise save) ───────────────────────────────────────
+// ── Exercise log row ───────────────────────────────────────────────────────────
 
 type ExerciseLogState = {
   actual_sets: string
@@ -290,7 +290,7 @@ function ExerciseLogRow({
   )
 }
 
-// ── Add-exercise form (inline, collapsed by default) ──────────────────────────
+// ── Add-exercise form ──────────────────────────────────────────────────────────
 
 type AddExerciseFormState = {
   section: ExerciseSection
@@ -468,29 +468,62 @@ function AddExerciseForm({
   )
 }
 
-// ── Session view (header + exercise logger) ────────────────────────────────────
+// ── Session view ──────────────────────────────────────────────────────────────
 
 function SessionView({
   session,
   onDelete,
   onExerciseChange,
+  defaultExpanded = true,
 }: {
   session: WorkoutSession
   onDelete: () => void
   onExerciseChange: () => void
+  defaultExpanded?: boolean
 }) {
   const isLocked = session.completed_at != null
+  const [bodyExpanded, setBodyExpanded] = useState(defaultExpanded)
 
-  const [editingDuration, setEditingDuration] = useState(false)
+  // Editable name
+  const [nameValue, setNameValue] = useState(session.name)
+  // Sync when session updates from server (skip while user is editing via dirty tracking)
+  const nameDirty = useRef(false)
+  useEffect(() => {
+    if (!nameDirty.current) setNameValue(session.name)
+  }, [session.name])
+
+  // Editable duration
   const [duration, setDuration] = useState(
     session.duration_minutes != null ? String(session.duration_minutes) : '',
   )
+  const [editingDuration, setEditingDuration] = useState(false)
+  const [durationError, setDurationError] = useState('')
+  const durationDirty = useRef(false)
+  useEffect(() => {
+    if (!durationDirty.current)
+      setDuration(
+        session.duration_minutes != null
+          ? String(session.duration_minutes)
+          : '',
+      )
+  }, [session.duration_minutes])
+
+  // Notes textarea
+  const [notes, setNotes] = useState(session.notes ?? '')
+  const [notesDirty, setNotesDirty] = useState(false)
+  const [savingNotes, setSavingNotes] = useState(false)
+  useEffect(() => {
+    if (!notesDirty) setNotes(session.notes ?? '')
+  }, [session.notes]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Dialogs
   const [deleteExConfirm, setDeleteExConfirm] = useState<string | null>(null)
   const [finishConfirm, setFinishConfirm] = useState(false)
+
   const updateSession = useUpdateSession()
   const deleteExercise = useDeleteSessionExercise()
   const bulkUpdate = useBulkUpdateSessionExercises()
-  const finishSession = useFinishSession()
+  const finishSessionMutation = useFinishSession()
 
   const [exerciseStates, setExerciseStates] = useState<
     Map<string, ExerciseLogState>
@@ -547,15 +580,24 @@ function SessionView({
       setSavedAll(true)
       setTimeout(() => setSavedAll(false), 2000)
     } catch {
-      // ignore — user can retry
+      // ignore
     } finally {
       setSavingAll(false)
     }
   }
 
-  async function handleFinish() {
-    await finishSession.mutateAsync(session.id)
-    setFinishConfirm(false)
+  async function saveName() {
+    const trimmed = nameValue.trim()
+    if (!trimmed) return
+    await updateSession.mutateAsync({
+      id: session.id,
+      input: {
+        name: trimmed,
+        duration_minutes: session.duration_minutes,
+        notes: session.notes ?? null,
+      },
+    })
+    nameDirty.current = false
   }
 
   async function saveDuration() {
@@ -567,7 +609,51 @@ function SessionView({
         notes: session.notes ?? null,
       },
     })
+    durationDirty.current = false
     setEditingDuration(false)
+    setDurationError('')
+  }
+
+  async function saveNotes() {
+    setSavingNotes(true)
+    try {
+      await updateSession.mutateAsync({
+        id: session.id,
+        input: {
+          name: session.name,
+          duration_minutes: session.duration_minutes,
+          notes: notes.trim() || null,
+        },
+      })
+      setNotesDirty(false)
+    } finally {
+      setSavingNotes(false)
+    }
+  }
+
+  function handleFinishedClick() {
+    const hasDuration =
+      duration.trim() !== '' || session.duration_minutes != null
+    if (!hasDuration) {
+      setDurationError('Duration is required before finishing.')
+      setBodyExpanded(true)
+      setEditingDuration(true)
+      return
+    }
+    // If user typed a duration but hasn't saved it yet
+    const localVal = duration.trim() ? parseInt(duration, 10) : null
+    if (localVal !== session.duration_minutes) {
+      setDurationError('Please save duration before finishing.')
+      setBodyExpanded(true)
+      return
+    }
+    setDurationError('')
+    setFinishConfirm(true)
+  }
+
+  async function handleFinish() {
+    await finishSessionMutation.mutateAsync(session.id)
+    setFinishConfirm(false)
   }
 
   async function handleDeleteExercise(exId: string) {
@@ -576,6 +662,8 @@ function SessionView({
     onExerciseChange()
   }
 
+  const completedCount = session.exercises.filter((e) => e.completed).length
+
   const bySection: Partial<Record<ExerciseSection, WorkoutSessionExercise[]>> =
     {}
   for (const ex of session.exercises) {
@@ -583,11 +671,15 @@ function SessionView({
   }
 
   return (
-    <div className="space-y-4">
-      {/* Session header */}
-      <div className="rounded-xl border border-gray-800 bg-gray-900 p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div>
+    <div className="rounded-xl border border-gray-800 bg-gray-900">
+      {/* ── Collapsible header ─────────────────────────────────────── */}
+      <div className="p-4">
+        <div className="flex items-start gap-3">
+          {/* Left: badges + name + meta */}
+          <div
+            className="min-w-0 flex-1 cursor-pointer"
+            onClick={() => setBodyExpanded((b) => !b)}
+          >
             <div className="flex flex-wrap items-center gap-2">
               <span className="rounded bg-indigo-900/50 px-2 py-0.5 text-xs text-indigo-400">
                 {WORKOUT_TYPE_LABELS[session.type]}
@@ -597,150 +689,278 @@ function SessionView({
                   Finished
                 </span>
               )}
-              <h3 className="text-sm font-medium text-gray-100">
+              <span className="truncate text-sm font-medium text-gray-100">
                 {session.name}
-              </h3>
+              </span>
             </div>
-            <p className="mt-1 text-xs text-gray-500">
-              {new Date(session.performed_at).toLocaleDateString(undefined, {
-                weekday: 'long',
-                month: 'short',
-                day: 'numeric',
-              })}
-            </p>
-            {isLocked && session.completed_at && (
-              <p className="mt-0.5 text-xs text-gray-600">
-                Completed at{' '}
-                {new Date(session.completed_at).toLocaleTimeString(undefined, {
+            <div className="mt-0.5 flex flex-wrap gap-2 text-xs text-gray-500">
+              <span>
+                {new Date(session.created_at).toLocaleTimeString(undefined, {
                   hour: '2-digit',
                   minute: '2-digit',
                 })}
-              </p>
-            )}
+              </span>
+              {session.duration_minutes != null && (
+                <span>⏱ {session.duration_minutes} min</span>
+              )}
+              {session.exercises.length > 0 && (
+                <span>
+                  {completedCount}/{session.exercises.length} done
+                </span>
+              )}
+              {isLocked && session.completed_at && (
+                <span className="text-green-600">
+                  ✓{' '}
+                  {new Date(session.completed_at).toLocaleTimeString(
+                    undefined,
+                    {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    },
+                  )}
+                </span>
+              )}
+            </div>
           </div>
+
+          {/* Right: actions + chevron */}
           <div className="flex shrink-0 items-center gap-2">
             {!isLocked && (
-              <button
-                onClick={() => setFinishConfirm(true)}
-                className="text-xs font-medium text-green-500 hover:text-green-400"
-              >
-                Finished
-              </button>
+              <>
+                <button
+                  onClick={handleFinishedClick}
+                  className="text-xs font-medium text-green-500 hover:text-green-400"
+                >
+                  Finished
+                </button>
+                <button
+                  onClick={onDelete}
+                  className="text-xs text-red-500 hover:text-red-400"
+                >
+                  Delete
+                </button>
+              </>
             )}
-            {!isLocked && (
-              <button
-                onClick={onDelete}
-                className="text-xs text-red-500 hover:text-red-400"
+            <button
+              onClick={() => setBodyExpanded((b) => !b)}
+              className="text-gray-600 hover:text-gray-400"
+              aria-label={bodyExpanded ? 'Collapse' : 'Expand'}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className={`h-4 w-4 transition-transform ${bodyExpanded ? 'rotate-180' : ''}`}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
               >
-                Delete
-              </button>
-            )}
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M19 9l-7 7-7-7"
+                />
+              </svg>
+            </button>
           </div>
         </div>
 
-        {/* Editable duration */}
-        <div className="mt-3 flex items-center gap-2 text-xs text-gray-500">
-          <span>Duration:</span>
-          {!isLocked && editingDuration ? (
-            <div className="flex items-center gap-1">
-              <input
-                className="w-16 rounded border border-gray-700 bg-gray-800 px-2 py-0.5 text-xs text-gray-100"
-                type="number"
-                min="0"
-                value={duration}
-                onChange={(e) => setDuration(e.target.value)}
-              />
-              <span>min</span>
-              <button
-                onClick={saveDuration}
-                disabled={updateSession.isPending}
-                className="rounded bg-indigo-600 px-2 py-0.5 text-xs text-white"
-              >
-                Save
-              </button>
-              <button
-                onClick={() => setEditingDuration(false)}
-                className="text-gray-500"
-              >
-                ✕
-              </button>
-            </div>
-          ) : (
-            <>
-              <span className="text-gray-400">
-                {session.duration_minutes != null
-                  ? `${session.duration_minutes} min`
-                  : '—'}
-              </span>
-              {!isLocked && (
-                <button
-                  onClick={() => setEditingDuration(true)}
-                  className="text-gray-600 hover:text-gray-400"
-                >
-                  edit
-                </button>
-              )}
-            </>
-          )}
-        </div>
+        {durationError && (
+          <p className="mt-2 text-xs text-red-400">{durationError}</p>
+        )}
       </div>
 
-      {/* Bulk actions */}
-      {!isLocked && session.exercises.length > 0 && (
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleCheckAll}
-            className="rounded-md bg-green-900/30 px-3 py-1.5 text-xs font-medium text-green-400 hover:bg-green-900/50"
-          >
-            Check All
-          </button>
-          <button
-            onClick={handleSaveAll}
-            disabled={savingAll}
-            className="rounded-md bg-indigo-900/30 px-3 py-1.5 text-xs font-medium text-indigo-400 hover:bg-indigo-900/50 disabled:opacity-50"
-          >
-            {savingAll ? 'Saving…' : 'Save All'}
-          </button>
-          {savedAll && (
-            <span className="text-xs text-green-400">✓ All saved</span>
+      {/* ── Expandable body ────────────────────────────────────────── */}
+      {bodyExpanded && (
+        <div className="space-y-4 border-t border-gray-800 px-4 pt-4 pb-4">
+          {/* Session fields */}
+          <div className="space-y-3 rounded-lg border border-gray-700 bg-gray-800/30 p-3">
+            {/* Editable name */}
+            <div>
+              <label className="mb-1 block text-xs text-gray-500">Name</label>
+              <div className="flex items-center gap-2">
+                <input
+                  className={`${inputClass} flex-1`}
+                  value={nameValue}
+                  disabled={isLocked}
+                  onChange={(e) => {
+                    setNameValue(e.target.value)
+                    nameDirty.current = true
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') saveName()
+                  }}
+                />
+                {!isLocked && (
+                  <button
+                    onClick={saveName}
+                    disabled={updateSession.isPending}
+                    className="shrink-0 rounded bg-gray-700 px-2 py-1 text-xs text-gray-300 hover:bg-gray-600 disabled:opacity-50"
+                  >
+                    Save
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Editable duration (required) */}
+            <div>
+              <label className="mb-1 block text-xs text-gray-500">
+                Duration (min)
+                {!isLocked && <span className="text-red-400"> *</span>}
+              </label>
+              {!isLocked && editingDuration ? (
+                <div className="flex items-center gap-2">
+                  <input
+                    className="w-20 rounded-md border border-gray-700 bg-gray-800 px-2 py-1.5 text-xs text-gray-100 focus:border-indigo-500 focus:outline-none"
+                    type="number"
+                    min="1"
+                    placeholder="e.g. 45"
+                    value={duration}
+                    autoFocus
+                    onChange={(e) => {
+                      setDuration(e.target.value)
+                      durationDirty.current = true
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') saveDuration()
+                      if (e.key === 'Escape') setEditingDuration(false)
+                    }}
+                  />
+                  <button
+                    onClick={saveDuration}
+                    disabled={updateSession.isPending}
+                    className="rounded bg-indigo-600 px-2 py-1 text-xs text-white disabled:opacity-50"
+                  >
+                    Save
+                  </button>
+                  <button
+                    onClick={() => {
+                      setEditingDuration(false)
+                      setDurationError('')
+                    }}
+                    className="text-xs text-gray-500"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 text-xs">
+                  <span
+                    className={
+                      session.duration_minutes == null && durationError
+                        ? 'text-red-400'
+                        : 'text-gray-400'
+                    }
+                  >
+                    {session.duration_minutes != null
+                      ? `${session.duration_minutes} min`
+                      : '—'}
+                  </span>
+                  {!isLocked && (
+                    <button
+                      onClick={() => setEditingDuration(true)}
+                      className="text-gray-600 hover:text-gray-400"
+                    >
+                      edit
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Notes textarea */}
+            <div>
+              <label className="mb-1 block text-xs text-gray-500">Notes</label>
+              {!isLocked ? (
+                <>
+                  <textarea
+                    className="w-full resize-none rounded-md border border-gray-700 bg-gray-800 px-2 py-1.5 text-xs text-gray-100 placeholder-gray-500 focus:border-indigo-500 focus:outline-none"
+                    rows={2}
+                    placeholder="Optional"
+                    value={notes}
+                    onChange={(e) => {
+                      setNotes(e.target.value)
+                      setNotesDirty(true)
+                    }}
+                  />
+                  {notesDirty && (
+                    <button
+                      onClick={saveNotes}
+                      disabled={savingNotes}
+                      className="mt-1 rounded bg-gray-700 px-2 py-0.5 text-xs text-gray-300 hover:bg-gray-600 disabled:opacity-50"
+                    >
+                      {savingNotes ? 'Saving…' : 'Save note'}
+                    </button>
+                  )}
+                </>
+              ) : notes ? (
+                <p className="text-xs text-gray-400">{notes}</p>
+              ) : (
+                <p className="text-xs text-gray-600">—</p>
+              )}
+            </div>
+          </div>
+
+          {/* Bulk actions */}
+          {!isLocked && session.exercises.length > 0 && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleCheckAll}
+                className="rounded-md bg-green-900/30 px-3 py-1.5 text-xs font-medium text-green-400 hover:bg-green-900/50"
+              >
+                Check All
+              </button>
+              <button
+                onClick={handleSaveAll}
+                disabled={savingAll}
+                className="rounded-md bg-indigo-900/30 px-3 py-1.5 text-xs font-medium text-indigo-400 hover:bg-indigo-900/50 disabled:opacity-50"
+              >
+                {savingAll ? 'Saving…' : 'Save All'}
+              </button>
+              {savedAll && (
+                <span className="text-xs text-green-400">✓ All saved</span>
+              )}
+            </div>
           )}
+
+          {/* Exercises by section */}
+          {SECTIONS.map((section) => {
+            const exs = bySection[section]
+            if (!exs?.length) return null
+            return (
+              <div key={section} className="space-y-2">
+                <h4 className="text-xs font-semibold tracking-wide text-gray-500 uppercase">
+                  {SECTION_LABELS[section]}
+                </h4>
+                {exs.map((ex) => (
+                  <ExerciseLogRow
+                    key={ex.id}
+                    exercise={ex}
+                    sessionId={session.id}
+                    state={exerciseStates.get(ex.id) ?? exToState(ex)}
+                    onStateChange={(s) =>
+                      setExerciseStates((prev) => new Map(prev).set(ex.id, s))
+                    }
+                    onDelete={(exId) => setDeleteExConfirm(exId)}
+                    isLocked={isLocked}
+                  />
+                ))}
+              </div>
+            )
+          })}
+
+          {/* Add exercise */}
+          <AddExerciseForm
+            sessionId={session.id}
+            onAdded={onExerciseChange}
+            isLocked={isLocked}
+          />
         </div>
       )}
 
-      {/* Exercises by section */}
-      {SECTIONS.map((section) => {
-        const exs = bySection[section]
-        if (!exs?.length) return null
-        return (
-          <div key={section} className="space-y-2">
-            <h4 className="text-xs font-semibold tracking-wide text-gray-500 uppercase">
-              {SECTION_LABELS[section]}
-            </h4>
-            {exs.map((ex) => (
-              <ExerciseLogRow
-                key={ex.id}
-                exercise={ex}
-                sessionId={session.id}
-                state={exerciseStates.get(ex.id) ?? exToState(ex)}
-                onStateChange={(s) =>
-                  setExerciseStates((prev) => new Map(prev).set(ex.id, s))
-                }
-                onDelete={(exId) => setDeleteExConfirm(exId)}
-                isLocked={isLocked}
-              />
-            ))}
-          </div>
-        )
-      })}
+      {/* ── Modals ─────────────────────────────────────────────────── */}
 
-      {/* Add exercise */}
-      <AddExerciseForm
-        sessionId={session.id}
-        onAdded={onExerciseChange}
-        isLocked={isLocked}
-      />
-
-      {/* Delete exercise confirm modal */}
+      {/* Delete exercise confirm */}
       {deleteExConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
           <div className="w-full max-w-sm rounded-xl border border-gray-700 bg-gray-900 p-6 shadow-2xl">
@@ -766,7 +986,7 @@ function SessionView({
         </div>
       )}
 
-      {/* Finish session confirm dialog */}
+      {/* Finish confirm */}
       {finishConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
           <div className="w-full max-w-sm rounded-xl border border-gray-700 bg-gray-900 p-6 shadow-2xl">
@@ -779,10 +999,10 @@ function SessionView({
             <div className="flex gap-2">
               <button
                 onClick={handleFinish}
-                disabled={finishSession.isPending}
+                disabled={finishSessionMutation.isPending}
                 className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-500 disabled:opacity-50"
               >
-                {finishSession.isPending ? 'Finishing…' : 'Finished'}
+                {finishSessionMutation.isPending ? 'Finishing…' : 'Finished'}
               </button>
               <button
                 onClick={() => setFinishConfirm(false)}
@@ -812,6 +1032,22 @@ export default function TodayTab({
   onSessionChange,
 }: Props) {
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
+  // Track which sessions have been auto-expanded; default-expand only the first one.
+  const initializedRef = useRef(false)
+  const [expandedByDefault, setExpandedByDefault] = useState<
+    Record<string, boolean>
+  >({})
+
+  useEffect(() => {
+    if (todaySessions && todaySessions.length > 0 && !initializedRef.current) {
+      initializedRef.current = true
+      const map: Record<string, boolean> = {}
+      todaySessions.forEach((s, i) => {
+        map[s.id] = i === 0
+      })
+      setExpandedByDefault(map)
+    }
+  }, [todaySessions])
 
   const generateSession = useGenerateSession()
   const createSession = useCreateSession()
@@ -821,8 +1057,6 @@ export default function TodayTab({
   const todaySchedule = (schedule ?? []).find(
     (e) => e.day_of_week === dayOfWeek,
   )
-  const activeSession =
-    todaySessions && todaySessions.length > 0 ? todaySessions[0] : null
   const generating = generateSession.isPending || createSession.isPending
 
   async function handleGenerate() {
@@ -841,24 +1075,29 @@ export default function TodayTab({
     onSessionChange()
   }
 
-  if (activeSession) {
+  if (todaySessions && todaySessions.length > 0) {
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-medium text-gray-300">
             Today&apos;s Workout
           </h3>
-          {todaySessions && todaySessions.length > 1 && (
+          {todaySessions.length > 1 && (
             <span className="text-xs text-gray-500">
               {todaySessions.length} sessions today
             </span>
           )}
         </div>
-        <SessionView
-          session={activeSession}
-          onDelete={() => setDeleteConfirm(activeSession.id)}
-          onExerciseChange={onSessionChange}
-        />
+
+        {todaySessions.map((session, i) => (
+          <SessionView
+            key={session.id}
+            session={session}
+            defaultExpanded={expandedByDefault[session.id] ?? i === 0}
+            onDelete={() => setDeleteConfirm(session.id)}
+            onExerciseChange={onSessionChange}
+          />
+        ))}
 
         {deleteConfirm && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">

@@ -2,7 +2,6 @@ package mcpserver
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -17,6 +16,7 @@ import (
 	"github.com/kinkando/personal-dashboard/internal/tools"
 	"github.com/kinkando/personal-dashboard/internal/workout"
 	workoutSvc "github.com/kinkando/personal-dashboard/internal/workout/service"
+	"github.com/kinkando/personal-dashboard/pkg/middleware"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
@@ -31,34 +31,6 @@ type Deps struct {
 	UserUUID    uuid.UUID
 	FirebaseUID string
 	Logger      *zap.Logger
-}
-
-// withLog wraps an MCP tool handler with structured logging (input, output, latency, errors).
-func withLog[In, Out any](logger *zap.Logger, name string, fn func(context.Context, *mcp.CallToolRequest, In) (*mcp.CallToolResult, Out, error)) func(context.Context, *mcp.CallToolRequest, In) (*mcp.CallToolResult, Out, error) {
-	return func(ctx context.Context, req *mcp.CallToolRequest, in In) (*mcp.CallToolResult, Out, error) {
-		start := time.Now()
-		inJSON, _ := json.Marshal(in)
-		result, out, err := fn(ctx, req, in)
-		latency := time.Since(start)
-		args := []zap.Field{
-			zap.String("tool", name),
-			zap.Duration("latency", latency),
-		}
-		if len(inJSON) > 0 {
-			args = append(args, zap.Any("input", in))
-		}
-		if err != nil {
-			args = append(args, zap.Error(err))
-			logger.Error("mcp", args...)
-		} else {
-			outJSON, _ := json.Marshal(out)
-			if len(outJSON) > 0 {
-				args = append(args, zap.Any("output", out))
-			}
-			logger.Info("mcp", args...)
-		}
-		return result, out, err
-	}
 }
 
 // New creates a new MCP server with all tools registered.
@@ -429,20 +401,20 @@ type scheduleEntryDTO struct {
 }
 
 type sessionExerciseDTO struct {
-	ID                    string  `json:"id"`
-	Section               string  `json:"section"`
-	OrderIndex            int     `json:"order_index"`
-	Name                  string  `json:"name"`
-	TargetSets            *int    `json:"target_sets,omitempty"`
-	TargetReps            *int    `json:"target_reps,omitempty"`
-	TargetDurationSeconds *int    `json:"target_duration_seconds,omitempty"`
-	RestSeconds           *int    `json:"rest_seconds,omitempty"`
-	ActualSets            *int    `json:"actual_sets,omitempty"`
-	ActualReps            *int    `json:"actual_reps,omitempty"`
-	ActualDurationSeconds *int    `json:"actual_duration_seconds,omitempty"`
+	ID                    string   `json:"id"`
+	Section               string   `json:"section"`
+	OrderIndex            int      `json:"order_index"`
+	Name                  string   `json:"name"`
+	TargetSets            *int     `json:"target_sets,omitempty"`
+	TargetReps            *int     `json:"target_reps,omitempty"`
+	TargetDurationSeconds *int     `json:"target_duration_seconds,omitempty"`
+	RestSeconds           *int     `json:"rest_seconds,omitempty"`
+	ActualSets            *int     `json:"actual_sets,omitempty"`
+	ActualReps            *int     `json:"actual_reps,omitempty"`
+	ActualDurationSeconds *int     `json:"actual_duration_seconds,omitempty"`
 	WeightKg              *float64 `json:"weight_kg,omitempty"`
-	Completed             bool    `json:"completed"`
-	Notes                 string  `json:"notes,omitempty"`
+	Completed             bool     `json:"completed"`
+	Notes                 string   `json:"notes,omitempty"`
 }
 
 type workoutSessionDTO struct {
@@ -660,7 +632,7 @@ func registerTools(s *mcp.Server, d Deps) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        tools.FinanceListRecords.Name,
 		Description: tools.FinanceListRecords.Description,
-	}, withLog(d.Logger, tools.FinanceListRecords.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.ListRecordsIn) (*mcp.CallToolResult, listRecordsOut, error) {
+	}, middleware.MCPRequestLogger(d.Logger, tools.FinanceListRecords.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.ListRecordsIn) (*mcp.CallToolResult, listRecordsOut, error) {
 		if in.Month == "" {
 			return nil, listRecordsOut{}, fmt.Errorf("month is required (YYYY-MM)")
 		}
@@ -681,7 +653,7 @@ func registerTools(s *mcp.Server, d Deps) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        tools.FinanceListCategories.Name,
 		Description: tools.FinanceListCategories.Description,
-	}, withLog(d.Logger, tools.FinanceListCategories.Name, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, listCategoriesOut, error) {
+	}, middleware.MCPRequestLogger(d.Logger, tools.FinanceListCategories.Name, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, listCategoriesOut, error) {
 		cats, err := d.FinSvc.ListCategories(ctx, d.UserUUID)
 		if err != nil {
 			return nil, listCategoriesOut{}, fmt.Errorf("list categories: %w", err)
@@ -699,7 +671,7 @@ func registerTools(s *mcp.Server, d Deps) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        tools.FinanceCreateCategory.Name,
 		Description: tools.FinanceCreateCategory.Description,
-	}, withLog(d.Logger, tools.FinanceCreateCategory.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.CreateCategoryIn) (*mcp.CallToolResult, createCategoryOut, error) {
+	}, middleware.MCPRequestLogger(d.Logger, tools.FinanceCreateCategory.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.CreateCategoryIn) (*mcp.CallToolResult, createCategoryOut, error) {
 		rt := finance.RecordType(in.Type)
 		if rt != finance.RecordTypeIncome && rt != finance.RecordTypeExpense {
 			return nil, createCategoryOut{}, fmt.Errorf("type must be %q or %q, got %q", finance.RecordTypeIncome, finance.RecordTypeExpense, in.Type)
@@ -722,7 +694,7 @@ func registerTools(s *mcp.Server, d Deps) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        tools.FinanceDeleteCategory.Name,
 		Description: tools.FinanceDeleteCategory.Description,
-	}, withLog(d.Logger, tools.FinanceDeleteCategory.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.DeleteCategoryIn) (*mcp.CallToolResult, deleteCategoryOut, error) {
+	}, middleware.MCPRequestLogger(d.Logger, tools.FinanceDeleteCategory.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.DeleteCategoryIn) (*mcp.CallToolResult, deleteCategoryOut, error) {
 		id, err := uuid.Parse(in.ID)
 		if err != nil {
 			return nil, deleteCategoryOut{}, fmt.Errorf("invalid category id %q: %w", in.ID, err)
@@ -736,7 +708,7 @@ func registerTools(s *mcp.Server, d Deps) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        tools.FinanceCreateRecord.Name,
 		Description: tools.FinanceCreateRecord.Description,
-	}, withLog(d.Logger, tools.FinanceCreateRecord.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.CreateRecordIn) (*mcp.CallToolResult, createRecordOut, error) {
+	}, middleware.MCPRequestLogger(d.Logger, tools.FinanceCreateRecord.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.CreateRecordIn) (*mcp.CallToolResult, createRecordOut, error) {
 		rt := finance.RecordType(in.Type)
 		if rt != finance.RecordTypeIncome && rt != finance.RecordTypeExpense {
 			return nil, createRecordOut{}, fmt.Errorf("type must be %q or %q, got %q", finance.RecordTypeIncome, finance.RecordTypeExpense, in.Type)
@@ -776,7 +748,7 @@ func registerTools(s *mcp.Server, d Deps) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        tools.FinanceDeleteRecord.Name,
 		Description: tools.FinanceDeleteRecord.Description,
-	}, withLog(d.Logger, tools.FinanceDeleteRecord.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.DeleteRecordIn) (*mcp.CallToolResult, deleteRecordOut, error) {
+	}, middleware.MCPRequestLogger(d.Logger, tools.FinanceDeleteRecord.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.DeleteRecordIn) (*mcp.CallToolResult, deleteRecordOut, error) {
 		id, err := uuid.Parse(in.ID)
 		if err != nil {
 			return nil, deleteRecordOut{}, fmt.Errorf("invalid record id %q: %w", in.ID, err)
@@ -790,7 +762,7 @@ func registerTools(s *mcp.Server, d Deps) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        tools.FinanceMonthlySummary.Name,
 		Description: tools.FinanceMonthlySummary.Description,
-	}, withLog(d.Logger, tools.FinanceMonthlySummary.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.MonthlySummaryIn) (*mcp.CallToolResult, monthlySummaryOut, error) {
+	}, middleware.MCPRequestLogger(d.Logger, tools.FinanceMonthlySummary.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.MonthlySummaryIn) (*mcp.CallToolResult, monthlySummaryOut, error) {
 		if in.Month == "" {
 			return nil, monthlySummaryOut{}, fmt.Errorf("month is required (YYYY-MM)")
 		}
@@ -805,7 +777,7 @@ func registerTools(s *mcp.Server, d Deps) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        tools.KanbanGetBoard.Name,
 		Description: tools.KanbanGetBoard.Description,
-	}, withLog(d.Logger, tools.KanbanGetBoard.Name, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, getBoardOut, error) {
+	}, middleware.MCPRequestLogger(d.Logger, tools.KanbanGetBoard.Name, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, getBoardOut, error) {
 		boards, err := d.KanRepo.ListBoards(ctx, d.FirebaseUID)
 		if err != nil {
 			return nil, getBoardOut{}, fmt.Errorf("list boards: %w", err)
@@ -843,7 +815,7 @@ func registerTools(s *mcp.Server, d Deps) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        tools.KanbanCreateCard.Name,
 		Description: tools.KanbanCreateCard.Description,
-	}, withLog(d.Logger, tools.KanbanCreateCard.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.CreateCardIn) (*mcp.CallToolResult, createCardOut, error) {
+	}, middleware.MCPRequestLogger(d.Logger, tools.KanbanCreateCard.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.CreateCardIn) (*mcp.CallToolResult, createCardOut, error) {
 		if in.Title == "" {
 			return nil, createCardOut{}, fmt.Errorf("title is required")
 		}
@@ -886,7 +858,7 @@ func registerTools(s *mcp.Server, d Deps) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        tools.KanbanUpdateCard.Name,
 		Description: tools.KanbanUpdateCard.Description,
-	}, withLog(d.Logger, tools.KanbanUpdateCard.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.UpdateCardIn) (*mcp.CallToolResult, updateCardOut, error) {
+	}, middleware.MCPRequestLogger(d.Logger, tools.KanbanUpdateCard.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.UpdateCardIn) (*mcp.CallToolResult, updateCardOut, error) {
 		cardID, err := primitive.ObjectIDFromHex(in.CardID)
 		if err != nil {
 			return nil, updateCardOut{}, fmt.Errorf("invalid card_id %q: %w", in.CardID, err)
@@ -928,7 +900,7 @@ func registerTools(s *mcp.Server, d Deps) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        tools.KanbanMoveCard.Name,
 		Description: tools.KanbanMoveCard.Description,
-	}, withLog(d.Logger, tools.KanbanMoveCard.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.MoveCardIn) (*mcp.CallToolResult, moveCardOut, error) {
+	}, middleware.MCPRequestLogger(d.Logger, tools.KanbanMoveCard.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.MoveCardIn) (*mcp.CallToolResult, moveCardOut, error) {
 		cardID, err := primitive.ObjectIDFromHex(in.CardID)
 		if err != nil {
 			return nil, moveCardOut{}, fmt.Errorf("invalid card_id %q: %w", in.CardID, err)
@@ -945,7 +917,7 @@ func registerTools(s *mcp.Server, d Deps) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        tools.KanbanDeleteCard.Name,
 		Description: tools.KanbanDeleteCard.Description,
-	}, withLog(d.Logger, tools.KanbanDeleteCard.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.DeleteCardIn) (*mcp.CallToolResult, deleteCardOut, error) {
+	}, middleware.MCPRequestLogger(d.Logger, tools.KanbanDeleteCard.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.DeleteCardIn) (*mcp.CallToolResult, deleteCardOut, error) {
 		cardID, err := primitive.ObjectIDFromHex(in.CardID)
 		if err != nil {
 			return nil, deleteCardOut{}, fmt.Errorf("invalid card_id %q: %w", in.CardID, err)
@@ -959,7 +931,7 @@ func registerTools(s *mcp.Server, d Deps) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        tools.KanbanBoardStats.Name,
 		Description: tools.KanbanBoardStats.Description,
-	}, withLog(d.Logger, tools.KanbanBoardStats.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.BoardStatsIn) (*mcp.CallToolResult, boardStatsOut, error) {
+	}, middleware.MCPRequestLogger(d.Logger, tools.KanbanBoardStats.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.BoardStatsIn) (*mcp.CallToolResult, boardStatsOut, error) {
 		boardID, err := primitive.ObjectIDFromHex(in.BoardID)
 		if err != nil {
 			return nil, boardStatsOut{}, fmt.Errorf("invalid board_id %q: %w", in.BoardID, err)
@@ -981,7 +953,7 @@ func registerTools(s *mcp.Server, d Deps) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        tools.KanbanArchiveCard.Name,
 		Description: tools.KanbanArchiveCard.Description,
-	}, withLog(d.Logger, tools.KanbanArchiveCard.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.ArchiveCardIn) (*mcp.CallToolResult, archiveCardOut, error) {
+	}, middleware.MCPRequestLogger(d.Logger, tools.KanbanArchiveCard.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.ArchiveCardIn) (*mcp.CallToolResult, archiveCardOut, error) {
 		cardID, err := primitive.ObjectIDFromHex(in.CardID)
 		if err != nil {
 			return nil, archiveCardOut{}, fmt.Errorf("invalid card_id %q: %w", in.CardID, err)
@@ -999,7 +971,7 @@ func registerTools(s *mcp.Server, d Deps) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        tools.KanbanUnarchiveCard.Name,
 		Description: tools.KanbanUnarchiveCard.Description,
-	}, withLog(d.Logger, tools.KanbanUnarchiveCard.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.UnarchiveCardIn) (*mcp.CallToolResult, unarchiveCardOut, error) {
+	}, middleware.MCPRequestLogger(d.Logger, tools.KanbanUnarchiveCard.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.UnarchiveCardIn) (*mcp.CallToolResult, unarchiveCardOut, error) {
 		cardID, err := primitive.ObjectIDFromHex(in.CardID)
 		if err != nil {
 			return nil, unarchiveCardOut{}, fmt.Errorf("invalid card_id %q: %w", in.CardID, err)
@@ -1014,7 +986,7 @@ func registerTools(s *mcp.Server, d Deps) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        tools.KanbanListArchivedCards.Name,
 		Description: tools.KanbanListArchivedCards.Description,
-	}, withLog(d.Logger, tools.KanbanListArchivedCards.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.ListArchivedCardsIn) (*mcp.CallToolResult, listArchivedCardsOut, error) {
+	}, middleware.MCPRequestLogger(d.Logger, tools.KanbanListArchivedCards.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.ListArchivedCardsIn) (*mcp.CallToolResult, listArchivedCardsOut, error) {
 		boardID, err := primitive.ObjectIDFromHex(in.BoardID)
 		if err != nil {
 			return nil, listArchivedCardsOut{}, fmt.Errorf("invalid board_id %q: %w", in.BoardID, err)
@@ -1041,7 +1013,7 @@ func registerTools(s *mcp.Server, d Deps) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        tools.WorkoutListSessions.Name,
 		Description: tools.WorkoutListSessions.Description,
-	}, withLog(d.Logger, tools.WorkoutListSessions.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.WorkoutListSessionsIn) (*mcp.CallToolResult, listWorkoutSessionsOut, error) {
+	}, middleware.MCPRequestLogger(d.Logger, tools.WorkoutListSessions.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.WorkoutListSessionsIn) (*mcp.CallToolResult, listWorkoutSessionsOut, error) {
 		now := time.Now().UTC().Truncate(24 * time.Hour)
 		from := now.AddDate(0, 0, -30)
 		to := now
@@ -1073,7 +1045,7 @@ func registerTools(s *mcp.Server, d Deps) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        tools.WorkoutListPresets.Name,
 		Description: tools.WorkoutListPresets.Description,
-	}, withLog(d.Logger, tools.WorkoutListPresets.Name, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, listPresetsOut, error) {
+	}, middleware.MCPRequestLogger(d.Logger, tools.WorkoutListPresets.Name, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, listPresetsOut, error) {
 		presets, err := d.WkSvc.ListPresets(ctx, d.UserUUID)
 		if err != nil {
 			return nil, listPresetsOut{}, fmt.Errorf("list presets: %w", err)
@@ -1088,7 +1060,7 @@ func registerTools(s *mcp.Server, d Deps) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        tools.WorkoutGetPreset.Name,
 		Description: tools.WorkoutGetPreset.Description,
-	}, withLog(d.Logger, tools.WorkoutGetPreset.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.WorkoutGetPresetIn) (*mcp.CallToolResult, getPresetOut, error) {
+	}, middleware.MCPRequestLogger(d.Logger, tools.WorkoutGetPreset.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.WorkoutGetPresetIn) (*mcp.CallToolResult, getPresetOut, error) {
 		presetID, err := uuid.Parse(in.PresetID)
 		if err != nil {
 			return nil, getPresetOut{}, fmt.Errorf("invalid preset_id %q: %w", in.PresetID, err)
@@ -1103,7 +1075,7 @@ func registerTools(s *mcp.Server, d Deps) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        tools.WorkoutGetSchedule.Name,
 		Description: tools.WorkoutGetSchedule.Description,
-	}, withLog(d.Logger, tools.WorkoutGetSchedule.Name, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, getScheduleOut, error) {
+	}, middleware.MCPRequestLogger(d.Logger, tools.WorkoutGetSchedule.Name, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, getScheduleOut, error) {
 		entries, err := d.WkSvc.GetSchedule(ctx, d.UserUUID)
 		if err != nil {
 			return nil, getScheduleOut{}, fmt.Errorf("get schedule: %w", err)
@@ -1124,7 +1096,7 @@ func registerTools(s *mcp.Server, d Deps) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        tools.WorkoutStartSession.Name,
 		Description: tools.WorkoutStartSession.Description,
-	}, withLog(d.Logger, tools.WorkoutStartSession.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.WorkoutStartSessionIn) (*mcp.CallToolResult, startSessionOut, error) {
+	}, middleware.MCPRequestLogger(d.Logger, tools.WorkoutStartSession.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.WorkoutStartSessionIn) (*mcp.CallToolResult, startSessionOut, error) {
 		if in.PresetName == "" && in.Type == "" {
 			return nil, startSessionOut{}, fmt.Errorf("preset_name or type is required")
 		}
@@ -1167,7 +1139,7 @@ func registerTools(s *mcp.Server, d Deps) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        tools.WorkoutUpdateSession.Name,
 		Description: tools.WorkoutUpdateSession.Description,
-	}, withLog(d.Logger, tools.WorkoutUpdateSession.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.WorkoutUpdateSessionIn) (*mcp.CallToolResult, updateSessionOut, error) {
+	}, middleware.MCPRequestLogger(d.Logger, tools.WorkoutUpdateSession.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.WorkoutUpdateSessionIn) (*mcp.CallToolResult, updateSessionOut, error) {
 		if strings.TrimSpace(in.Name) == "" {
 			return nil, updateSessionOut{}, fmt.Errorf("name is required")
 		}
@@ -1197,7 +1169,7 @@ func registerTools(s *mcp.Server, d Deps) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        tools.WorkoutLogExercise.Name,
 		Description: tools.WorkoutLogExercise.Description,
-	}, withLog(d.Logger, tools.WorkoutLogExercise.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.WorkoutLogExerciseIn) (*mcp.CallToolResult, logExerciseOut, error) {
+	}, middleware.MCPRequestLogger(d.Logger, tools.WorkoutLogExercise.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.WorkoutLogExerciseIn) (*mcp.CallToolResult, logExerciseOut, error) {
 		sessionID, err := uuid.Parse(in.SessionID)
 		if err != nil {
 			return nil, logExerciseOut{}, fmt.Errorf("invalid session_id %q: %w", in.SessionID, err)
@@ -1235,7 +1207,7 @@ func registerTools(s *mcp.Server, d Deps) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        tools.WorkoutAddExercise.Name,
 		Description: tools.WorkoutAddExercise.Description,
-	}, withLog(d.Logger, tools.WorkoutAddExercise.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.WorkoutAddExerciseIn) (*mcp.CallToolResult, addExerciseOut, error) {
+	}, middleware.MCPRequestLogger(d.Logger, tools.WorkoutAddExercise.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.WorkoutAddExerciseIn) (*mcp.CallToolResult, addExerciseOut, error) {
 		if strings.TrimSpace(in.Name) == "" {
 			return nil, addExerciseOut{}, fmt.Errorf("name is required")
 		}
@@ -1273,7 +1245,7 @@ func registerTools(s *mcp.Server, d Deps) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        tools.WorkoutBulkLogExercises.Name,
 		Description: tools.WorkoutBulkLogExercises.Description,
-	}, withLog(d.Logger, tools.WorkoutBulkLogExercises.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.WorkoutBulkLogExercisesIn) (*mcp.CallToolResult, bulkLogExercisesOut, error) {
+	}, middleware.MCPRequestLogger(d.Logger, tools.WorkoutBulkLogExercises.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.WorkoutBulkLogExercisesIn) (*mcp.CallToolResult, bulkLogExercisesOut, error) {
 		if len(in.Items) == 0 {
 			return nil, bulkLogExercisesOut{}, fmt.Errorf("items must not be empty")
 		}
@@ -1326,7 +1298,7 @@ func registerTools(s *mcp.Server, d Deps) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        tools.WorkoutCreatePreset.Name,
 		Description: tools.WorkoutCreatePreset.Description,
-	}, withLog(d.Logger, tools.WorkoutCreatePreset.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.WorkoutCreatePresetIn) (*mcp.CallToolResult, createPresetOut, error) {
+	}, middleware.MCPRequestLogger(d.Logger, tools.WorkoutCreatePreset.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.WorkoutCreatePresetIn) (*mcp.CallToolResult, createPresetOut, error) {
 		if strings.TrimSpace(in.Name) == "" {
 			return nil, createPresetOut{}, fmt.Errorf("name is required")
 		}
@@ -1394,7 +1366,7 @@ func registerTools(s *mcp.Server, d Deps) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        tools.WorkoutUpdatePreset.Name,
 		Description: tools.WorkoutUpdatePreset.Description,
-	}, withLog(d.Logger, tools.WorkoutUpdatePreset.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.WorkoutUpdatePresetIn) (*mcp.CallToolResult, updatePresetOut, error) {
+	}, middleware.MCPRequestLogger(d.Logger, tools.WorkoutUpdatePreset.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.WorkoutUpdatePresetIn) (*mcp.CallToolResult, updatePresetOut, error) {
 		presetID, err := uuid.Parse(in.PresetID)
 		if err != nil {
 			return nil, updatePresetOut{}, fmt.Errorf("invalid preset_id %q: %w", in.PresetID, err)
@@ -1459,7 +1431,7 @@ func registerTools(s *mcp.Server, d Deps) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        tools.WorkoutDeletePreset.Name,
 		Description: tools.WorkoutDeletePreset.Description,
-	}, withLog(d.Logger, tools.WorkoutDeletePreset.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.WorkoutDeletePresetIn) (*mcp.CallToolResult, deletePresetOut, error) {
+	}, middleware.MCPRequestLogger(d.Logger, tools.WorkoutDeletePreset.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.WorkoutDeletePresetIn) (*mcp.CallToolResult, deletePresetOut, error) {
 		presetID, err := uuid.Parse(in.PresetID)
 		if err != nil {
 			return nil, deletePresetOut{}, fmt.Errorf("invalid preset_id %q: %w", in.PresetID, err)
@@ -1474,7 +1446,7 @@ func registerTools(s *mcp.Server, d Deps) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        tools.FoodListLogs.Name,
 		Description: tools.FoodListLogs.Description,
-	}, withLog(d.Logger, tools.FoodListLogs.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.FoodListLogsIn) (*mcp.CallToolResult, listFoodLogsOut, error) {
+	}, middleware.MCPRequestLogger(d.Logger, tools.FoodListLogs.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.FoodListLogsIn) (*mcp.CallToolResult, listFoodLogsOut, error) {
 		logs, err := d.HeaSvc.ListFoodLogs(ctx, d.UserUUID)
 		if err != nil {
 			return nil, listFoodLogsOut{}, fmt.Errorf("list food logs: %w", err)
@@ -1509,7 +1481,7 @@ func registerTools(s *mcp.Server, d Deps) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        tools.FoodLogMeal.Name,
 		Description: tools.FoodLogMeal.Description,
-	}, withLog(d.Logger, tools.FoodLogMeal.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.FoodLogMealIn) (*mcp.CallToolResult, foodLogOut, error) {
+	}, middleware.MCPRequestLogger(d.Logger, tools.FoodLogMeal.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.FoodLogMealIn) (*mcp.CallToolResult, foodLogOut, error) {
 		inp := health.CreateFoodInput{
 			Name:       in.Name,
 			MealType:   health.MealType(in.MealType),
@@ -1539,7 +1511,7 @@ func registerTools(s *mcp.Server, d Deps) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        tools.FoodUpdateMeal.Name,
 		Description: tools.FoodUpdateMeal.Description,
-	}, withLog(d.Logger, tools.FoodUpdateMeal.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.FoodUpdateMealIn) (*mcp.CallToolResult, foodLogOut, error) {
+	}, middleware.MCPRequestLogger(d.Logger, tools.FoodUpdateMeal.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.FoodUpdateMealIn) (*mcp.CallToolResult, foodLogOut, error) {
 		logID, err := uuid.Parse(in.LogID)
 		if err != nil {
 			return nil, foodLogOut{}, fmt.Errorf("invalid log_id %q: %w", in.LogID, err)
@@ -1573,7 +1545,7 @@ func registerTools(s *mcp.Server, d Deps) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        tools.FoodDeleteMeal.Name,
 		Description: tools.FoodDeleteMeal.Description,
-	}, withLog(d.Logger, tools.FoodDeleteMeal.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.FoodDeleteMealIn) (*mcp.CallToolResult, deleteFoodOut, error) {
+	}, middleware.MCPRequestLogger(d.Logger, tools.FoodDeleteMeal.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.FoodDeleteMealIn) (*mcp.CallToolResult, deleteFoodOut, error) {
 		logID, err := uuid.Parse(in.LogID)
 		if err != nil {
 			return nil, deleteFoodOut{}, fmt.Errorf("invalid log_id %q: %w", in.LogID, err)
@@ -1588,7 +1560,7 @@ func registerTools(s *mcp.Server, d Deps) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        tools.SleepListLogs.Name,
 		Description: tools.SleepListLogs.Description,
-	}, withLog(d.Logger, tools.SleepListLogs.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.SleepListLogsIn) (*mcp.CallToolResult, listSleepLogsOut, error) {
+	}, middleware.MCPRequestLogger(d.Logger, tools.SleepListLogs.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.SleepListLogsIn) (*mcp.CallToolResult, listSleepLogsOut, error) {
 		logs, err := d.HeaSvc.ListSleepLogs(ctx, d.UserUUID)
 		if err != nil {
 			return nil, listSleepLogsOut{}, fmt.Errorf("list sleep logs: %w", err)
@@ -1622,7 +1594,7 @@ func registerTools(s *mcp.Server, d Deps) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        tools.SleepLogNight.Name,
 		Description: tools.SleepLogNight.Description,
-	}, withLog(d.Logger, tools.SleepLogNight.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.SleepLogNightIn) (*mcp.CallToolResult, sleepLogOut, error) {
+	}, middleware.MCPRequestLogger(d.Logger, tools.SleepLogNight.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.SleepLogNightIn) (*mcp.CallToolResult, sleepLogOut, error) {
 		inp := health.CreateSleepInput{
 			StartedAt: in.StartedAt,
 			EndedAt:   in.EndedAt,
@@ -1643,7 +1615,7 @@ func registerTools(s *mcp.Server, d Deps) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        tools.SleepUpdateNight.Name,
 		Description: tools.SleepUpdateNight.Description,
-	}, withLog(d.Logger, tools.SleepUpdateNight.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.SleepUpdateNightIn) (*mcp.CallToolResult, sleepLogOut, error) {
+	}, middleware.MCPRequestLogger(d.Logger, tools.SleepUpdateNight.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.SleepUpdateNightIn) (*mcp.CallToolResult, sleepLogOut, error) {
 		logID, err := uuid.Parse(in.LogID)
 		if err != nil {
 			return nil, sleepLogOut{}, fmt.Errorf("invalid log_id %q: %w", in.LogID, err)
@@ -1668,7 +1640,7 @@ func registerTools(s *mcp.Server, d Deps) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        tools.SleepDeleteNight.Name,
 		Description: tools.SleepDeleteNight.Description,
-	}, withLog(d.Logger, tools.SleepDeleteNight.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.SleepDeleteNightIn) (*mcp.CallToolResult, deleteSleepOut, error) {
+	}, middleware.MCPRequestLogger(d.Logger, tools.SleepDeleteNight.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.SleepDeleteNightIn) (*mcp.CallToolResult, deleteSleepOut, error) {
 		logID, err := uuid.Parse(in.LogID)
 		if err != nil {
 			return nil, deleteSleepOut{}, fmt.Errorf("invalid log_id %q: %w", in.LogID, err)

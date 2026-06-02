@@ -484,37 +484,23 @@ function SessionView({
   const isLocked = session.completed_at != null
   const [bodyExpanded, setBodyExpanded] = useState(defaultExpanded)
 
-  // Editable name
+  // Session fields — edited together, saved with one button
   const [nameValue, setNameValue] = useState(session.name)
-  // Sync when session updates from server (skip while user is editing via dirty tracking)
-  const nameDirty = useRef(false)
-  useEffect(() => {
-    if (!nameDirty.current) setNameValue(session.name)
-  }, [session.name])
-
-  // Editable duration
   const [duration, setDuration] = useState(
     session.duration_minutes != null ? String(session.duration_minutes) : '',
   )
-  const [editingDuration, setEditingDuration] = useState(false)
-  const [durationError, setDurationError] = useState('')
-  const durationDirty = useRef(false)
-  useEffect(() => {
-    if (!durationDirty.current)
-      setDuration(
-        session.duration_minutes != null
-          ? String(session.duration_minutes)
-          : '',
-      )
-  }, [session.duration_minutes])
-
-  // Notes textarea
   const [notes, setNotes] = useState(session.notes ?? '')
-  const [notesDirty, setNotesDirty] = useState(false)
-  const [savingNotes, setSavingNotes] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [durationError, setDurationError] = useState('')
+
+  // Sync fields when server data changes (after a save or external update)
   useEffect(() => {
-    if (!notesDirty) setNotes(session.notes ?? '')
-  }, [session.notes]) // eslint-disable-line react-hooks/exhaustive-deps
+    setNameValue(session.name)
+    setDuration(
+      session.duration_minutes != null ? String(session.duration_minutes) : '',
+    )
+    setNotes(session.notes ?? '')
+  }, [session.name, session.duration_minutes, session.notes])
 
   // Dialogs
   const [deleteExConfirm, setDeleteExConfirm] = useState<string | null>(null)
@@ -586,68 +572,62 @@ function SessionView({
     }
   }
 
-  async function saveName() {
-    const trimmed = nameValue.trim()
-    if (!trimmed) return
-    await updateSession.mutateAsync({
-      id: session.id,
-      input: {
-        name: trimmed,
-        duration_minutes: session.duration_minutes,
-        notes: session.notes ?? null,
-      },
-    })
-    nameDirty.current = false
-  }
-
-  async function saveDuration() {
-    await updateSession.mutateAsync({
-      id: session.id,
-      input: {
-        name: session.name,
-        duration_minutes: duration ? parseInt(duration, 10) : null,
-        notes: session.notes ?? null,
-      },
-    })
-    durationDirty.current = false
-    setEditingDuration(false)
-    setDurationError('')
-  }
-
-  async function saveNotes() {
-    setSavingNotes(true)
+  async function handleSaveFields() {
+    setSaving(true)
     try {
       await updateSession.mutateAsync({
         id: session.id,
         input: {
-          name: session.name,
-          duration_minutes: session.duration_minutes,
+          name: nameValue.trim() || session.name,
+          duration_minutes: duration ? parseInt(duration, 10) : null,
           notes: notes.trim() || null,
         },
       })
-      setNotesDirty(false)
+      setDurationError('')
     } finally {
-      setSavingNotes(false)
+      setSaving(false)
     }
   }
 
-  function handleFinishedClick() {
-    const hasDuration =
-      duration.trim() !== '' || session.duration_minutes != null
-    if (!hasDuration) {
+  function handleResetFields() {
+    setNameValue(session.name)
+    setDuration(
+      session.duration_minutes != null ? String(session.duration_minutes) : '',
+    )
+    setNotes(session.notes ?? '')
+    setDurationError('')
+  }
+
+  async function handleFinishedClick() {
+    if (!duration.trim() && session.duration_minutes == null) {
       setDurationError('Duration is required before finishing.')
-      setBodyExpanded(true)
-      setEditingDuration(true)
-      return
-    }
-    // If user typed a duration but hasn't saved it yet
-    const localVal = duration.trim() ? parseInt(duration, 10) : null
-    if (localVal !== session.duration_minutes) {
-      setDurationError('Please save duration before finishing.')
       setBodyExpanded(true)
       return
     }
     setDurationError('')
+    // Auto-save any unsaved field changes before opening the confirm dialog
+    const localDuration = duration.trim() ? parseInt(duration, 10) : null
+    const hasUnsaved =
+      (nameValue.trim() || session.name) !== session.name ||
+      localDuration !== session.duration_minutes ||
+      (notes.trim() || null) !== session.notes
+    if (hasUnsaved) {
+      setSaving(true)
+      try {
+        await updateSession.mutateAsync({
+          id: session.id,
+          input: {
+            name: nameValue.trim() || session.name,
+            duration_minutes: localDuration,
+            notes: notes.trim() || null,
+          },
+        })
+      } catch {
+        setSaving(false)
+        return
+      }
+      setSaving(false)
+    }
     setFinishConfirm(true)
   }
 
@@ -774,131 +754,72 @@ function SessionView({
         <div className="space-y-4 border-t border-gray-800 px-4 pt-4 pb-4">
           {/* Session fields */}
           <div className="space-y-3 rounded-lg border border-gray-700 bg-gray-800/30 p-3">
-            {/* Editable name */}
             <div>
               <label className="mb-1 block text-xs text-gray-500">Name</label>
-              <div className="flex items-center gap-2">
-                <input
-                  className={`${inputClass} flex-1`}
-                  value={nameValue}
-                  disabled={isLocked}
-                  onChange={(e) => {
-                    setNameValue(e.target.value)
-                    nameDirty.current = true
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') saveName()
-                  }}
-                />
-                {!isLocked && (
-                  <button
-                    onClick={saveName}
-                    disabled={updateSession.isPending}
-                    className="shrink-0 rounded bg-gray-700 px-2 py-1 text-xs text-gray-300 hover:bg-gray-600 disabled:opacity-50"
-                  >
-                    Save
-                  </button>
-                )}
-              </div>
+              <input
+                className={inputClass}
+                value={nameValue}
+                disabled={isLocked}
+                onChange={(e) => setNameValue(e.target.value)}
+              />
             </div>
 
-            {/* Editable duration (required) */}
             <div>
               <label className="mb-1 block text-xs text-gray-500">
                 Duration (min)
                 {!isLocked && <span className="text-red-400"> *</span>}
               </label>
-              {!isLocked && editingDuration ? (
-                <div className="flex items-center gap-2">
-                  <input
-                    className="w-20 rounded-md border border-gray-700 bg-gray-800 px-2 py-1.5 text-xs text-gray-100 focus:border-indigo-500 focus:outline-none"
-                    type="number"
-                    min="1"
-                    placeholder="e.g. 45"
-                    value={duration}
-                    autoFocus
-                    onChange={(e) => {
-                      setDuration(e.target.value)
-                      durationDirty.current = true
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') saveDuration()
-                      if (e.key === 'Escape') setEditingDuration(false)
-                    }}
-                  />
-                  <button
-                    onClick={saveDuration}
-                    disabled={updateSession.isPending}
-                    className="rounded bg-indigo-600 px-2 py-1 text-xs text-white disabled:opacity-50"
-                  >
-                    Save
-                  </button>
-                  <button
-                    onClick={() => {
-                      setEditingDuration(false)
-                      setDurationError('')
-                    }}
-                    className="text-xs text-gray-500"
-                  >
-                    ✕
-                  </button>
-                </div>
+              {isLocked ? (
+                <p className="text-xs text-gray-400">
+                  {session.duration_minutes != null
+                    ? `${session.duration_minutes} min`
+                    : '—'}
+                </p>
               ) : (
-                <div className="flex items-center gap-2 text-xs">
-                  <span
-                    className={
-                      session.duration_minutes == null && durationError
-                        ? 'text-red-400'
-                        : 'text-gray-400'
-                    }
-                  >
-                    {session.duration_minutes != null
-                      ? `${session.duration_minutes} min`
-                      : '—'}
-                  </span>
-                  {!isLocked && (
-                    <button
-                      onClick={() => setEditingDuration(true)}
-                      className="text-gray-600 hover:text-gray-400"
-                    >
-                      edit
-                    </button>
-                  )}
-                </div>
+                <input
+                  className={`w-28 ${inputClass}`}
+                  type="number"
+                  min="1"
+                  placeholder="e.g. 45"
+                  value={duration}
+                  onChange={(e) => setDuration(e.target.value)}
+                />
               )}
             </div>
 
-            {/* Notes textarea */}
             <div>
               <label className="mb-1 block text-xs text-gray-500">Notes</label>
-              {!isLocked ? (
-                <>
-                  <textarea
-                    className="w-full resize-none rounded-md border border-gray-700 bg-gray-800 px-2 py-1.5 text-xs text-gray-100 placeholder-gray-500 focus:border-indigo-500 focus:outline-none"
-                    rows={2}
-                    placeholder="Optional"
-                    value={notes}
-                    onChange={(e) => {
-                      setNotes(e.target.value)
-                      setNotesDirty(true)
-                    }}
-                  />
-                  {notesDirty && (
-                    <button
-                      onClick={saveNotes}
-                      disabled={savingNotes}
-                      className="mt-1 rounded bg-gray-700 px-2 py-0.5 text-xs text-gray-300 hover:bg-gray-600 disabled:opacity-50"
-                    >
-                      {savingNotes ? 'Saving…' : 'Save note'}
-                    </button>
-                  )}
-                </>
-              ) : notes ? (
-                <p className="text-xs text-gray-400">{notes}</p>
+              {isLocked ? (
+                <p className="text-xs text-gray-400">{notes || '—'}</p>
               ) : (
-                <p className="text-xs text-gray-600">—</p>
+                <textarea
+                  className="w-full resize-none rounded-md border border-gray-700 bg-gray-800 px-2 py-1.5 text-xs text-gray-100 placeholder-gray-500 focus:border-indigo-500 focus:outline-none"
+                  rows={2}
+                  placeholder="Optional"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                />
               )}
             </div>
+
+            {!isLocked && (
+              <div className="flex items-center gap-2 pt-1">
+                <button
+                  onClick={handleSaveFields}
+                  disabled={saving}
+                  className="rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
+                >
+                  {saving ? 'Saving…' : 'Save'}
+                </button>
+                <button
+                  onClick={handleResetFields}
+                  disabled={saving}
+                  className="rounded-md bg-gray-700 px-3 py-1.5 text-xs font-medium text-gray-300 hover:bg-gray-600 disabled:opacity-50"
+                >
+                  Reset
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Bulk actions */}

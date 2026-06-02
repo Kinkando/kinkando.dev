@@ -80,6 +80,7 @@ Workout:
 - Use workout_log_exercise to record actual sets/reps/weight after the user reports them.
 - Use workout_add_exercise when starting a quick-start session that needs exercises.
 - Use workout_update_session to save duration and notes at the end of a workout.
+- Use workout_bulk_log_exercises to record multiple exercise results in one call when the user reports several exercises from the same workout session.
 - Use workout_create_preset / workout_update_preset / workout_delete_preset to manage templates.
 
 Sleep:
@@ -103,10 +104,10 @@ var (
 // Thai spellings of each persona's name. Thai script has no case and no ASCII word
 // boundaries, so these are matched with plain substring search.
 const (
-	thaiKaito    = "ไคโตะ"
-	thaiMint     = "มิ้นต์"
-	thaiMintAlt  = "มินต์" // alternative spelling without tone mark
-	thaiTensei   = "เทนเซ"
+	thaiKaito     = "ไคโตะ"
+	thaiMint      = "มิ้นต์"
+	thaiMintAlt   = "มินต์" // alternative spelling without tone mark
+	thaiTensei    = "เทนเซ"
 	thaiTenseiAlt = "เท็นเซ" // alternative with mid-rising tone mark
 )
 

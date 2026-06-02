@@ -14,6 +14,23 @@ Each feature lives under `internal/<feature>/` with a consistent three-layer pat
 
 Models/types: `internal/<feature>/model.go`
 
+**Enum convention**: for any field with a fixed set of valid string values, declare a named type and a `const` block — never use bare untyped string constants:
+
+```go
+// correct
+type MealType string
+
+const (
+    MealTypeBreakfast MealType = "breakfast"
+    MealTypeLunch     MealType = "lunch"
+)
+
+// wrong — no type wrapper
+const MealTypeBreakfast = "breakfast"
+```
+
+Validation helpers (`func ValidX(v X) bool`) belong in the same `model.go` file and are called from handlers. The matching frontend types in `src/lib/api/types.ts` must be TypeScript string literal unions (e.g. `type MealType = 'breakfast' | 'lunch'`), not plain `string`.
+
 ## Features
 
 | Feature | Route prefix | Storage | Notes |

@@ -1,6 +1,4 @@
 -- migrate:up
-DROP TABLE IF EXISTS health_exercises;
-
 CREATE TABLE IF NOT EXISTS health_food_logs (
     id          UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id     UUID         NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -31,16 +29,3 @@ CREATE INDEX idx_health_sleep_logs_user_date ON health_sleep_logs (user_id, logg
 -- migrate:down
 DROP TABLE IF EXISTS health_sleep_logs;
 DROP TABLE IF EXISTS health_food_logs;
-
-CREATE TABLE IF NOT EXISTS health_exercises (
-    id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id          UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    name             TEXT        NOT NULL,
-    type             TEXT        NOT NULL,
-    duration_minutes INT,
-    calories         INT,
-    notes            TEXT,
-    performed_at     DATE        NOT NULL DEFAULT CURRENT_DATE,
-    created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-CREATE INDEX idx_health_exercises_user_date ON health_exercises (user_id, performed_at);

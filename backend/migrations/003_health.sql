@@ -19,20 +19,6 @@ CREATE TABLE IF NOT EXISTS health_weight_logs (
 );
 CREATE INDEX idx_health_weight_logs_user_date ON health_weight_logs (user_id, logged_at);
 
-CREATE TABLE IF NOT EXISTS health_exercises (
-    id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id          UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    name             TEXT        NOT NULL,
-    type             TEXT        NOT NULL,
-    duration_minutes INT,
-    calories         INT,
-    notes            TEXT,
-    performed_at     DATE        NOT NULL DEFAULT CURRENT_DATE,
-    created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-CREATE INDEX idx_health_exercises_user_date ON health_exercises (user_id, performed_at);
-
 -- migrate:down
-DROP TABLE IF EXISTS health_exercises;
 DROP TABLE IF EXISTS health_weight_logs;
 DROP TABLE IF EXISTS health_profiles;

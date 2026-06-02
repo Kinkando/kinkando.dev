@@ -118,15 +118,13 @@ export default function PresetsTab({ presets, onStarted }: Props) {
               className="rounded-xl border border-gray-800 bg-gray-900 p-4"
             >
               <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="rounded bg-indigo-900/50 px-2 py-0.5 text-xs text-indigo-400">
-                      {WORKOUT_TYPE_LABELS[preset.type]}
-                    </span>
-                    <h3 className="truncate text-sm font-medium text-gray-100">
-                      {preset.name}
-                    </h3>
-                  </div>
+                <div className="min-w-0 flex-1 gap-2">
+                  <h3 className="truncate text-sm font-medium text-gray-100">
+                    {preset.name}
+                  </h3>
+                  <span className="rounded bg-indigo-900/50 px-2 py-0.5 text-xs text-indigo-400">
+                    {WORKOUT_TYPE_LABELS[preset.type]}
+                  </span>
                   {preset.description && (
                     <p className="mt-1 text-xs text-gray-500">
                       {preset.description}
@@ -157,23 +155,23 @@ export default function PresetsTab({ presets, onStarted }: Props) {
                     )}
                   </p>
                 </div>
-                <div className="flex shrink-0 items-center gap-2">
+                <div className="flex shrink-0 flex-col items-center gap-2">
                   <button
                     onClick={() => handleStartWorkout(preset.id)}
                     disabled={startingId === preset.id}
-                    className="rounded-md bg-indigo-600 px-3 py-1 text-xs font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
+                    className="w-20 cursor-pointer rounded-md bg-indigo-600 px-3 py-1 text-xs font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
                   >
-                    {startingId === preset.id ? 'Starting…' : 'Start workout'}
+                    {startingId === preset.id ? 'Starting…' : 'Start'}
                   </button>
                   <button
                     onClick={() => handleEdit(preset)}
-                    className="text-xs text-gray-400 hover:text-gray-100"
+                    className="w-20 cursor-pointer rounded-md bg-amber-500/20 px-3 py-1 text-xs text-gray-400 hover:bg-amber-500/20 hover:text-gray-100"
                   >
                     Edit
                   </button>
                   <button
                     onClick={() => setDeleteConfirm(preset.id)}
-                    className="text-xs text-red-500 hover:text-red-400"
+                    className="w-20 cursor-pointer rounded-md bg-red-500/20 px-3 py-1 text-xs text-red-500 hover:bg-red-500/20 hover:text-red-400"
                   >
                     Delete
                   </button>

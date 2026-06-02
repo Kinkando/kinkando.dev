@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/kinkando/personal-dashboard/internal/auth"
 	"github.com/kinkando/personal-dashboard/internal/finance"
+	"github.com/kinkando/personal-dashboard/pkg/validate"
 )
 
 type Service interface {
@@ -74,11 +75,8 @@ func (h *Handler) createCategory(c *fiber.Ctx) error {
 	if err := c.BodyParser(&in); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
 	}
-	if strings.TrimSpace(in.Name) == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "name is required"})
-	}
-	if in.Type != finance.RecordTypeIncome && in.Type != finance.RecordTypeExpense {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "type must be income or expense"})
+	if err := validate.Struct(in); err != nil {
+		return err
 	}
 	cat, err := h.svc.CreateCategory(c.Context(), userID, in)
 	if err != nil {
@@ -100,8 +98,8 @@ func (h *Handler) updateCategory(c *fiber.Ctx) error {
 	if err := c.BodyParser(&in); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
 	}
-	if strings.TrimSpace(in.Name) == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "name is required"})
+	if err := validate.Struct(in); err != nil {
+		return err
 	}
 	cat, err := h.svc.UpdateCategory(c.Context(), id, userID, in)
 	if err != nil {
@@ -161,14 +159,8 @@ func (h *Handler) createRecord(c *fiber.Ctx) error {
 	if err := c.BodyParser(&in); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
 	}
-	if in.Type != finance.RecordTypeIncome && in.Type != finance.RecordTypeExpense {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "type must be income or expense"})
-	}
-	if in.Amount <= 0 {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "amount must be positive"})
-	}
-	if in.CategoryID == (uuid.UUID{}) {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "category_id is required"})
+	if err := validate.Struct(in); err != nil {
+		return err
 	}
 	rec, err := h.svc.CreateRecord(c.Context(), userID, in)
 	if err != nil {

@@ -89,42 +89,42 @@ type Card struct {
 }
 
 type CreateBoardInput struct {
-	Name string `json:"name"`
+	Name string `json:"name" validate:"required"`
 }
 
 type UpdateBoardInput struct {
-	Name string `json:"name"`
+	Name string `json:"name" validate:"required"`
 }
 
 type CreateColumnInput struct {
-	BoardID string `json:"board_id"`
-	Name    string `json:"name"`
+	BoardID string `json:"board_id" validate:"required"`
+	Name    string `json:"name"     validate:"required"`
 }
 
 type UpdateColumnInput struct {
-	Name string `json:"name"`
+	Name string `json:"name" validate:"required"`
 }
 
 type ReorderColumnsInput struct {
-	ColumnIDs []string `json:"column_ids"`
+	ColumnIDs []string `json:"column_ids" validate:"required,min=1,dive,required"`
 }
 
 type DeleteColumnInput struct {
-	Action         string `json:"action"`           // "move" | "archive"
-	TargetColumnID string `json:"target_column_id"` // required when action is "move"
+	Action         string `json:"action"           validate:"required,oneof=move archive"` // "move" | "archive"
+	TargetColumnID string `json:"target_column_id" validate:"required_if=Action move"`     // required when action is "move"
 }
 
 type ArchiveCardInput struct {
-	Reason string `json:"reason"` // cancelled | duplicate | stale; "completed" is system-assigned
+	Reason string `json:"reason" validate:"omitempty,oneof=cancelled duplicate stale"` // cancelled | duplicate | stale; "completed" is system-assigned
 }
 
 type CreateCardInput struct {
-	BoardID     string   `json:"board_id"`
-	ColumnID    string   `json:"column_id"`
-	Title       string   `json:"title"`
+	BoardID     string   `json:"board_id"  validate:"required"`
+	ColumnID    string   `json:"column_id" validate:"required"`
+	Title       string   `json:"title"     validate:"required"`
 	Content     string   `json:"content"`
 	Description string   `json:"description"`
-	Priority    string   `json:"priority"`
+	Priority    string   `json:"priority"  validate:"omitempty,oneof=none low medium high urgent"`
 	DueDate     *string  `json:"due_date"` // "YYYY-MM-DD"
 	Tags        []string `json:"tags"`
 }
@@ -134,14 +134,14 @@ type CreateCardInput struct {
 type UpdateCardInput struct {
 	Title       *string   `json:"title"`
 	Description *string   `json:"description"`
-	Priority    *string   `json:"priority"`
+	Priority    *string   `json:"priority"  validate:"omitempty,oneof=none low medium high urgent"`
 	DueDate     *string   `json:"due_date"`
 	Tags        *[]string `json:"tags"`
 }
 
 type MoveCardInput struct {
-	ColumnID string `json:"column_id"`
-	Order    int    `json:"order"`
+	ColumnID string `json:"column_id" validate:"required"`
+	Order    int    `json:"order"     validate:"min=0"`
 }
 
 type BoardStats struct {

@@ -61,8 +61,8 @@ type Preset struct {
 // ── Preset DTOs ───────────────────────────────────────────────────────────────
 
 type PresetExerciseInput struct {
-	Section         Section  `json:"section"`
-	Name            string   `json:"name"`
+	Section         Section  `json:"section"          validate:"omitempty,oneof=warmup main cooldown"`
+	Name            string   `json:"name"             validate:"required"`
 	TargetMuscles   *string  `json:"target_muscles"`
 	Instructions    *string  `json:"instructions"`
 	Sets            *int     `json:"sets"`
@@ -75,10 +75,10 @@ type PresetExerciseInput struct {
 }
 
 type CreatePresetInput struct {
-	Name        string               `json:"name"`
-	Type        Type                 `json:"type"`
-	Description *string              `json:"description"`
-	Exercises   []PresetExerciseInput `json:"exercises"`
+	Name        string                `json:"name"        validate:"required"`
+	Type        Type                  `json:"type"        validate:"required,oneof=weight_training body_weight running walking cardio mobility"`
+	Description *string               `json:"description"`
+	Exercises   []PresetExerciseInput `json:"exercises"   validate:"dive"`
 }
 
 type UpdatePresetInput = CreatePresetInput
@@ -96,12 +96,12 @@ type ScheduleEntry struct {
 }
 
 type ScheduleEntryInput struct {
-	DayOfWeek int       `json:"day_of_week"`
-	PresetID  uuid.UUID `json:"preset_id"`
+	DayOfWeek int       `json:"day_of_week" validate:"min=0,max=6"`
+	PresetID  uuid.UUID `json:"preset_id"   validate:"required"`
 }
 
 type SetScheduleInput struct {
-	Entries []ScheduleEntryInput `json:"entries"`
+	Entries []ScheduleEntryInput `json:"entries" validate:"dive"`
 }
 
 // ── Session ───────────────────────────────────────────────────────────────────
@@ -149,7 +149,7 @@ type GenerateSessionInput struct {
 
 type CreateSessionInput struct {
 	PresetID *uuid.UUID `json:"preset_id"`
-	Type     *Type      `json:"type"` // required when preset_id is nil (quick start)
+	Type     *Type      `json:"type"      validate:"omitempty,oneof=weight_training body_weight running walking cardio mobility custom"` // required when preset_id is nil (quick start)
 	Date     string     `json:"date"` // YYYY-MM-DD, optional
 	Name     *string    `json:"name"` // overrides preset name if provided
 }
@@ -157,8 +157,8 @@ type CreateSessionInput struct {
 // ── Session exercise DTOs ──────────────────────────────────────────────────────
 
 type AddSessionExerciseInput struct {
-	Section               Section `json:"section"`
-	Name                  string  `json:"name"`
+	Section               Section `json:"section"       validate:"omitempty,oneof=warmup main cooldown"`
+	Name                  string  `json:"name"          validate:"required"`
 	TargetMuscles         *string `json:"target_muscles"`
 	Instructions          *string `json:"instructions"`
 	TargetSets            *int    `json:"target_sets"`
@@ -168,7 +168,7 @@ type AddSessionExerciseInput struct {
 }
 
 type UpdateSessionInput struct {
-	Name            string  `json:"name"`
+	Name            string  `json:"name"             validate:"required"`
 	DurationMinutes *int    `json:"duration_minutes"`
 	Notes           *string `json:"notes"`
 }
@@ -183,7 +183,7 @@ type UpdateSessionExerciseInput struct {
 }
 
 type BulkUpdateSessionExerciseItem struct {
-	ID                    uuid.UUID `json:"id"`
+	ID                    uuid.UUID `json:"id"                     validate:"required"`
 	ActualSets            *int      `json:"actual_sets"`
 	ActualReps            *int      `json:"actual_reps"`
 	ActualDurationSeconds *int      `json:"actual_duration_seconds"`
@@ -193,5 +193,5 @@ type BulkUpdateSessionExerciseItem struct {
 }
 
 type BulkUpdateSessionExercisesInput struct {
-	Items []BulkUpdateSessionExerciseItem `json:"items"`
+	Items []BulkUpdateSessionExerciseItem `json:"items" validate:"required,min=1,dive"`
 }

@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/kinkando/personal-dashboard/internal/auth"
 	"github.com/kinkando/personal-dashboard/internal/health"
+	"github.com/kinkando/personal-dashboard/pkg/validate"
 )
 
 type Service interface {
@@ -87,25 +88,8 @@ func (h *Handler) upsertProfile(c *fiber.Ctx) error {
 	if err := c.BodyParser(&in); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
 	}
-	if in.Height != nil && *in.Height <= 0 {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "height must be positive"})
-	}
-	if in.Age != nil && *in.Age <= 0 {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "age must be positive"})
-	}
-	if in.Gender != nil {
-		switch *in.Gender {
-		case health.GenderMale, health.GenderFemale, health.GenderOther:
-		default:
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "gender must be male, female, or other"})
-		}
-	}
-	if in.Goal != nil {
-		switch *in.Goal {
-		case health.GoalLoseWeight, health.GoalMaintain, health.GoalGainMuscle:
-		default:
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "goal must be lose_weight, maintain, or gain_muscle"})
-		}
+	if err := validate.Struct(in); err != nil {
+		return err
 	}
 	profile, err := h.svc.UpsertProfile(c.Context(), userID, in)
 	if err != nil {
@@ -140,8 +124,8 @@ func (h *Handler) createWeightLog(c *fiber.Ctx) error {
 	if err := c.BodyParser(&in); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
 	}
-	if in.Weight <= 0 {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "weight must be positive"})
+	if err := validate.Struct(in); err != nil {
+		return err
 	}
 	log, err := h.svc.CreateWeightLog(c.Context(), userID, in)
 	if err != nil {
@@ -194,16 +178,8 @@ func (h *Handler) createFoodLog(c *fiber.Ctx) error {
 	if err := c.BodyParser(&in); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
 	}
-	if strings.TrimSpace(in.Name) == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "name is required"})
-	}
-	switch in.MealType {
-	case health.MealTypeBreakfast, health.MealTypeLunch, health.MealTypeDinner, health.MealTypeSnack:
-	default:
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "meal_type must be breakfast, lunch, dinner, or snack"})
-	}
-	if in.Calories != nil && *in.Calories < 0 {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "calories must be non-negative"})
+	if err := validate.Struct(in); err != nil {
+		return err
 	}
 	log, err := h.svc.CreateFoodLog(c.Context(), userID, in)
 	if err != nil {
@@ -225,16 +201,8 @@ func (h *Handler) updateFoodLog(c *fiber.Ctx) error {
 	if err := c.BodyParser(&in); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
 	}
-	if strings.TrimSpace(in.Name) == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "name is required"})
-	}
-	switch in.MealType {
-	case health.MealTypeBreakfast, health.MealTypeLunch, health.MealTypeDinner, health.MealTypeSnack:
-	default:
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "meal_type must be breakfast, lunch, dinner, or snack"})
-	}
-	if in.Calories != nil && *in.Calories < 0 {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "calories must be non-negative"})
+	if err := validate.Struct(in); err != nil {
+		return err
 	}
 	log, err := h.svc.UpdateFoodLog(c.Context(), id, userID, in)
 	if err != nil {
@@ -290,14 +258,8 @@ func (h *Handler) createSleepLog(c *fiber.Ctx) error {
 	if err := c.BodyParser(&in); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
 	}
-	if in.StartedAt == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "started_at is required"})
-	}
-	if in.EndedAt == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "ended_at is required"})
-	}
-	if in.Score != nil && (*in.Score < 0 || *in.Score > 100) {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "score must be between 0 and 100"})
+	if err := validate.Struct(in); err != nil {
+		return err
 	}
 	log, err := h.svc.CreateSleepLog(c.Context(), userID, in)
 	if err != nil {
@@ -322,14 +284,8 @@ func (h *Handler) updateSleepLog(c *fiber.Ctx) error {
 	if err := c.BodyParser(&in); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
 	}
-	if in.StartedAt == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "started_at is required"})
-	}
-	if in.EndedAt == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "ended_at is required"})
-	}
-	if in.Score != nil && (*in.Score < 0 || *in.Score > 100) {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "score must be between 0 and 100"})
+	if err := validate.Struct(in); err != nil {
+		return err
 	}
 	log, err := h.svc.UpdateSleepLog(c.Context(), id, userID, in)
 	if err != nil {

@@ -11,6 +11,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/kinkando/personal-dashboard/internal/gemini"
+	"github.com/kinkando/personal-dashboard/pkg/validate"
 	"go.uber.org/zap"
 )
 
@@ -43,13 +44,13 @@ func (h *Handler) Register(router fiber.Router) {
 
 // chatRequest is the JSON body sent by the client.
 type chatRequest struct {
-	Messages []chatMessage `json:"messages"`
+	Messages []chatMessage `json:"messages" validate:"required,min=1,dive"`
 }
 
 // chatMessage is a single turn in the conversation.
 type chatMessage struct {
-	Role    string `json:"role"`    // "user" | "assistant"
-	Content string `json:"content"`
+	Role    string `json:"role"    validate:"required,oneof=user assistant"` // "user" | "assistant"
+	Content string `json:"content" validate:"required"`
 }
 
 func (h *Handler) chat(c *fiber.Ctx) error {
@@ -57,10 +58,11 @@ func (h *Handler) chat(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
 	}
-	if len(req.Messages) == 0 {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "messages must not be empty"})
+	if err := validate.Struct(req); err != nil {
+		return err
 	}
 	last := req.Messages[len(req.Messages)-1]
+	// Cross-field rule: the final message must be from the user.
 	if last.Role != "user" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "last message must have role \"user\""})
 	}
@@ -166,7 +168,7 @@ func (h *Handler) transcribe(c *fiber.Ctx) error {
 
 // ttsRequest is the JSON body for the TTS endpoint.
 type ttsRequest struct {
-	Text string `json:"text"`
+	Text string `json:"text" validate:"required"`
 }
 
 // maxTTSChars caps TTS input to avoid excessively long synthesis requests.
@@ -178,6 +180,9 @@ func (h *Handler) tts(c *fiber.Ctx) error {
 	var req ttsRequest
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
+	}
+	if err := validate.Struct(req); err != nil {
+		return err
 	}
 	req.Text = strings.TrimSpace(req.Text)
 	if req.Text == "" {

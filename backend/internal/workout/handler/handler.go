@@ -2,7 +2,6 @@ package handler
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"time"
 
@@ -10,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/kinkando/personal-dashboard/internal/auth"
 	"github.com/kinkando/personal-dashboard/internal/workout"
+	"github.com/kinkando/personal-dashboard/pkg/validate"
 )
 
 type Service interface {
@@ -121,8 +121,14 @@ func (h *Handler) createPreset(c *fiber.Ctx) error {
 	if err := c.BodyParser(&in); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
 	}
-	if err := validatePresetInput(in.Name, in.Type, in.Exercises); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+	if err := validate.Struct(in); err != nil {
+		return err
+	}
+	// Default empty section to "main" for each exercise.
+	for i := range in.Exercises {
+		if in.Exercises[i].Section == "" {
+			in.Exercises[i].Section = workout.SectionMain
+		}
 	}
 	preset, err := h.svc.CreatePreset(c.Context(), userID, in)
 	if err != nil {
@@ -144,8 +150,14 @@ func (h *Handler) updatePreset(c *fiber.Ctx) error {
 	if err := c.BodyParser(&in); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
 	}
-	if err := validatePresetInput(in.Name, in.Type, in.Exercises); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+	if err := validate.Struct(in); err != nil {
+		return err
+	}
+	// Default empty section to "main" for each exercise.
+	for i := range in.Exercises {
+		if in.Exercises[i].Section == "" {
+			in.Exercises[i].Section = workout.SectionMain
+		}
 	}
 	preset, err := h.svc.UpdatePreset(c.Context(), id, userID, in)
 	if err != nil {
@@ -201,20 +213,16 @@ func (h *Handler) setSchedule(c *fiber.Ctx) error {
 	if err := c.BodyParser(&in); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
 	}
-
-	// Validate day_of_week values and detect duplicates.
+	if err := validate.Struct(in); err != nil {
+		return err
+	}
+	// Detect duplicate day_of_week values (cannot be expressed via struct tags).
 	seen := make(map[int]bool)
 	for _, e := range in.Entries {
-		if e.DayOfWeek < 0 || e.DayOfWeek > 6 {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "day_of_week must be 0 (Sun) to 6 (Sat)"})
-		}
 		if seen[e.DayOfWeek] {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "duplicate day_of_week in entries"})
 		}
 		seen[e.DayOfWeek] = true
-		if e.PresetID == uuid.Nil {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "preset_id is required for each entry"})
-		}
 	}
 
 	entries, err := h.svc.SetSchedule(c.Context(), userID, in.Entries)
@@ -293,14 +301,12 @@ func (h *Handler) createSession(c *fiber.Ctx) error {
 	if err := c.BodyParser(&in); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
 	}
-	// Quick start: no preset required, but type must be supplied and valid.
-	if in.PresetID == nil {
-		if in.Type == nil {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "preset_id or type is required"})
-		}
-		if !isValidType(*in.Type) {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid workout type"})
-		}
+	if err := validate.Struct(in); err != nil {
+		return err
+	}
+	// Cross-field rule: quick start requires type when no preset is selected.
+	if in.PresetID == nil && in.Type == nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "preset_id or type is required"})
 	}
 	session, err := h.svc.CreateSession(c.Context(), userID, in)
 	if err != nil {
@@ -328,16 +334,12 @@ func (h *Handler) addSessionExercise(c *fiber.Ctx) error {
 	if err := c.BodyParser(&in); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
 	}
-	if strings.TrimSpace(in.Name) == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "exercise name is required"})
+	if err := validate.Struct(in); err != nil {
+		return err
 	}
+	// Default empty section to "main".
 	if in.Section == "" {
 		in.Section = workout.SectionMain
-	}
-	switch in.Section {
-	case workout.SectionWarmup, workout.SectionMain, workout.SectionCooldown:
-	default:
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "exercise section must be warmup, main, or cooldown"})
 	}
 	ex, err := h.svc.AddSessionExercise(c.Context(), sessionID, userID, in)
 	if err != nil {
@@ -365,8 +367,8 @@ func (h *Handler) bulkUpdateSessionExercises(c *fiber.Ctx) error {
 	if err := c.BodyParser(&in); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
 	}
-	if len(in.Items) == 0 {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "items must not be empty"})
+	if err := validate.Struct(in); err != nil {
+		return err
 	}
 	exercises, err := h.svc.BulkUpdateSessionExercises(c.Context(), sessionID, userID, in.Items)
 	if err != nil {
@@ -438,8 +440,8 @@ func (h *Handler) updateSession(c *fiber.Ctx) error {
 	if err := c.BodyParser(&in); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
 	}
-	if strings.TrimSpace(in.Name) == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "name is required"})
+	if err := validate.Struct(in); err != nil {
+		return err
 	}
 	session, err := h.svc.UpdateSession(c.Context(), id, userID, in)
 	if err != nil {
@@ -536,44 +538,4 @@ func (h *Handler) resolveUserID(c *fiber.Ctx) (uuid.UUID, error) {
 		return uuid.UUID{}, fiber.ErrUnauthorized
 	}
 	return h.users.GetIDByFirebaseUID(c.Context(), firebaseUID)
-}
-
-// isValidType reports whether t is a known workout type.
-func isValidType(t workout.Type) bool {
-	switch t {
-	case workout.TypeWeightTraining, workout.TypeBodyWeight, workout.TypeRunning,
-		workout.TypeWalking, workout.TypeCardio, workout.TypeMobility, workout.TypeCustom:
-		return true
-	}
-	return false
-}
-
-// validatePresetInput checks name, type enum, and per-exercise section enum.
-// It also defaults empty section values to SectionMain in place.
-// custom is excluded from presets (it is a quick-start-only type).
-func validatePresetInput(name string, typ workout.Type, exercises []workout.PresetExerciseInput) error {
-	if strings.TrimSpace(name) == "" {
-		return fmt.Errorf("name is required")
-	}
-	switch typ {
-	case workout.TypeWeightTraining, workout.TypeBodyWeight, workout.TypeRunning,
-		workout.TypeWalking, workout.TypeCardio, workout.TypeMobility:
-	default:
-		return fmt.Errorf("invalid preset type")
-	}
-	for i, ex := range exercises {
-		if strings.TrimSpace(ex.Name) == "" {
-			return fmt.Errorf("exercise name is required")
-		}
-		if ex.Section == "" {
-			exercises[i].Section = workout.SectionMain
-			continue
-		}
-		switch ex.Section {
-		case workout.SectionWarmup, workout.SectionMain, workout.SectionCooldown:
-		default:
-			return fmt.Errorf("exercise section must be warmup, main, or cooldown")
-		}
-	}
-	return nil
 }

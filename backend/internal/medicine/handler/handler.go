@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/kinkando/personal-dashboard/internal/auth"
 	"github.com/kinkando/personal-dashboard/internal/medicine"
+	"github.com/kinkando/personal-dashboard/pkg/validate"
 )
 
 type Service interface {
@@ -87,8 +88,8 @@ func (h *Handler) createMedicine(c *fiber.Ctx) error {
 	if err := c.BodyParser(&in); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
 	}
-	if err := validateMedicineInput(in); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+	if err := validate.Struct(in); err != nil {
+		return err
 	}
 	med, err := h.svc.CreateMedicine(c.Context(), userID, in)
 	if err != nil {
@@ -110,8 +111,8 @@ func (h *Handler) updateMedicine(c *fiber.Ctx) error {
 	if err := c.BodyParser(&in); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
 	}
-	if err := validateMedicineInput(in); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+	if err := validate.Struct(in); err != nil {
+		return err
 	}
 	med, err := h.svc.UpdateMedicine(c.Context(), id, userID, in)
 	if err != nil {
@@ -165,17 +166,9 @@ func (h *Handler) takeMedicine(c *fiber.Ctx) error {
 	if err := c.BodyParser(&in); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
 	}
-	if in.QuantityTaken <= 0 {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "quantity_taken must be greater than 0"})
+	if err := validate.Struct(in); err != nil {
+		return err
 	}
-	if in.Status != nil {
-		switch *in.Status {
-		case medicine.IntakeStatusTaken, medicine.IntakeStatusSkipped, medicine.IntakeStatusMissed:
-		default:
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "status must be taken, skipped, or missed"})
-		}
-	}
-
 	intake, med, err := h.svc.Take(c.Context(), userID, medicineID, in)
 	if err != nil {
 		if errors.Is(err, medicine.ErrInsufficientStock) {
@@ -207,15 +200,9 @@ func (h *Handler) adjustStock(c *fiber.Ctx) error {
 	if err := c.BodyParser(&in); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
 	}
-	switch in.Type {
-	case medicine.AdjustmentTypeAdd, medicine.AdjustmentTypeRemove, medicine.AdjustmentTypeCorrection:
-	default:
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "type must be add, remove, or correction"})
+	if err := validate.Struct(in); err != nil {
+		return err
 	}
-	if in.Quantity <= 0 {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "quantity must be greater than 0"})
-	}
-
 	adj, med, err := h.svc.AdjustStock(c.Context(), userID, medicineID, in)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
@@ -331,33 +318,3 @@ func (h *Handler) resolveUserID(c *fiber.Ctx) (uuid.UUID, error) {
 	return h.users.GetIDByFirebaseUID(c.Context(), firebaseUID)
 }
 
-func validateMedicineInput(in medicine.CreateMedicineInput) error {
-	if strings.TrimSpace(in.Name) == "" {
-		return errors.New("name is required")
-	}
-	if in.DosageAmount <= 0 {
-		return errors.New("dosage_amount must be greater than 0")
-	}
-	if in.StockQuantity < 0 {
-		return errors.New("stock_quantity must be non-negative")
-	}
-	if strings.TrimSpace(in.StockUnit) == "" {
-		return errors.New("stock_unit is required")
-	}
-	switch in.FrequencyType {
-	case medicine.FrequencyTypeDaily, medicine.FrequencyTypeWeekly, medicine.FrequencyTypeAsNeeded, medicine.FrequencyTypeCustom:
-	default:
-		return errors.New("frequency_type must be daily, weekly, as_needed, or custom")
-	}
-	if in.Timing != nil {
-		switch *in.Timing {
-		case medicine.TimingBeforeMeal, medicine.TimingAfterMeal, medicine.TimingBeforeBreakfast, medicine.TimingAfterBreakfast, medicine.TimingBeforeLunch, medicine.TimingAfterLunch, medicine.TimingBeforeDinner, medicine.TimingAfterDinner, medicine.TimingBeforeBed, medicine.TimingAnytime:
-		default:
-			return errors.New("timing must be before_meal, after_meal, before_breakfast, after_breakfast, before_lunch, after_lunch, before_dinner, after_dinner, before_bed, or anytime")
-		}
-	}
-	if in.LowStockThreshold != nil && *in.LowStockThreshold < 0 {
-		return errors.New("low_stock_threshold must be non-negative")
-	}
-	return nil
-}

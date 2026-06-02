@@ -33,9 +33,9 @@ type Record struct {
 }
 
 type CreateRecordInput struct {
-	Type       RecordType `json:"type"`
-	Amount     float64    `json:"amount"`
-	CategoryID uuid.UUID  `json:"category_id"`
+	Type       RecordType `json:"type"        validate:"required,oneof=income expense"`
+	Amount     float64    `json:"amount"      validate:"gt=0"`
+	CategoryID uuid.UUID  `json:"category_id" validate:"required"`
 	Note       string     `json:"note"`
 	Date       string     `json:"date"` // YYYY-MM-DD
 }
@@ -68,14 +68,14 @@ type Category struct {
 }
 
 type CreateCategoryInput struct {
-	Name  string     `json:"name"`
-	Type  RecordType `json:"type"`
+	Name  string     `json:"name"  validate:"required"`
+	Type  RecordType `json:"type"  validate:"required,oneof=income expense"`
 	Icon  string     `json:"icon"`
 	Color string     `json:"color"`
 }
 
 type UpdateCategoryInput struct {
-	Name  string `json:"name"`
+	Name  string `json:"name"  validate:"required"`
 	Icon  string `json:"icon"`
 	Color string `json:"color"`
 }

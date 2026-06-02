@@ -34,10 +34,10 @@ type Profile struct {
 }
 
 type UpsertProfileInput struct {
-	Height *float64 `json:"height"`
-	Age    *int     `json:"age"`
-	Gender *Gender  `json:"gender"`
-	Goal   *Goal    `json:"goal"`
+	Height *float64 `json:"height" validate:"omitempty,gt=0"`
+	Age    *int     `json:"age"    validate:"omitempty,gt=0"`
+	Gender *Gender  `json:"gender" validate:"omitempty,oneof=male female other"`
+	Goal   *Goal    `json:"goal"   validate:"omitempty,oneof=lose_weight maintain gain_muscle"`
 }
 
 type WeightLog struct {
@@ -47,7 +47,7 @@ type WeightLog struct {
 }
 
 type CreateWeightInput struct {
-	Weight   float64 `json:"weight"`
+	Weight   float64 `json:"weight"    validate:"gt=0"`
 	LoggedAt string  `json:"logged_at"` // YYYY-MM-DD, optional
 }
 
@@ -77,9 +77,9 @@ type FoodLog struct {
 }
 
 type CreateFoodInput struct {
-	Name       string   `json:"name"`
-	MealType   MealType `json:"meal_type"`
-	Calories   *int     `json:"calories"`
+	Name       string   `json:"name"         validate:"required"`
+	MealType   MealType `json:"meal_type"    validate:"required,oneof=breakfast lunch dinner snack"`
+	Calories   *int     `json:"calories"     validate:"omitempty,min=0"`
 	ProteinG   *float64 `json:"protein_g"`
 	CarbsG     *float64 `json:"carbs_g"`
 	FatG       *float64 `json:"fat_g"`
@@ -104,9 +104,9 @@ type SleepLog struct {
 }
 
 type CreateSleepInput struct {
-	StartedAt string  `json:"started_at"` // RFC3339
-	EndedAt   string  `json:"ended_at"`   // RFC3339
-	Score     *int    `json:"score"`      // 0–100, optional
+	StartedAt string  `json:"started_at" validate:"required"` // RFC3339
+	EndedAt   string  `json:"ended_at"   validate:"required"` // RFC3339
+	Score     *int    `json:"score"      validate:"omitempty,min=0,max=100"` // 0–100, optional
 	Notes     *string `json:"notes"`
 	LoggedAt  string  `json:"logged_at"` // YYYY-MM-DD, optional (defaults to started_at date)
 }

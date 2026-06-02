@@ -8,6 +8,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/kinkando/personal-dashboard/internal/auth"
 	"github.com/kinkando/personal-dashboard/internal/kanban"
+	"github.com/kinkando/personal-dashboard/pkg/validate"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
@@ -86,8 +87,8 @@ func (h *Handler) createBoard(c *fiber.Ctx) error {
 	if err := c.BodyParser(&in); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
 	}
-	if in.Name == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "name is required"})
+	if err := validate.Struct(in); err != nil {
+		return err
 	}
 	board, err := h.repo.CreateBoard(c.Context(), userID, in.Name)
 	if err != nil {
@@ -180,8 +181,8 @@ func (h *Handler) updateBoard(c *fiber.Ctx) error {
 	if err := c.BodyParser(&in); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
 	}
-	if in.Name == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "name is required"})
+	if err := validate.Struct(in); err != nil {
+		return err
 	}
 	if err := h.repo.UpdateBoard(c.Context(), boardID, in.Name); err != nil {
 		if strings.Contains(err.Error(), "not found") {
@@ -221,8 +222,8 @@ func (h *Handler) createColumn(c *fiber.Ctx) error {
 	if err := c.BodyParser(&in); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
 	}
-	if in.Name == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "name is required"})
+	if err := validate.Struct(in); err != nil {
+		return err
 	}
 	boardID, err := primitive.ObjectIDFromHex(in.BoardID)
 	if err != nil {
@@ -264,8 +265,8 @@ func (h *Handler) updateColumn(c *fiber.Ctx) error {
 	if err := c.BodyParser(&in); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
 	}
-	if in.Name == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "name is required"})
+	if err := validate.Struct(in); err != nil {
+		return err
 	}
 	if err := h.repo.UpdateColumn(c.Context(), columnID, in.Name); err != nil {
 		if strings.Contains(err.Error(), "not found") {
@@ -292,8 +293,8 @@ func (h *Handler) reorderColumns(c *fiber.Ctx) error {
 	if err := c.BodyParser(&in); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
 	}
-	if len(in.ColumnIDs) == 0 {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "column_ids is required"})
+	if err := validate.Struct(in); err != nil {
+		return err
 	}
 	if err := h.repo.ReorderColumns(c.Context(), boardID, in.ColumnIDs); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
@@ -327,11 +328,8 @@ func (h *Handler) deleteColumn(c *fiber.Ctx) error {
 	if err := c.BodyParser(&in); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
 	}
-	if in.Action != "move" && in.Action != "archive" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "action must be 'move' or 'archive'"})
-	}
-	if in.Action == "move" && in.TargetColumnID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "target_column_id is required when action is 'move'"})
+	if err := validate.Struct(in); err != nil {
+		return err
 	}
 	if err := h.repo.DeleteColumn(c.Context(), columnID, in.Action, in.TargetColumnID); err != nil {
 		if strings.Contains(err.Error(), "not found") {
@@ -356,8 +354,8 @@ func (h *Handler) createCard(c *fiber.Ctx) error {
 	if err := c.BodyParser(&in); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
 	}
-	if in.Title == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "title is required"})
+	if err := validate.Struct(in); err != nil {
+		return err
 	}
 	boardID, err := primitive.ObjectIDFromHex(in.BoardID)
 	if err != nil {
@@ -372,9 +370,6 @@ func (h *Handler) createCard(c *fiber.Ctx) error {
 	colID, err := primitive.ObjectIDFromHex(in.ColumnID)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid column_id"})
-	}
-	if in.Priority != "" && !kanban.ValidPriority(in.Priority) {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid priority"})
 	}
 	card, err := h.repo.CreateCard(c.Context(), boardID, colID, in)
 	if err != nil {
@@ -409,8 +404,8 @@ func (h *Handler) updateCard(c *fiber.Ctx) error {
 	if err := c.BodyParser(&in); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
 	}
-	if in.Priority != nil && !kanban.ValidPriority(*in.Priority) {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid priority"})
+	if err := validate.Struct(in); err != nil {
+		return err
 	}
 	updated, err := h.repo.UpdateCard(c.Context(), cardID, in)
 	if err != nil {
@@ -450,6 +445,9 @@ func (h *Handler) moveCard(c *fiber.Ctx) error {
 	var in kanban.MoveCardInput
 	if err := c.BodyParser(&in); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
+	}
+	if err := validate.Struct(in); err != nil {
+		return err
 	}
 	if err := h.repo.MoveCard(c.Context(), cardID, in); err != nil {
 		if strings.Contains(err.Error(), "invalid column_id") {
@@ -511,12 +509,13 @@ func (h *Handler) archiveCard(c *fiber.Ctx) error {
 	if err := c.BodyParser(&in); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
 	}
-	// Reject client-supplied "completed" — it's system-assigned based on column type.
+	// Reject client-supplied "completed" before general validation — it is
+	// system-assigned based on column type and warrants a specific message.
 	if in.Reason == kanban.ArchiveReasonCompleted {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "reason 'completed' is reserved; omit it and the server will assign it when archiving from a Done column"})
 	}
-	if in.Reason != "" && !kanban.ValidUserArchiveReason(in.Reason) {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid reason; must be 'cancelled', 'duplicate', or 'stale'"})
+	if err := validate.Struct(in); err != nil {
+		return err
 	}
 	archived, err := h.repo.ArchiveCard(c.Context(), cardID, in.Reason)
 	if err != nil {

@@ -106,35 +106,35 @@ type MedicineStockAdjustment struct {
 // ── Inputs ────────────────────────────────────────────────────────────────────
 
 type CreateMedicineInput struct {
-	Name              string        `json:"name"`
+	Name              string        `json:"name"               validate:"required"`
 	GenericName       *string       `json:"generic_name"`
 	Description       *string       `json:"description"`
-	StockQuantity     float64       `json:"stock_quantity"`
-	StockUnit         string        `json:"stock_unit"`
-	DosageAmount      float64       `json:"dosage_amount"`
+	StockQuantity     float64       `json:"stock_quantity"     validate:"min=0"`
+	StockUnit         string        `json:"stock_unit"         validate:"required"`
+	DosageAmount      float64       `json:"dosage_amount"      validate:"gt=0"`
 	DosageUnit        *string       `json:"dosage_unit"`
-	FrequencyType     FrequencyType `json:"frequency_type"`
+	FrequencyType     FrequencyType `json:"frequency_type"     validate:"required,oneof=daily weekly as_needed custom"`
 	FrequencyValue    *int          `json:"frequency_value"`
-	Timing            *Timing       `json:"timing"`
+	Timing            *Timing       `json:"timing"             validate:"omitempty,oneof=before_meal after_meal before_breakfast after_breakfast before_lunch after_lunch before_dinner after_dinner before_bed anytime"`
 	StartDate         string        `json:"start_date"`          // YYYY-MM-DD, optional
 	EndDate           string        `json:"end_date"`            // YYYY-MM-DD, optional
-	LowStockThreshold *float64      `json:"low_stock_threshold"` // defaults to 7
+	LowStockThreshold *float64      `json:"low_stock_threshold" validate:"omitempty,min=0"` // defaults to 7
 	Note              *string       `json:"note"`
 }
 
 type UpdateMedicineInput = CreateMedicineInput
 
 type TakeMedicineInput struct {
-	QuantityTaken float64       `json:"quantity_taken"`
-	Status        *IntakeStatus `json:"status"` // defaults to "taken"
+	QuantityTaken float64       `json:"quantity_taken" validate:"gt=0"`
+	Status        *IntakeStatus `json:"status"         validate:"omitempty,oneof=taken skipped missed"` // defaults to "taken"
 	Note          *string       `json:"note"`
 	TakenAt       *string       `json:"taken_at"`       // RFC3339, optional (defaults to now)
 	AllowNegative bool          `json:"allow_negative"` // override negative-stock guard
 }
 
 type AdjustStockInput struct {
-	Type     AdjustmentType `json:"type"`
-	Quantity float64        `json:"quantity"`
+	Type     AdjustmentType `json:"type"     validate:"required,oneof=add remove correction"`
+	Quantity float64        `json:"quantity" validate:"gt=0"`
 	Reason   *string        `json:"reason"`
 }
 

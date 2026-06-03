@@ -60,8 +60,13 @@ func (s *Service) Take(ctx context.Context, userID uuid.UUID, medicineID uuid.UU
 		return nil, nil, err
 	}
 	// Publish event so quest subscribers can react without medicine importing quest.
+	// Include the medicine's source_type so subscribers can route to the correct quest bucket.
 	if s.events != nil {
-		s.events.Publish(ctx, event.Event{Type: event.MedicineTaken, UserID: userID})
+		s.events.Publish(ctx, event.Event{
+			Type:       event.MedicineTaken,
+			UserID:     userID,
+			SourceType: string(med.SourceType),
+		})
 	}
 	return intake, med, nil
 }

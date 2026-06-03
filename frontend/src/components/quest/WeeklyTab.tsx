@@ -54,6 +54,7 @@ const SOURCE_LABELS: Record<SourceType, string> = {
   manual: 'Manual',
   medicine: 'Medicine (auto)',
   workout: 'Workout (auto)',
+  supplement: 'Supplement (auto)',
 }
 
 export default function WeeklyTab({ weekly }: Props) {
@@ -196,6 +197,7 @@ export default function WeeklyTab({ weekly }: Props) {
               >
                 <option value="manual">Manual (adjust yourself)</option>
                 <option value="medicine">Medicine (auto on take)</option>
+                <option value="supplement">Supplement (auto on take)</option>
                 <option value="workout">Workout (auto on finish)</option>
               </select>
             </div>
@@ -231,7 +233,9 @@ export default function WeeklyTab({ weekly }: Props) {
               This quest will auto-increment when you{' '}
               {form.source_type === 'medicine'
                 ? 'take a medicine'
-                : 'finish a workout session'}
+                : form.source_type === 'supplement'
+                  ? 'take a supplement'
+                  : 'finish a workout session'}
               . No manual ±buttons will be shown.
             </p>
           )}

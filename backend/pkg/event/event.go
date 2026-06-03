@@ -17,8 +17,9 @@ const (
 
 // Event carries the event type and the user it belongs to.
 type Event struct {
-	Type   Type
-	UserID uuid.UUID
+	Type       Type
+	UserID     uuid.UUID
+	SourceType string // optional discriminator set by the publisher (e.g. "medication" | "supplement")
 }
 
 // Handler is a function that reacts to an event.

@@ -74,6 +74,9 @@ export function useTakeMedicine() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['medicine', 'list'] })
       queryClient.invalidateQueries({ queryKey: ['medicine', 'intakes'] })
+      // A supplement or medicine take may auto-complete a quest; refresh quest overview so
+      // the UI reflects the updated state without a manual page reload.
+      queryClient.invalidateQueries({ queryKey: keys.questOverview })
     },
   })
 }

@@ -16,9 +16,10 @@ const (
 type SourceType string
 
 const (
-	SourceTypeManual   SourceType = "manual"
-	SourceTypeMedicine SourceType = "medicine"
-	SourceTypeWorkout  SourceType = "workout"
+	SourceTypeManual     SourceType = "manual"
+	SourceTypeMedicine   SourceType = "medicine"
+	SourceTypeWorkout    SourceType = "workout"
+	SourceTypeSupplement SourceType = "supplement"
 )
 
 type Quest struct {
@@ -37,7 +38,7 @@ type Quest struct {
 
 type CreateQuestInput struct {
 	Type        QuestType  `json:"type"         validate:"required,oneof=daily weekly"`
-	SourceType  SourceType `json:"source_type"  validate:"omitempty,oneof=manual medicine workout"`
+	SourceType  SourceType `json:"source_type"  validate:"omitempty,oneof=manual medicine workout supplement"`
 	Title       string     `json:"title"        validate:"required"`
 	Description string     `json:"description"`
 	XPReward    int        `json:"xp_reward"    validate:"min=0"`
@@ -45,7 +46,7 @@ type CreateQuestInput struct {
 }
 
 type UpdateQuestInput struct {
-	SourceType  SourceType `json:"source_type"  validate:"omitempty,oneof=manual medicine workout"`
+	SourceType  SourceType `json:"source_type"  validate:"omitempty,oneof=manual medicine workout supplement"`
 	Title       string     `json:"title"        validate:"required"`
 	Description string     `json:"description"`
 	XPReward    int        `json:"xp_reward"    validate:"min=0"`

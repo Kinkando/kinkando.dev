@@ -26,7 +26,12 @@ function XPBar({
 
 function SourceBadge({ source }: { source: SourceType }) {
   if (source === 'manual') return null
-  const label = source === 'medicine' ? '⚙ Auto · Medicine' : '⚙ Auto · Workout'
+  const label =
+    source === 'medicine'
+      ? '⚙ Auto · Medicine'
+      : source === 'supplement'
+        ? '⚙ Auto · Supplement'
+        : '⚙ Auto · Workout'
   return (
     <span className="rounded bg-gray-800 px-1.5 py-0.5 text-xs text-gray-500">
       {label}

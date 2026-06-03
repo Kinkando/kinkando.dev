@@ -51,6 +51,7 @@ const SOURCE_LABELS: Record<SourceType, string> = {
   manual: 'Manual',
   medicine: 'Medicine (auto)',
   workout: 'Workout (auto)',
+  supplement: 'Supplement (auto)',
 }
 
 export default function DailyTab({ daily }: Props) {
@@ -196,6 +197,7 @@ export default function DailyTab({ daily }: Props) {
               >
                 <option value="manual">Manual (check off yourself)</option>
                 <option value="medicine">Medicine (auto on take)</option>
+                <option value="supplement">Supplement (auto on take)</option>
                 <option value="workout">Workout (auto on finish)</option>
               </select>
             </div>
@@ -218,7 +220,9 @@ export default function DailyTab({ daily }: Props) {
               This quest will auto-complete when you{' '}
               {form.source_type === 'medicine'
                 ? 'take a medicine'
-                : 'finish a workout session'}
+                : form.source_type === 'supplement'
+                  ? 'take a supplement'
+                  : 'finish a workout session'}
               . No manual checkbox will be shown.
             </p>
           )}

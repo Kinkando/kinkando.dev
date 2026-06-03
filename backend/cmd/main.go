@@ -128,7 +128,13 @@ func main() {
 	// Subscribe quest to domain events — main.go is the only place that knows
 	// both producers and subscribers; neither side imports the other.
 	bus.Subscribe(event.MedicineTaken, func(ctx context.Context, e event.Event) {
-		_ = qstSvc.HandleSourceEvent(ctx, e.UserID, "medicine")
+		// Map the medicine's source_type to the corresponding quest source bucket.
+		// supplement intakes advance "supplement" quests; everything else (medication) advances "medicine" quests.
+		questSrc := "medicine"
+		if e.SourceType == "supplement" {
+			questSrc = "supplement"
+		}
+		_ = qstSvc.HandleSourceEvent(ctx, e.UserID, questSrc)
 	})
 	bus.Subscribe(event.WorkoutSessionFinished, func(ctx context.Context, e event.Event) {
 		_ = qstSvc.HandleSourceEvent(ctx, e.UserID, "workout")

@@ -20,9 +20,11 @@ function todayStr() {
   return new Date().toISOString().slice(0, 10)
 }
 
-/** Default bedtime = 22:00 local time today */
+/** Default bedtime = 22:00 local time yesterday */
 function defaultBedtime() {
-  return `${todayStr()}T22:00`
+  const d = new Date()
+  d.setDate(d.getDate() - 1)
+  return `${d.toISOString().slice(0, 10)}T22:00`
 }
 
 /** Default wake time = 06:00 local time today */
@@ -129,7 +131,7 @@ export default function SleepTab({ sleepLogs }: Props) {
     setError('')
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.SubmitEvent) {
     e.preventDefault()
     setError('')
 

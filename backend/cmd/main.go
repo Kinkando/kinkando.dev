@@ -29,13 +29,13 @@ import (
 	healthRepo "github.com/kinkando/personal-dashboard/internal/health/repository"
 	healthSvc "github.com/kinkando/personal-dashboard/internal/health/service"
 	kanbanHandler "github.com/kinkando/personal-dashboard/internal/kanban/handler"
-	medicineHandler "github.com/kinkando/personal-dashboard/internal/medicine/handler"
-	medicineRepo "github.com/kinkando/personal-dashboard/internal/medicine/repository"
-	medicineSvc "github.com/kinkando/personal-dashboard/internal/medicine/service"
 	kanbanRepo "github.com/kinkando/personal-dashboard/internal/kanban/repository"
 	"github.com/kinkando/personal-dashboard/internal/line"
 	lineHandler "github.com/kinkando/personal-dashboard/internal/line/handler"
 	"github.com/kinkando/personal-dashboard/internal/mcpserver"
+	medicineHandler "github.com/kinkando/personal-dashboard/internal/medicine/handler"
+	medicineRepo "github.com/kinkando/personal-dashboard/internal/medicine/repository"
+	medicineSvc "github.com/kinkando/personal-dashboard/internal/medicine/service"
 	portfolioHandler "github.com/kinkando/personal-dashboard/internal/portfolio/handler"
 	questHandler "github.com/kinkando/personal-dashboard/internal/quest/handler"
 	questRepo "github.com/kinkando/personal-dashboard/internal/quest/repository"
@@ -128,13 +128,10 @@ func main() {
 	// Subscribe quest to domain events — main.go is the only place that knows
 	// both producers and subscribers; neither side imports the other.
 	bus.Subscribe(event.MedicineTaken, func(ctx context.Context, e event.Event) {
-		// Map the medicine's source_type to the corresponding quest source bucket.
-		// supplement intakes advance "supplement" quests; everything else (medication) advances "medicine" quests.
-		questSrc := "medicine"
-		if e.SourceType == "supplement" {
-			questSrc = "supplement"
-		}
-		_ = qstSvc.HandleSourceEvent(ctx, e.UserID, questSrc)
+		_ = qstSvc.HandleSourceEvent(ctx, e.UserID, "medicine")
+	})
+	bus.Subscribe(event.SupplementTaken, func(ctx context.Context, e event.Event) {
+		_ = qstSvc.HandleSourceEvent(ctx, e.UserID, "supplement")
 	})
 	bus.Subscribe(event.WorkoutSessionFinished, func(ctx context.Context, e event.Event) {
 		_ = qstSvc.HandleSourceEvent(ctx, e.UserID, "workout")

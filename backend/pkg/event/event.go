@@ -12,14 +12,14 @@ type Type string
 
 const (
 	MedicineTaken          Type = "medicine.taken"
+	SupplementTaken        Type = "supplement.taken"
 	WorkoutSessionFinished Type = "workout.session.finished"
 )
 
 // Event carries the event type and the user it belongs to.
 type Event struct {
-	Type       Type
-	UserID     uuid.UUID
-	SourceType string // optional discriminator set by the publisher (e.g. "medication" | "supplement")
+	Type   Type
+	UserID uuid.UUID
 }
 
 // Handler is a function that reacts to an event.

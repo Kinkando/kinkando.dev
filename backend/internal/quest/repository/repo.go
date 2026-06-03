@@ -84,7 +84,7 @@ func (r *Repository) GetQuest(ctx context.Context, id uuid.UUID, userID uuid.UUI
 
 	var dest model.QuestDefinitions
 	if err := stmt.QueryContext(ctx, r.db, &dest); err != nil {
-		if err == sql.ErrNoRows {
+		if err == qrm.ErrNoRows {
 			return nil, fmt.Errorf("quest not found")
 		}
 		return nil, fmt.Errorf("get quest: %w", err)
@@ -117,7 +117,7 @@ func (r *Repository) UpdateQuest(ctx context.Context, id uuid.UUID, userID uuid.
 
 	var dest model.QuestDefinitions
 	if err := stmt.QueryContext(ctx, r.db, &dest); err != nil {
-		if err == sql.ErrNoRows {
+		if err == qrm.ErrNoRows {
 			return nil, fmt.Errorf("quest not found")
 		}
 		return nil, fmt.Errorf("update quest: %w", err)
@@ -156,7 +156,7 @@ func (r *Repository) SetActive(ctx context.Context, id uuid.UUID, userID uuid.UU
 
 	var dest model.QuestDefinitions
 	if err := stmt.QueryContext(ctx, r.db, &dest); err != nil {
-		if err == sql.ErrNoRows {
+		if err == qrm.ErrNoRows {
 			return nil, fmt.Errorf("quest not found")
 		}
 		return nil, fmt.Errorf("set active: %w", err)
@@ -299,7 +299,7 @@ func (r *Repository) CompleteDaily(ctx context.Context, userID uuid.UUID, questI
 		// Already completed — idempotent success.
 		return tx.Commit()
 	}
-	if err != sql.ErrNoRows {
+	if err != qrm.ErrNoRows {
 		return fmt.Errorf("check completion: %w", err)
 	}
 
@@ -510,7 +510,7 @@ func getQuestTx(ctx context.Context, db qrm.DB, questID, userID uuid.UUID) (*que
 	)
 	var dest model.QuestDefinitions
 	if err := stmt.QueryContext(ctx, db, &dest); err != nil {
-		if err == sql.ErrNoRows {
+		if err == qrm.ErrNoRows {
 			return nil, fmt.Errorf("quest not found")
 		}
 		return nil, fmt.Errorf("get quest: %w", err)

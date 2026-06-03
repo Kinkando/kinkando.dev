@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/go-jet/jet/v2/postgres"
+	"github.com/go-jet/jet/v2/qrm"
 	"github.com/google/uuid"
 	"github.com/kinkando/personal-dashboard/gen/kinkando/public/model"
 	"github.com/kinkando/personal-dashboard/gen/kinkando/public/table"
@@ -85,7 +86,7 @@ func (r *Repository) GetPreset(ctx context.Context, id uuid.UUID, userID uuid.UU
 
 	var dest model.WorkoutPresets
 	if err := stmt.QueryContext(ctx, r.db, &dest); err != nil {
-		if err == sql.ErrNoRows {
+		if err == qrm.ErrNoRows {
 			return nil, fmt.Errorf("preset not found")
 		}
 		return nil, fmt.Errorf("get preset: %w", err)
@@ -172,7 +173,7 @@ func (r *Repository) UpdatePreset(ctx context.Context, id uuid.UUID, userID uuid
 
 	var presetRow model.WorkoutPresets
 	if err = updateStmt.QueryContext(ctx, tx, &presetRow); err != nil {
-		if err == sql.ErrNoRows {
+		if err == qrm.ErrNoRows {
 			err = fmt.Errorf("preset not found")
 			return nil, err
 		}
@@ -369,7 +370,7 @@ func (r *Repository) GetSession(ctx context.Context, id uuid.UUID, userID uuid.U
 
 	var dest model.WorkoutSessions
 	if err := stmt.QueryContext(ctx, r.db, &dest); err != nil {
-		if err == sql.ErrNoRows {
+		if err == qrm.ErrNoRows {
 			return nil, fmt.Errorf("session not found")
 		}
 		return nil, fmt.Errorf("get session: %w", err)
@@ -405,7 +406,7 @@ func (r *Repository) GenerateSession(ctx context.Context, userID uuid.UUID, date
 
 	var schedRow model.WorkoutSchedule
 	if err := schedStmt.QueryContext(ctx, r.db, &schedRow); err != nil {
-		if err == sql.ErrNoRows {
+		if err == qrm.ErrNoRows {
 			return nil, fmt.Errorf("no preset scheduled for this day")
 		}
 		return nil, fmt.Errorf("get schedule: %w", err)
@@ -455,7 +456,7 @@ func (r *Repository) CreateSession(ctx context.Context, userID uuid.UUID, in wor
 
 	var presetRow model.WorkoutPresets
 	if err := presetStmt.QueryContext(ctx, r.db, &presetRow); err != nil {
-		if err == sql.ErrNoRows {
+		if err == qrm.ErrNoRows {
 			return nil, fmt.Errorf("preset not found")
 		}
 		return nil, fmt.Errorf("get preset: %w", err)
@@ -645,7 +646,7 @@ func (r *Repository) UpdateSession(ctx context.Context, id uuid.UUID, userID uui
 
 	var dest model.WorkoutSessions
 	if err := stmt.QueryContext(ctx, r.db, &dest); err != nil {
-		if err == sql.ErrNoRows {
+		if err == qrm.ErrNoRows {
 			return nil, fmt.Errorf("session not found")
 		}
 		return nil, fmt.Errorf("update session: %w", err)
@@ -715,7 +716,7 @@ func (r *Repository) UpdateSessionExercise(ctx context.Context, id uuid.UUID, se
 
 	var dest model.WorkoutSessionExercises
 	if err := stmt.QueryContext(ctx, r.db, &dest); err != nil {
-		if err == sql.ErrNoRows {
+		if err == qrm.ErrNoRows {
 			return nil, fmt.Errorf("session exercise not found")
 		}
 		return nil, fmt.Errorf("update session exercise: %w", err)
@@ -797,7 +798,7 @@ func (r *Repository) BulkUpdateSessionExercises(ctx context.Context, sessionID u
 
 		var dest model.WorkoutSessionExercises
 		if err = stmt.QueryContext(ctx, tx, &dest); err != nil {
-			if err == sql.ErrNoRows {
+			if err == qrm.ErrNoRows {
 				err = fmt.Errorf("session exercise %s not found", item.ID)
 				return nil, err
 			}
@@ -850,7 +851,7 @@ func (r *Repository) FinishSession(ctx context.Context, id uuid.UUID, userID uui
 
 	var dest model.WorkoutSessions
 	if err := stmt.QueryContext(ctx, r.db, &dest); err != nil {
-		if err == sql.ErrNoRows {
+		if err == qrm.ErrNoRows {
 			return nil, fmt.Errorf("session not found")
 		}
 		return nil, fmt.Errorf("finish session: %w", err)
@@ -882,7 +883,7 @@ func (r *Repository) assertSessionMutable(ctx context.Context, sessionID uuid.UU
 		)
 	var dest model.WorkoutSessions
 	if err := stmt.QueryContext(ctx, r.db, &dest); err != nil {
-		if err == sql.ErrNoRows {
+		if err == qrm.ErrNoRows {
 			return fmt.Errorf("session not found")
 		}
 		return fmt.Errorf("check session: %w", err)

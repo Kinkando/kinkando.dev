@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/go-jet/jet/v2/postgres"
+	"github.com/go-jet/jet/v2/qrm"
 	"github.com/google/uuid"
 	"github.com/kinkando/personal-dashboard/gen/kinkando/public/model"
 	"github.com/kinkando/personal-dashboard/gen/kinkando/public/table"
@@ -204,7 +205,7 @@ func (r *Repository) UpdateMedicine(ctx context.Context, id uuid.UUID, userID uu
 
 	var dest model.Medicines
 	if err := stmt.QueryContext(ctx, r.db, &dest); err != nil {
-		if err == sql.ErrNoRows {
+		if err == qrm.ErrNoRows {
 			return nil, fmt.Errorf("medicine not found")
 		}
 		return nil, fmt.Errorf("update medicine: %w", err)
@@ -233,7 +234,7 @@ func (r *Repository) SetArchived(ctx context.Context, id uuid.UUID, userID uuid.
 
 	var dest model.Medicines
 	if err := stmt.QueryContext(ctx, r.db, &dest); err != nil {
-		if err == sql.ErrNoRows {
+		if err == qrm.ErrNoRows {
 			return nil, fmt.Errorf("medicine not found")
 		}
 		return nil, fmt.Errorf("set archived medicine: %w", err)
@@ -260,7 +261,7 @@ func (r *Repository) Take(ctx context.Context, userID uuid.UUID, medicineID uuid
 
 	var med model.Medicines
 	if err := selectStmt.QueryContext(ctx, tx, &med); err != nil {
-		if err == sql.ErrNoRows {
+		if err == qrm.ErrNoRows {
 			return nil, nil, fmt.Errorf("medicine not found")
 		}
 		return nil, nil, fmt.Errorf("fetch medicine for take: %w", err)
@@ -360,7 +361,7 @@ func (r *Repository) AdjustStock(ctx context.Context, userID uuid.UUID, medicine
 
 	var med model.Medicines
 	if err := selectStmt.QueryContext(ctx, tx, &med); err != nil {
-		if err == sql.ErrNoRows {
+		if err == qrm.ErrNoRows {
 			return nil, nil, fmt.Errorf("medicine not found")
 		}
 		return nil, nil, fmt.Errorf("fetch medicine for stock adjustment: %w", err)

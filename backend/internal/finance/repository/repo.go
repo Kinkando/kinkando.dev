@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/go-jet/jet/v2/postgres"
+	"github.com/go-jet/jet/v2/qrm"
 	"github.com/google/uuid"
 	"github.com/kinkando/personal-dashboard/gen/kinkando/public/model"
 	"github.com/kinkando/personal-dashboard/gen/kinkando/public/table"
@@ -73,7 +74,7 @@ func (r *Repository) GetCategory(ctx context.Context, id uuid.UUID, userID uuid.
 
 	var dest model.FinanceCategories
 	if err := stmt.QueryContext(ctx, r.db, &dest); err != nil {
-		if err == sql.ErrNoRows {
+		if err == qrm.ErrNoRows {
 			return nil, fmt.Errorf("category not found")
 		}
 		return nil, fmt.Errorf("get category: %w", err)
@@ -97,7 +98,7 @@ func (r *Repository) UpdateCategory(ctx context.Context, id uuid.UUID, userID uu
 
 	var dest model.FinanceCategories
 	if err := stmt.QueryContext(ctx, r.db, &dest); err != nil {
-		if err == sql.ErrNoRows {
+		if err == qrm.ErrNoRows {
 			return nil, fmt.Errorf("category not found")
 		}
 		return nil, fmt.Errorf("update category: %w", err)

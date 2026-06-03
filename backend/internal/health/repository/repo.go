@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/go-jet/jet/v2/postgres"
+	"github.com/go-jet/jet/v2/qrm"
 	"github.com/google/uuid"
 	"github.com/kinkando/personal-dashboard/gen/kinkando/public/model"
 	"github.com/kinkando/personal-dashboard/gen/kinkando/public/table"
@@ -31,7 +32,7 @@ func (r *Repository) GetProfile(ctx context.Context, userID uuid.UUID) (*health.
 
 	var dest model.HealthProfiles
 	if err := stmt.QueryContext(ctx, r.db, &dest); err != nil {
-		if err == sql.ErrNoRows {
+		if err == qrm.ErrNoRows {
 			return nil, nil // no profile yet — not an error
 		}
 		return nil, fmt.Errorf("get profile: %w", err)
@@ -282,7 +283,7 @@ func (r *Repository) UpdateFoodLog(ctx context.Context, id uuid.UUID, userID uui
 
 	var dest model.HealthFoodLogs
 	if err := stmt.QueryContext(ctx, r.db, &dest); err != nil {
-		if err == sql.ErrNoRows {
+		if err == qrm.ErrNoRows {
 			return nil, fmt.Errorf("food log not found")
 		}
 		return nil, fmt.Errorf("update food log: %w", err)
@@ -423,7 +424,7 @@ func (r *Repository) UpdateSleepLog(ctx context.Context, id uuid.UUID, userID uu
 
 	var dest model.HealthSleepLogs
 	if err := stmt.QueryContext(ctx, r.db, &dest); err != nil {
-		if err == sql.ErrNoRows {
+		if err == qrm.ErrNoRows {
 			return nil, fmt.Errorf("sleep log not found")
 		}
 		return nil, fmt.Errorf("update sleep log: %w", err)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/go-jet/jet/v2/postgres"
@@ -215,6 +216,12 @@ func (r *Repository) GetQuestStatus(ctx context.Context, userID uuid.UUID, quest
 			Completed:    count >= q.TargetCount,
 		}
 	}
+
+	// Sink completed quests to the bottom while preserving created_at ASC within each group.
+	sort.SliceStable(result, func(i, j int) bool {
+		return !result[i].Completed && result[j].Completed
+	})
+
 	return result, nil
 }
 

@@ -228,6 +228,63 @@ func TestResolvePersona(t *testing.T) {
 		{"no mis-route: อยากกินข้าว", nil, "อยากกินข้าว", personaAether},
 		// "อยาก" contains the sequence ยา as a substring; must not trigger Kusuri.
 		{"no mis-route: อยากดูหนัง", nil, "ฉันอยากดูหนัง", personaAether},
+
+		// --- Shiori: name mention (English) ---
+		{"shiori name", nil, "Shiori, how are my quests today?", personaShiori},
+		{"SHIORI uppercase", nil, "SHIORI what's my XP?", personaShiori},
+
+		// --- Shiori: name mention (Thai) ---
+		{"thai shiori name", nil, "ชิโอริ ดูเควสวันนี้หน่อย", personaShiori},
+
+		// --- Shiori: keyword fallback (English) ---
+		{"keyword: quest → Shiori", nil, "how many quests did I finish today?", personaShiori},
+		{"keyword: daily quest → Shiori", nil, "show me my daily quest list", personaShiori},
+		{"keyword: weekly quest → Shiori", nil, "what are my weekly quest goals?", personaShiori},
+		{"keyword: xp → Shiori", nil, "how much xp do I have?", personaShiori},
+		{"keyword: level up → Shiori", nil, "am I close to level up?", personaShiori},
+		{"keyword: leveling → Shiori", nil, "my leveling is too slow", personaShiori},
+		{"keyword: routine → Shiori", nil, "check my daily routine", personaShiori},
+
+		// --- Shiori: keyword fallback (Thai) ---
+		{"thai keyword: เควส → Shiori", nil, "ดูเควสวันนี้หน่อย", personaShiori},
+		{"thai keyword: ภารกิจ → Shiori", nil, "ภารกิจวันนี้ทำอะไรไปบ้าง", personaShiori},
+		{"thai keyword: เลเวล → Shiori", nil, "เลเวลตอนนี้อยู่ที่เท่าไหร่", personaShiori},
+		{"thai keyword: เดลี่เควส → Shiori", nil, "เดลี่เควสวันนี้เสร็จหรือยัง", personaShiori},
+
+		// --- Shiori: sticky via history ---
+		{
+			name: "sticky: Shiori from history",
+			history: []Message{
+				{Role: "user", Text: "Shiori, show my quests"},
+				{Role: "model", Text: "Here are your quests."},
+			},
+			userMsg: "what about xp?",
+			want:    personaShiori,
+		},
+		{
+			name: "sticky: Thai Shiori from history",
+			history: []Message{
+				{Role: "user", Text: "ชิโอริ ดูภารกิจ"},
+				{Role: "model", Text: "นี่คือภารกิจของคุณ"},
+			},
+			userMsg: "ขอบคุณ",
+			want:    personaShiori,
+		},
+
+		// --- Shiori overrides history ---
+		{
+			name: "shiori overrides finance history",
+			history: []Message{
+				{Role: "user", Text: "Mint, show my expenses"},
+			},
+			userMsg: "Shiori, how many quests did I do?",
+			want:    personaShiori,
+		},
+
+		// --- Guard: bare "streak" still routes to Tensei (workout context) ---
+		{"streak still routes to Tensei", nil, "how is my workout streak?", personaTensei},
+		// "task" still routes to Kaito (not Shiori)
+		{"task still routes to Kaito", nil, "I have a new task for today", personaKaito},
 	}
 
 	for _, tc := range cases {

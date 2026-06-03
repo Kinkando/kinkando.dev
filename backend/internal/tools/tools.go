@@ -63,6 +63,11 @@ func All() []ToolDef {
 		MedicineAdjustStock,
 		MedicineListIntakes,
 		MedicineListStockAdjustments,
+		QuestGetDashboard,
+		QuestListDaily,
+		QuestListWeekly,
+		QuestGetXPSummary,
+		QuestListHistory,
 	}
 }
 
@@ -653,4 +658,36 @@ type MedicineListIntakesIn struct {
 type MedicineListStockAdjustmentsIn struct {
 	Date  string `json:"date"  jsonschema:"Filter to a specific date YYYY-MM-DD (optional; omit for recent 50)"`
 	Limit int    `json:"limit" jsonschema:"Max number of results (default: 50)"`
+}
+
+// ---- Quest ------------------------------------------------------------------
+
+var QuestGetDashboard = ToolDef{
+	Name:        "quest_get_dashboard",
+	Description: "Get the full quest dashboard for today: date, week start, XP summary (total XP, level, progress), daily and weekly quest statuses with current progress and completion, and done/total counts.",
+}
+
+var QuestListDaily = ToolDef{
+	Name:        "quest_list_daily",
+	Description: "List today's daily quests with current progress (current_count / target_count) and completion status.",
+}
+
+var QuestListWeekly = ToolDef{
+	Name:        "quest_list_weekly",
+	Description: "List this week's weekly quests with current progress (current_count / target_count) and completion status.",
+}
+
+var QuestGetXPSummary = ToolDef{
+	Name:        "quest_get_xp_summary",
+	Description: "Get the user's current XP summary: total XP earned, current level, XP earned into this level, XP required for the level, and XP remaining to next level.",
+}
+
+var QuestListHistory = ToolDef{
+	Name:        "quest_list_history",
+	Description: "List XP event history (quests completed, XP earned) sorted newest first. Pass limit to cap results; omit or set to 0 for all events.",
+	Input:       QuestListHistoryIn{},
+}
+
+type QuestListHistoryIn struct {
+	Limit int `json:"limit" jsonschema:"Max number of recent XP events to return; omit or 0 for all"`
 }

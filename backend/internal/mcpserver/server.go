@@ -15,6 +15,8 @@ import (
 	kanbanRepo "github.com/kinkando/personal-dashboard/internal/kanban/repository"
 	"github.com/kinkando/personal-dashboard/internal/medicine"
 	medicineSvc "github.com/kinkando/personal-dashboard/internal/medicine/service"
+	"github.com/kinkando/personal-dashboard/internal/quest"
+	questSvc "github.com/kinkando/personal-dashboard/internal/quest/service"
 	"github.com/kinkando/personal-dashboard/internal/tools"
 	"github.com/kinkando/personal-dashboard/internal/workout"
 	workoutSvc "github.com/kinkando/personal-dashboard/internal/workout/service"
@@ -31,6 +33,7 @@ type Deps struct {
 	WkSvc       *workoutSvc.Service
 	HeaSvc      *healthSvc.Service
 	MedSvc      *medicineSvc.Service
+	QstSvc      *questSvc.Service
 	UserUUID    uuid.UUID
 	FirebaseUID string
 	Logger      *zap.Logger
@@ -407,6 +410,108 @@ func toSleepLogDTO(s *health.SleepLog) sleepLogDTO {
 		LoggedAt:        s.LoggedAt.Format(time.DateOnly),
 		CreatedAt:       s.CreatedAt.Format(time.RFC3339),
 	}
+}
+
+// ---- Quest output types -----------------------------------------------------
+
+type questStatusDTO struct {
+	ID           string `json:"id"`
+	Type         string `json:"type"`
+	SourceType   string `json:"source_type"`
+	Title        string `json:"title"`
+	Description  string `json:"description,omitempty"`
+	XPReward     int    `json:"xp_reward"`
+	TargetCount  int    `json:"target_count"`
+	CurrentCount int    `json:"current_count"`
+	Completed    bool   `json:"completed"`
+	IsActive     bool   `json:"is_active"`
+}
+
+type xpSummaryDTO struct {
+	TotalXP     int `json:"total_xp"`
+	Level       int `json:"level"`
+	XPIntoLevel int `json:"xp_into_level"`
+	XPForLevel  int `json:"xp_for_level"`
+	XPToNext    int `json:"xp_to_next"`
+}
+
+type xpEventDTO struct {
+	ID          string  `json:"id"`
+	QuestID     *string `json:"quest_id,omitempty"`
+	QuestTitle  string  `json:"quest_title"`
+	Source      string  `json:"source"`
+	PeriodStart string  `json:"period_start"`
+	XP          int     `json:"xp"`
+	CreatedAt   string  `json:"created_at"`
+}
+
+type questOverviewOut struct {
+	Date        string           `json:"date"`
+	WeekStart   string           `json:"week_start"`
+	XP          xpSummaryDTO     `json:"xp"`
+	Daily       []questStatusDTO `json:"daily"`
+	Weekly      []questStatusDTO `json:"weekly"`
+	DailyDone   int              `json:"daily_done"`
+	DailyTotal  int              `json:"daily_total"`
+	WeeklyDone  int              `json:"weekly_done"`
+	WeeklyTotal int              `json:"weekly_total"`
+}
+
+type questListDailyOut struct {
+	Daily []questStatusDTO `json:"daily"`
+}
+
+type questListWeeklyOut struct {
+	Weekly []questStatusDTO `json:"weekly"`
+}
+
+type questXPSummaryOut struct {
+	XP xpSummaryDTO `json:"xp"`
+}
+
+type questListHistoryOut struct {
+	Events []xpEventDTO `json:"events"`
+}
+
+func toQuestStatusDTO(q *quest.QuestStatus) questStatusDTO {
+	return questStatusDTO{
+		ID:           q.ID.String(),
+		Type:         string(q.Type),
+		SourceType:   string(q.SourceType),
+		Title:        q.Title,
+		Description:  q.Description,
+		XPReward:     q.XPReward,
+		TargetCount:  q.TargetCount,
+		CurrentCount: q.CurrentCount,
+		Completed:    q.Completed,
+		IsActive:     q.IsActive,
+	}
+}
+
+func toXPSummaryDTO(s quest.XPSummary) xpSummaryDTO {
+	return xpSummaryDTO{
+		TotalXP:     s.TotalXP,
+		Level:       s.Level,
+		XPIntoLevel: s.XPIntoLevel,
+		XPForLevel:  s.XPForLevel,
+		XPToNext:    s.XPToNext,
+	}
+}
+
+func toXPEventDTO(e *quest.XPEvent) xpEventDTO {
+	dto := xpEventDTO{
+		ID:          e.ID.String(),
+		QuestTitle:  e.QuestTitle,
+		Source:      e.Source,
+		PeriodStart: e.PeriodStart.Format(time.DateOnly),
+		XP:          e.XP,
+		CreatedAt:   e.CreatedAt.Format(time.RFC3339),
+	}
+	if e.QuestID != nil {
+		s := e.QuestID.String()
+		dto.QuestID = &s
+	}
+	return dto
 }
 
 // ---- Workout output types ---------------------------------------------------
@@ -1659,6 +1764,9 @@ func registerTools(s *mcp.Server, d Deps) {
 	// Medicine
 	registerMedicineTools(s, d)
 
+	// Quest
+	registerQuestTools(s, d)
+
 	// Sleep
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        tools.SleepListLogs.Name,
@@ -2020,4 +2128,92 @@ func nilStr(s string) *string {
 		return nil
 	}
 	return &s
+}
+
+// registerQuestTools appends read-only Quest tool handlers to the server.
+func registerQuestTools(s *mcp.Server, d Deps) {
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        tools.QuestGetDashboard.Name,
+		Description: tools.QuestGetDashboard.Description,
+	}, middleware.MCPRequestLogger(d.Logger, tools.QuestGetDashboard.Name, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, questOverviewOut, error) {
+		ov, err := d.QstSvc.GetOverview(ctx, d.UserUUID)
+		if err != nil {
+			return nil, questOverviewOut{}, fmt.Errorf("get quest dashboard: %w", err)
+		}
+		daily := make([]questStatusDTO, len(ov.Daily))
+		for i, q := range ov.Daily {
+			daily[i] = toQuestStatusDTO(q)
+		}
+		weekly := make([]questStatusDTO, len(ov.Weekly))
+		for i, q := range ov.Weekly {
+			weekly[i] = toQuestStatusDTO(q)
+		}
+		return nil, questOverviewOut{
+			Date:        ov.Date,
+			WeekStart:   ov.WeekStart,
+			XP:          toXPSummaryDTO(ov.XP),
+			Daily:       daily,
+			Weekly:      weekly,
+			DailyDone:   ov.DailyDone,
+			DailyTotal:  ov.DailyTotal,
+			WeeklyDone:  ov.WeeklyDone,
+			WeeklyTotal: ov.WeeklyTotal,
+		}, nil
+	}))
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        tools.QuestListDaily.Name,
+		Description: tools.QuestListDaily.Description,
+	}, middleware.MCPRequestLogger(d.Logger, tools.QuestListDaily.Name, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, questListDailyOut, error) {
+		ov, err := d.QstSvc.GetOverview(ctx, d.UserUUID)
+		if err != nil {
+			return nil, questListDailyOut{}, fmt.Errorf("list daily quests: %w", err)
+		}
+		daily := make([]questStatusDTO, len(ov.Daily))
+		for i, q := range ov.Daily {
+			daily[i] = toQuestStatusDTO(q)
+		}
+		return nil, questListDailyOut{Daily: daily}, nil
+	}))
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        tools.QuestListWeekly.Name,
+		Description: tools.QuestListWeekly.Description,
+	}, middleware.MCPRequestLogger(d.Logger, tools.QuestListWeekly.Name, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, questListWeeklyOut, error) {
+		ov, err := d.QstSvc.GetOverview(ctx, d.UserUUID)
+		if err != nil {
+			return nil, questListWeeklyOut{}, fmt.Errorf("list weekly quests: %w", err)
+		}
+		weekly := make([]questStatusDTO, len(ov.Weekly))
+		for i, q := range ov.Weekly {
+			weekly[i] = toQuestStatusDTO(q)
+		}
+		return nil, questListWeeklyOut{Weekly: weekly}, nil
+	}))
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        tools.QuestGetXPSummary.Name,
+		Description: tools.QuestGetXPSummary.Description,
+	}, middleware.MCPRequestLogger(d.Logger, tools.QuestGetXPSummary.Name, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, questXPSummaryOut, error) {
+		ov, err := d.QstSvc.GetOverview(ctx, d.UserUUID)
+		if err != nil {
+			return nil, questXPSummaryOut{}, fmt.Errorf("get xp summary: %w", err)
+		}
+		return nil, questXPSummaryOut{XP: toXPSummaryDTO(ov.XP)}, nil
+	}))
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        tools.QuestListHistory.Name,
+		Description: tools.QuestListHistory.Description,
+	}, middleware.MCPRequestLogger(d.Logger, tools.QuestListHistory.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.QuestListHistoryIn) (*mcp.CallToolResult, questListHistoryOut, error) {
+		events, err := d.QstSvc.ListXPEvents(ctx, d.UserUUID, in.Limit)
+		if err != nil {
+			return nil, questListHistoryOut{}, fmt.Errorf("list xp history: %w", err)
+		}
+		dtos := make([]xpEventDTO, len(events))
+		for i, e := range events {
+			dtos[i] = toXPEventDTO(e)
+		}
+		return nil, questListHistoryOut{Events: dtos}, nil
+	}))
 }

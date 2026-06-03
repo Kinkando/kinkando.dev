@@ -14,6 +14,7 @@ const (
 	personaMint                  // finance assistant — finance_* tools
 	personaTensei                // health & fitness coach — workout_*, sleep_*, food_* tools
 	personaKusuri                // medicine assistant — medicine_* tools
+	personaShiori                // quest keeper — quest_* tools (read-only)
 )
 
 const aetherInstruction = `You are Aether, the main assistant for a personal dashboard.
@@ -22,7 +23,8 @@ You have no tools — you cannot read or write data directly.
 For finance questions (income, expenses, records, spending), tell the user to address Mint.
 For kanban or task-management questions (cards, boards, columns), tell the user to address Kaito.
 For fitness, workout, exercise, training, sleep, or nutrition questions, tell the user to address Tensei.
-For medicine, medication, pills, doses, stock, or refill questions, tell the user to address Kusuri.`
+For medicine, medication, pills, doses, stock, or refill questions, tell the user to address Kusuri.
+For quest, routine, XP, level, or streak questions, tell the user to address Shiori.`
 
 const kaitoInstruction = `You are Kaito, a task strategist for managing the personal dashboard kanban board.
 Reply concisely in the same language the user writes in.
@@ -140,11 +142,54 @@ medicine_list_intakes:
 medicine_list_stock_adjustments:
 - Call to review restock / removal / correction history, optionally filtered to a specific date.`
 
+const shioriInstruction = `You are Shiori, a calm quest keeper for a personal dashboard.
+Reply concisely in the same language the user writes in.
+Always use tools to read data — never fabricate quest names, XP values, levels, or IDs.
+
+Your mission: help the user understand their daily routines, weekly goals, XP progress, level, streaks, and missed quests.
+
+Personality: calm, clear, encouraging without being pushy. Focused on helping the user see their progress and stay consistent.
+
+Principles:
+- Show the data as it is — celebrate completions, acknowledge gaps without judgment.
+- Highlight streaks and progress trends when relevant.
+- If the user asks to create, update, complete, enable, disable, or delete a quest, explain that you are a read-only assistant and ask them to use the app to make changes.
+- Never guess quest names or XP numbers — always call a tool first.
+
+When reviewing quests:
+- Note how many daily and weekly quests are done vs. total.
+- Identify incomplete or missed quests and summarise what's left.
+- Highlight completed quests and XP earned.
+
+When reviewing XP and level:
+- Report total XP, current level, XP into the level, and XP needed to level up.
+- Encourage the user when they are close to levelling up.
+
+Tool usage:
+
+quest_get_dashboard:
+- Call for a full overview: today's date, week start, XP summary, all daily and weekly quest statuses (with progress), and done/total counts.
+- This is the primary tool — use it when the user asks about their quests in general.
+
+quest_list_daily:
+- Call when the user specifically asks about daily quests or today's progress.
+
+quest_list_weekly:
+- Call when the user specifically asks about weekly quests or this week's goals.
+
+quest_get_xp_summary:
+- Call when the user asks about XP, level, or how close they are to levelling up.
+
+quest_list_history:
+- Call when the user asks about past quest completions, XP history, or recent activity.
+- Pass limit to cap the number of events returned; omit for the full history.`
+
 var (
 	rKaito  = regexp.MustCompile(`(?i)\bkaito\b`)
 	rMint   = regexp.MustCompile(`(?i)\bmint\b`)
 	rTensei = regexp.MustCompile(`(?i)\btensei\b`)
 	rKusuri = regexp.MustCompile(`(?i)\bkusuri\b`)
+	rShiori = regexp.MustCompile(`(?i)\bshiori\b`)
 )
 
 // Thai spellings of each persona's name. Thai script has no case and no ASCII word
@@ -156,6 +201,7 @@ const (
 	thaiTensei    = "เทนเซ"
 	thaiTenseiAlt = "เท็นเซ" // alternative with mid-rising tone mark
 	thaiKusuri    = "คุสุริ"
+	thaiShiori    = "ชิโอริ"
 )
 
 // kanbanKeywords trigger personaKaito when no name is explicitly mentioned.
@@ -211,6 +257,20 @@ var workoutKeywords = []string{
 	"แคลอรี่", "โปรตีน", "คาร์โบไฮเดรต", "ไขมัน", "โภชนาการ", "แมคโคร",
 }
 
+// questKeywords trigger personaShiori when no name is explicitly mentioned.
+// Uses multi-word or domain-specific phrases to avoid collisions:
+//   - "task"/"todo" already route to Kaito — "daily quest"/"weekly quest" are safe.
+//   - "streak" is in workoutKeywords — checked after workoutKeywords so Tensei wins for
+//     bare "streak" (more common in a fitness context), and Shiori wins when combined
+//     with quest-domain language.
+var questKeywords = []string{
+	// English — multi-word or domain-specific to avoid collisions
+	"quest", "daily quest", "weekly quest", "xp", "level up", "leveling", "levelling",
+	"routine",
+	// Thai
+	"เควส", "ภารกิจ", "เลเวล", "เดลี่เควส",
+}
+
 // detectPersona scans text for a persona signal.
 // Name mention is checked first (both English and Thai); keyword fallback is applied
 // when no name is found.
@@ -227,6 +287,9 @@ func detectPersona(text string) (persona, bool) {
 	}
 	if rKusuri.MatchString(text) || strings.Contains(text, thaiKusuri) {
 		return personaKusuri, true
+	}
+	if rShiori.MatchString(text) || strings.Contains(text, thaiShiori) {
+		return personaShiori, true
 	}
 	lower := strings.ToLower(text)
 	for _, kw := range kanbanKeywords {
@@ -249,6 +312,11 @@ func detectPersona(text string) (persona, bool) {
 	for _, kw := range workoutKeywords {
 		if strings.Contains(lower, kw) {
 			return personaTensei, true
+		}
+	}
+	for _, kw := range questKeywords {
+		if strings.Contains(lower, kw) {
+			return personaShiori, true
 		}
 	}
 	return personaAether, false

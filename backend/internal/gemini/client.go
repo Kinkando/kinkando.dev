@@ -80,6 +80,10 @@ func New(ctx context.Context, d Deps) (*Client, error) {
 			Tools:             []*genai.Tool{{FunctionDeclarations: toolDecls("medicine_")}},
 			SystemInstruction: genai.NewContentFromText(kusuriInstruction, genai.RoleUser),
 		},
+		personaShiori: {
+			Tools:             []*genai.Tool{{FunctionDeclarations: toolDecls("quest_")}},
+			SystemInstruction: genai.NewContentFromText(shioriInstruction, genai.RoleUser),
+		},
 	}
 	return &Client{
 		gc:         gc,

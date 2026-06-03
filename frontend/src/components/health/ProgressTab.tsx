@@ -35,7 +35,9 @@ function formatDate(iso: string) {
 }
 
 export default function ProgressTab({ weightLogs, profile }: Props) {
-  const [weight, setWeight] = useState('')
+  const [weight, setWeight] = useState(
+    weightLogs ? weightLogs[weightLogs.length - 1].weight.toString() : '',
+  )
   const [loggedAt, setLoggedAt] = useState(todayStr())
   const [error, setError] = useState('')
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
@@ -109,7 +111,7 @@ export default function ProgressTab({ weightLogs, profile }: Props) {
             <input
               className={inputClass}
               type="number"
-              step="0.5"
+              step="0.1"
               min="1"
               placeholder="e.g. 72.5"
               value={weight}

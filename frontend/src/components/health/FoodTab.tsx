@@ -189,7 +189,7 @@ export default function FoodTab({ foodLogs }: Props) {
                 className={inputClass}
                 type="number"
                 min="0"
-                step="1"
+                step="0.01"
                 placeholder="Optional"
                 value={form.protein_g}
                 onChange={(e) =>
@@ -203,7 +203,7 @@ export default function FoodTab({ foodLogs }: Props) {
                 className={inputClass}
                 type="number"
                 min="0"
-                step="1"
+                step="0.01"
                 placeholder="Optional"
                 value={form.carbs_g}
                 onChange={(e) => setForm({ ...form, carbs_g: e.target.value })}
@@ -215,7 +215,7 @@ export default function FoodTab({ foodLogs }: Props) {
                 className={inputClass}
                 type="number"
                 min="0"
-                step="1"
+                step="0.01"
                 placeholder="Optional"
                 value={form.fat_g}
                 onChange={(e) => setForm({ ...form, fat_g: e.target.value })}

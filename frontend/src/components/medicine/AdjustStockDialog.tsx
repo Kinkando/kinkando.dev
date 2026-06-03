@@ -120,8 +120,8 @@ export default function AdjustStockDialog({ medicine, onClose }: Props) {
             <input
               className={inputClass}
               type="number"
-              min="0.01"
-              step="1"
+              min="0.5"
+              step="0.5"
               placeholder="e.g. 30"
               value={quantity}
               onChange={(e) => setQuantity(e.target.value)}

@@ -247,13 +247,13 @@ function ExerciseLogRow({
         )}
         <div>
           <label className="mb-1 block text-xs text-gray-500">
-            Weight (kg)
+            Equipment Weight (kg)
           </label>
           <input
             className={inputClass}
             type="number"
             min="0"
-            step="0.5"
+            step="0.1"
             placeholder="—"
             value={state.weight_kg}
             disabled={isLocked}

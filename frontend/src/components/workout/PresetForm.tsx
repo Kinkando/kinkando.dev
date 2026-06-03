@@ -357,12 +357,12 @@ export default function PresetForm({
                 />
               </div>
               <div>
-                <label className={labelClass}>Weight (kg)</label>
+                <label className={labelClass}>Equipment Weight (kg)</label>
                 <input
                   className={smallInputClass}
                   type="number"
                   min="0"
-                  step="0.5"
+                  step="0.1"
                   placeholder="Optional"
                   value={ex.weight_kg}
                   onChange={(e) =>

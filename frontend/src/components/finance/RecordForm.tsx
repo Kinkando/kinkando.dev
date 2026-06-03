@@ -84,7 +84,7 @@ export default function RecordForm({ month }: { month: string }) {
         placeholder="Amount"
         value={amount}
         min="0.01"
-        step="1"
+        step="0.01"
         required
         onChange={(e) => setAmount(e.target.value)}
         className={inputClass}

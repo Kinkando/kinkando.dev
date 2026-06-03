@@ -289,9 +289,11 @@ export default function DailyTab({ daily }: Props) {
                         <button
                           onClick={() => decrementQuest.mutate(q.id)}
                           disabled={
-                            decrementQuest.isPending || q.current_count === 0
+                            decrementQuest.isPending ||
+                            q.current_count === 0 ||
+                            !q.is_active
                           }
-                          className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md bg-gray-800 text-sm font-bold text-gray-300 hover:bg-gray-700 disabled:opacity-40"
+                          className={`flex h-7 w-7 ${!q.is_active || q.current_count === 0 ? 'cursor-not-allowed' : 'cursor-pointer'} items-center justify-center rounded-md bg-gray-800 text-sm font-bold text-gray-300 hover:bg-gray-700 disabled:opacity-40`}
                           aria-label="Decrement"
                         >
                           −
@@ -301,8 +303,8 @@ export default function DailyTab({ daily }: Props) {
                         </span>
                         <button
                           onClick={() => incrementQuest.mutate(q.id)}
-                          disabled={incrementQuest.isPending}
-                          className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md bg-gray-800 text-sm font-bold text-gray-300 hover:bg-gray-700 disabled:opacity-40"
+                          disabled={incrementQuest.isPending || !q.is_active}
+                          className={`flex h-7 w-7 ${!q.is_active ? 'cursor-not-allowed' : 'cursor-pointer'} items-center justify-center rounded-md bg-gray-800 text-sm font-bold text-gray-300 hover:bg-gray-700 disabled:opacity-40`}
                           aria-label="Increment"
                         >
                           +

@@ -26,6 +26,14 @@ type DialogState =
   | { mode: 'edit'; quest: DailyQuestStatus }
   | null
 
+function SectionHeader({ label, count }: { label: string; count: number }) {
+  return (
+    <div className="border-t border-gray-800 px-5 pt-4 pb-2 text-xs font-semibold tracking-wider text-gray-500 uppercase">
+      {label} · {count}
+    </div>
+  )
+}
+
 export default function QuestTab({ type, quests }: Props) {
   const cfg = QUEST_TYPE_CONFIG[type]
   const navigate = useNavigate()
@@ -56,6 +64,136 @@ export default function QuestTab({ type, quests }: Props) {
     }
   }
 
+  function renderRow(q: DailyQuestStatus, isFirst: boolean, isLast: boolean) {
+    const isAutoQ = q.source_type !== 'manual'
+    const route = questSourceRoute(q.source_type)
+
+    const titleColor = !q.is_active
+      ? 'text-gray-500'
+      : q.completed
+        ? 'text-gray-400'
+        : 'text-gray-100'
+
+    return (
+      <li
+        key={q.id}
+        className={`px-5 py-4 ${isFirst ? 'rounded-t-xl' : ''} ${isLast ? 'rounded-b-xl' : ''} ${
+          !q.is_active ? 'bg-gray-950 opacity-70' : 'bg-gray-900'
+        }`}
+      >
+        <div className="flex items-center gap-3">
+          {/* Count controls — only for manual quests */}
+          {isAutoQ ? (
+            <div className="flex items-center gap-1">
+              <div className="w-7"></div>
+              <span className="min-w-[2.5rem] text-center text-sm font-semibold text-gray-100">
+                {q.current_count}/{q.target_count}
+              </span>
+              <div className="w-7"></div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => decrementQuest.mutate(q.id)}
+                disabled={
+                  decrementQuest.isPending ||
+                  q.current_count === 0 ||
+                  !q.is_active
+                }
+                className={`flex h-7 w-7 ${!q.is_active || q.current_count === 0 ? 'cursor-not-allowed' : 'cursor-pointer'} items-center justify-center rounded-md bg-gray-800 text-sm font-bold text-gray-300 hover:bg-gray-700 disabled:opacity-40`}
+                aria-label="Decrement"
+              >
+                −
+              </button>
+              <span className="min-w-[2.5rem] text-center text-sm font-semibold text-gray-100">
+                {q.current_count}/{q.target_count}
+              </span>
+              <button
+                onClick={() => incrementQuest.mutate(q.id)}
+                disabled={incrementQuest.isPending || !q.is_active}
+                className={`flex h-7 w-7 ${!q.is_active ? 'cursor-not-allowed' : 'cursor-pointer'} items-center justify-center rounded-md bg-gray-800 text-sm font-bold text-gray-300 hover:bg-gray-700 disabled:opacity-40`}
+                aria-label="Increment"
+              >
+                +
+              </button>
+            </div>
+          )}
+
+          <div
+            className={`min-w-0 flex-1 ${route ? 'cursor-pointer' : ''}`}
+            onClick={route ? () => navigate(route) : undefined}
+          >
+            <div className="flex flex-wrap items-center gap-1.5">
+              {q.completed && (
+                <span className="shrink-0 text-sm text-gray-400">✓</span>
+              )}
+              <p
+                className={`text-sm font-medium ${titleColor} ${route ? 'transition-colors hover:text-indigo-400' : ''}`}
+              >
+                {q.title}
+              </p>
+              {isAutoQ && (
+                <span className="rounded bg-gray-800 px-1.5 py-0.5 text-xs text-gray-500">
+                  ⚙ {SOURCE_LABELS[q.source_type]}
+                </span>
+              )}
+              {q.completed && (
+                <span
+                  className={`rounded px-1.5 py-0.5 text-xs font-medium ${cfg.accentBadge}`}
+                >
+                  Complete
+                </span>
+              )}
+              {!q.is_active && (
+                <span className="rounded bg-gray-800 px-1.5 py-0.5 text-xs text-gray-500">
+                  inactive
+                </span>
+              )}
+            </div>
+            {q.description && (
+              <p className="mt-0.5 text-xs text-gray-600">{q.description}</p>
+            )}
+            {/* Progress bar */}
+            <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-gray-800">
+              <div
+                className={`h-full rounded-full transition-all ${cfg.accentBar} ${q.completed || !q.is_active ? 'opacity-40' : ''}`}
+                style={{
+                  width: `${Math.min((q.current_count / q.target_count) * 100, 100)}%`,
+                }}
+              />
+            </div>
+          </div>
+
+          {q.xp_reward > 0 && (
+            <span
+              className={`shrink-0 text-xs font-semibold ${
+                q.completed || !q.is_active
+                  ? 'text-amber-600/40'
+                  : 'text-amber-500'
+              }`}
+            >
+              +{q.xp_reward} XP
+            </span>
+          )}
+
+          <QuestRowMenu
+            isActive={q.is_active}
+            onEdit={() => setDialog({ mode: 'edit', quest: q })}
+            onToggleActive={() => handleToggleActive(q)}
+            onDelete={() => setDeleteConfirm(q.id)}
+          />
+        </div>
+      </li>
+    )
+  }
+
+  const activeQuests = quests.filter((q) => q.is_active && !q.completed)
+  const completedQuests = quests.filter((q) => q.is_active && q.completed)
+  const inactiveQuests = quests.filter((q) => !q.is_active)
+
+  // Determine which is the very first / last visible row across all sections
+  const allOrdered = [...activeQuests, ...completedQuests, ...inactiveQuests]
+
   return (
     <div className="space-y-6">
       {/* Add Quest button */}
@@ -75,124 +213,51 @@ export default function QuestTab({ type, quests }: Props) {
             {cfg.emptyText}
           </p>
         ) : (
-          <ul className="divide-y divide-gray-800">
-            {quests.map((q) => {
-              const isAutoQ = q.source_type !== 'manual'
-              const route = questSourceRoute(q.source_type)
-              return (
-                <li
-                  key={q.id}
-                  className={`px-5 py-4 first:rounded-t-xl last:rounded-b-xl ${
-                    q.completed
-                      ? 'bg-green-900'
-                      : q.is_active
-                        ? 'bg-gray-900'
-                        : 'bg-gray-950'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    {/* Count controls — only for manual quests */}
-                    {isAutoQ ? (
-                      <div className="flex items-center gap-1">
-                        <div className="w-7"></div>
-                        <span className="min-w-[2.5rem] text-center text-sm font-semibold text-gray-100">
-                          {q.current_count}/{q.target_count}
-                        </span>
-                        <div className="w-7"></div>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => decrementQuest.mutate(q.id)}
-                          disabled={
-                            decrementQuest.isPending ||
-                            q.current_count === 0 ||
-                            !q.is_active
-                          }
-                          className={`flex h-7 w-7 ${!q.is_active || q.current_count === 0 ? 'cursor-not-allowed' : 'cursor-pointer'} items-center justify-center rounded-md bg-gray-800 text-sm font-bold text-gray-300 hover:bg-gray-700 disabled:opacity-40`}
-                          aria-label="Decrement"
-                        >
-                          −
-                        </button>
-                        <span className="min-w-[2.5rem] text-center text-sm font-semibold text-gray-100">
-                          {q.current_count}/{q.target_count}
-                        </span>
-                        <button
-                          onClick={() => incrementQuest.mutate(q.id)}
-                          disabled={incrementQuest.isPending || !q.is_active}
-                          className={`flex h-7 w-7 ${!q.is_active ? 'cursor-not-allowed' : 'cursor-pointer'} items-center justify-center rounded-md bg-gray-800 text-sm font-bold text-gray-300 hover:bg-gray-700 disabled:opacity-40`}
-                          aria-label="Increment"
-                        >
-                          +
-                        </button>
-                      </div>
-                    )}
+          <>
+            {/* Active / In Progress */}
+            {activeQuests.length > 0 && (
+              <ul className="divide-y divide-gray-800">
+                {activeQuests.map((q) =>
+                  renderRow(
+                    q,
+                    q === allOrdered[0],
+                    q === allOrdered[allOrdered.length - 1],
+                  ),
+                )}
+              </ul>
+            )}
 
-                    <div
-                      className={`min-w-0 flex-1 ${route ? 'cursor-pointer' : ''}`}
-                      onClick={route ? () => navigate(route) : undefined}
-                    >
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <p
-                          className={`text-sm font-medium text-gray-100 ${route ? 'transition-colors hover:text-indigo-400' : ''}`}
-                        >
-                          {q.title}
-                        </p>
-                        {isAutoQ && (
-                          <span className="rounded bg-gray-800 px-1.5 py-0.5 text-xs text-gray-500">
-                            ⚙ {SOURCE_LABELS[q.source_type]}
-                          </span>
-                        )}
-                        {q.completed && (
-                          <span
-                            className={`rounded px-1.5 py-0.5 text-xs font-medium ${cfg.accentBadge}`}
-                          >
-                            Complete
-                          </span>
-                        )}
-                        {!q.is_active && (
-                          <span className="rounded bg-gray-800 px-1.5 py-0.5 text-xs text-gray-500">
-                            inactive
-                          </span>
-                        )}
-                      </div>
-                      {q.description && (
-                        <p className="mt-0.5 text-xs text-gray-600">
-                          {q.description}
-                        </p>
-                      )}
-                      {/* Progress bar */}
-                      <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-gray-800">
-                        <div
-                          className={`h-full rounded-full transition-all ${cfg.accentBar}`}
-                          style={{
-                            width: `${Math.min((q.current_count / q.target_count) * 100, 100)}%`,
-                          }}
-                        />
-                      </div>
-                    </div>
+            {/* Completed */}
+            {completedQuests.length > 0 && (
+              <>
+                <SectionHeader
+                  label="Completed"
+                  count={completedQuests.length}
+                />
+                <ul className="divide-y divide-gray-800">
+                  {completedQuests.map((q) =>
+                    renderRow(
+                      q,
+                      false,
+                      q === allOrdered[allOrdered.length - 1],
+                    ),
+                  )}
+                </ul>
+              </>
+            )}
 
-                    {q.xp_reward > 0 && (
-                      <span
-                        className={`shrink-0 text-xs font-semibold ${
-                          q.completed ? 'text-amber-600/60' : 'text-amber-500'
-                        }`}
-                      >
-                        +{q.xp_reward} XP
-                      </span>
-                    )}
-
-                    <QuestRowMenu
-                      isActive={q.is_active}
-                      onEdit={() => setDialog({ mode: 'edit', quest: q })}
-                      onToggleActive={() => handleToggleActive(q)}
-                      onDelete={() => setDeleteConfirm(q.id)}
-                    />
-                  </div>
-                </li>
-              )
-            })}
-          </ul>
+            {/* Inactive */}
+            {inactiveQuests.length > 0 && (
+              <>
+                <SectionHeader label="Inactive" count={inactiveQuests.length} />
+                <ul className="divide-y divide-gray-800">
+                  {inactiveQuests.map((q, i) =>
+                    renderRow(q, false, i === inactiveQuests.length - 1),
+                  )}
+                </ul>
+              </>
+            )}
+          </>
         )}
       </div>
 

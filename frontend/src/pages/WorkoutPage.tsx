@@ -33,9 +33,8 @@ export default function WorkoutPage() {
   // History: last 60 days (default — no params)
   const historyQuery = useSessions()
 
-  function refreshSessions() {
-    todaySessionsQuery.refetch()
-    historyQuery.refetch()
+  async function refreshSessions() {
+    await Promise.all([todaySessionsQuery.refetch(), historyQuery.refetch()])
   }
 
   return (

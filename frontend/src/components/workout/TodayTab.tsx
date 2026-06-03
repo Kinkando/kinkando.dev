@@ -944,7 +944,7 @@ function SessionView({
 type Props = {
   todaySessions: WorkoutSession[] | undefined
   schedule: WorkoutScheduleEntry[] | undefined
-  onSessionChange: () => void
+  onSessionChange: () => Promise<void>
 }
 
 export default function TodayTab({
@@ -958,6 +958,7 @@ export default function TodayTab({
   const [expandedByDefault, setExpandedByDefault] = useState<
     Record<string, boolean>
   >({})
+  const [isDone, setIsDone] = useState(true)
 
   useEffect(() => {
     if (todaySessions && todaySessions.length > 0 && !initializedRef.current) {
@@ -978,22 +979,34 @@ export default function TodayTab({
   const todaySchedule = (schedule ?? []).find(
     (e) => e.day_of_week === dayOfWeek,
   )
-  const generating = generateSession.isPending || createSession.isPending
+  const generating =
+    generateSession.isPending || createSession.isPending || !isDone
+
+  function setStateDone(func: () => Promise<void>) {
+    return async () => {
+      setIsDone(false)
+      try {
+        await func()
+      } finally {
+        setIsDone(true)
+      }
+    }
+  }
 
   async function handleGenerate() {
     await generateSession.mutateAsync(todayStr())
-    onSessionChange()
+    await onSessionChange()
   }
 
   async function handleQuickStart(type: string, label: string) {
     await createSession.mutateAsync({ type, name: label, date: todayStr() })
-    onSessionChange()
+    await onSessionChange()
   }
 
   async function handleDeleteSession(id: string) {
     await deleteSession.mutateAsync(id)
     setDeleteConfirm(null)
-    onSessionChange()
+    await onSessionChange()
   }
 
   if (todaySessions && todaySessions.length > 0) {
@@ -1028,7 +1041,9 @@ export default function TodayTab({
               </p>
               <div className="flex justify-end gap-2">
                 <button
-                  onClick={() => handleDeleteSession(deleteConfirm)}
+                  onClick={setStateDone(() =>
+                    handleDeleteSession(deleteConfirm),
+                  )}
                   disabled={deleteSession.isPending}
                   className="cursor-pointer rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-500 disabled:opacity-50"
                 >
@@ -1063,11 +1078,11 @@ export default function TodayTab({
             {WORKOUT_TYPE_LABELS[todaySchedule.preset_type]}
           </p>
           <button
-            onClick={handleGenerate}
+            onClick={setStateDone(handleGenerate)}
             disabled={generating}
             className="mt-4 cursor-pointer rounded-lg bg-indigo-600 px-5 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
           >
-            {generating ? 'Starting…' : "Start today's workout →"}
+            {generating ? 'Waiting…' : "Start today's workout →"}
           </button>
           {generateSession.isError && (
             <p className="mt-2 text-xs text-red-400">
@@ -1093,7 +1108,7 @@ export default function TodayTab({
           {QUICK_START_TYPES.map(({ type, label }) => (
             <button
               key={type}
-              onClick={() => handleQuickStart(type, label)}
+              onClick={setStateDone(() => handleQuickStart(type, label))}
               disabled={generating}
               className="cursor-pointer rounded-lg border border-gray-700 bg-gray-800 px-3 py-2.5 text-left text-sm font-medium text-gray-200 hover:border-gray-600 hover:bg-gray-700 disabled:opacity-50"
             >

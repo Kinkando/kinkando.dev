@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/kinkando/personal-dashboard/internal/quest"
+	"github.com/kinkando/personal-dashboard/pkg/helper"
 )
 
 type Repository interface {
@@ -64,7 +65,7 @@ func (s *Service) SetActive(ctx context.Context, id uuid.UUID, userID uuid.UUID,
 // ── Overview ──────────────────────────────────────────────────────────────────
 
 func (s *Service) GetOverview(ctx context.Context, userID uuid.UUID) (*quest.Overview, error) {
-	today := s.today()
+	today := helper.Today()
 	weekStart := s.weekStart()
 
 	daily, err := s.repo.GetQuestStatus(ctx, userID, quest.QuestTypeDaily, today)
@@ -146,13 +147,13 @@ func (s *Service) DecrementQuest(ctx context.Context, userID uuid.UUID, questID 
 // HandleSourceEvent advances all active quests linked to the given sourceType
 // for the user. Called by the event bus — never by the user directly.
 func (s *Service) HandleSourceEvent(ctx context.Context, userID uuid.UUID, sourceType string) error {
-	return s.repo.ProgressBySource(ctx, userID, sourceType, s.today(), s.weekStart())
+	return s.repo.ProgressBySource(ctx, userID, sourceType, helper.Today(), s.weekStart())
 }
 
 // periodFor returns the period start time and XP source label for the given quest type.
 func (s *Service) periodFor(qType quest.QuestType) (time.Time, string) {
 	if qType == quest.QuestTypeDaily {
-		return s.today(), "daily"
+		return helper.Today(), "daily"
 	}
 	return s.weekStart(), "weekly"
 }
@@ -163,18 +164,9 @@ func (s *Service) ListXPEvents(ctx context.Context, userID uuid.UUID, limit int)
 	return s.repo.ListXPEvents(ctx, userID, limit)
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-// today returns midnight UTC for the current date in Asia/Bangkok timezone.
-func (s *Service) today() time.Time {
-	loc, _ := time.LoadLocation("Asia/Bangkok")
-	now := time.Now().In(loc)
-	return time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
-}
-
 // weekStart returns midnight UTC for the Monday that starts the current week in Asia/Bangkok.
 func (s *Service) weekStart() time.Time {
-	today := s.today()
+	today := helper.Today()
 	weekday := today.Weekday()
 	daysFromMonday := int(weekday-time.Monday+7) % 7
 	return today.AddDate(0, 0, -daysFromMonday)

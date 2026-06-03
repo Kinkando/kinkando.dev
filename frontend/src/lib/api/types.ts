@@ -580,7 +580,12 @@ export type AdjustStockResponse = {
 
 export type QuestType = 'daily' | 'weekly'
 
-export type SourceType = 'manual' | 'medicine' | 'workout' | 'supplement'
+export type SourceType =
+  | 'manual'
+  | 'medicine'
+  | 'workout'
+  | 'supplement'
+  | 'weight'
 
 export type Quest = {
   id: string

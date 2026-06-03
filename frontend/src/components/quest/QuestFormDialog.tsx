@@ -98,7 +98,9 @@ export default function QuestFormDialog({ type, initial, onClose }: Props) {
       ? 'take a medicine'
       : form.source_type === 'supplement'
         ? 'take a supplement'
-        : 'finish a workout session'
+        : form.source_type === 'weight'
+          ? 'log your weight'
+          : 'finish a workout session'
 
   return createPortal(
     <div
@@ -151,6 +153,7 @@ export default function QuestFormDialog({ type, initial, onClose }: Props) {
                 <option value="medicine">Medicine (auto on take)</option>
                 <option value="supplement">Supplement (auto on take)</option>
                 <option value="workout">Workout (auto on finish)</option>
+                <option value="weight">Weight (auto on log)</option>
               </select>
             </div>
             <div>

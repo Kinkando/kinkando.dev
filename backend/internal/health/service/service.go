@@ -2,10 +2,18 @@ package service
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/kinkando/personal-dashboard/internal/health"
+	"github.com/kinkando/personal-dashboard/pkg/event"
 )
+
+// EventPublisher is the narrow interface health depends on.
+// *event.Bus satisfies it; health never imports the quest package.
+type EventPublisher interface {
+	Publish(ctx context.Context, e event.Event)
+}
 
 type Repository interface {
 	GetProfile(ctx context.Context, userID uuid.UUID) (*health.Profile, error)
@@ -27,11 +35,12 @@ type Repository interface {
 }
 
 type Service struct {
-	repo Repository
+	repo   Repository
+	events EventPublisher // nil-safe; set via New
 }
 
-func New(repo Repository) *Service {
-	return &Service{repo: repo}
+func New(repo Repository, events EventPublisher) *Service {
+	return &Service{repo: repo, events: events}
 }
 
 func (s *Service) GetProfile(ctx context.Context, userID uuid.UUID) (*health.Profile, error) {
@@ -47,7 +56,16 @@ func (s *Service) ListWeightLogs(ctx context.Context, userID uuid.UUID) ([]*heal
 }
 
 func (s *Service) CreateWeightLog(ctx context.Context, userID uuid.UUID, in health.CreateWeightInput) (*health.WeightLog, error) {
-	return s.repo.CreateWeightLog(ctx, userID, in)
+	log, err := s.repo.CreateWeightLog(ctx, userID, in)
+	if err != nil {
+		return nil, err
+	}
+	// Publish only when the logged date is the local current day (Asia/Bangkok).
+	// Logging a past or future date must not complete today's quest.
+	if s.events != nil && log.LoggedAt.Equal(today()) {
+		s.events.Publish(ctx, event.Event{Type: event.WeightLogged, UserID: userID})
+	}
+	return log, nil
 }
 
 func (s *Service) DeleteWeightLog(ctx context.Context, id uuid.UUID, userID uuid.UUID) error {
@@ -84,4 +102,13 @@ func (s *Service) UpdateSleepLog(ctx context.Context, id uuid.UUID, userID uuid.
 
 func (s *Service) DeleteSleepLog(ctx context.Context, id uuid.UUID, userID uuid.UUID) error {
 	return s.repo.DeleteSleepLog(ctx, id, userID)
+}
+
+// today returns midnight UTC for the current date in Asia/Bangkok timezone.
+// Matches how ProgressTab sends logged_at (Bangkok todayDate()) and how the
+// quest service computes its period_start, so "today" aligns on all three sides.
+func today() time.Time {
+	loc, _ := time.LoadLocation("Asia/Bangkok")
+	now := time.Now().In(loc)
+	return time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
 }

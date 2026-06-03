@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { useHealthProfile, useWeightLogs } from '../queries/useHealth'
 import DashboardTab from '../components/health/DashboardTab'
@@ -13,9 +13,20 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'settings', label: 'Settings' },
 ]
 
+const TAB_KEYS = new Set<string>(TABS.map((t) => t.key))
+
+function toTab(value: string | null): Tab {
+  return value !== null && TAB_KEYS.has(value) ? (value as Tab) : 'dashboard'
+}
+
 export default function HealthPage() {
   useDocumentTitle('Health')
-  const [tab, setTab] = useState<Tab>('dashboard')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tab = toTab(searchParams.get('tab'))
+
+  function setTab(key: Tab) {
+    setSearchParams(key === 'dashboard' ? {} : { tab: key }, { replace: true })
+  }
 
   const profileQuery = useHealthProfile()
   const weightQuery = useWeightLogs()

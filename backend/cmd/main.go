@@ -110,7 +110,7 @@ func main() {
 	kanH := kanbanHandler.New(kanRepo)
 
 	heaRepo := healthRepo.New(pgDB.SQL())
-	heaSvc := healthSvc.New(heaRepo)
+	heaSvc := healthSvc.New(heaRepo, bus)
 	heaH := healthHandler.New(heaSvc, usrRepo)
 
 	wkRepo := workoutRepo.New(pgDB.SQL())
@@ -135,6 +135,9 @@ func main() {
 	})
 	bus.Subscribe(event.WorkoutSessionFinished, func(ctx context.Context, e event.Event) {
 		_ = qstSvc.HandleSourceEvent(ctx, e.UserID, "workout")
+	})
+	bus.Subscribe(event.WeightLogged, func(ctx context.Context, e event.Event) {
+		_ = qstSvc.HandleSourceEvent(ctx, e.UserID, "weight")
 	})
 
 	portH := portfolioHandler.New()

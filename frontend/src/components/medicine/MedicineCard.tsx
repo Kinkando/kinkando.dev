@@ -18,6 +18,16 @@ type Props = {
   takenToday: number
 }
 
+const SOURCE_BADGE: Record<string, string> = {
+  medication: 'bg-indigo-900/50 text-indigo-300',
+  supplement: 'bg-emerald-900/50 text-emerald-300',
+}
+
+const SOURCE_LABELS: Record<string, string> = {
+  medication: 'Medication',
+  supplement: 'Supplement',
+}
+
 const TIMING_LABELS: Record<string, string> = {
   before_meal: 'Before meal',
   after_meal: 'After meal',
@@ -82,6 +92,11 @@ export default function MedicineCard({ medicine: med, takenToday }: Props) {
               </p>
             )}
           </div>
+          <span
+            className={`shrink-0 rounded px-1.5 py-0.5 text-xs ${SOURCE_BADGE[med.source_type] ?? 'bg-gray-700 text-gray-400'}`}
+          >
+            {SOURCE_LABELS[med.source_type] ?? med.source_type}
+          </span>
           {isArchived && (
             <span className="shrink-0 rounded bg-gray-700 px-1.5 py-0.5 text-xs text-gray-400">
               Archived

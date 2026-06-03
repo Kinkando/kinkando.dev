@@ -13,6 +13,13 @@ var ErrInsufficientStock = errors.New("insufficient stock")
 
 // ── Enums ─────────────────────────────────────────────────────────────────────
 
+type SourceType string
+
+const (
+	SourceTypeMedication SourceType = "medication"
+	SourceTypeSupplement SourceType = "supplement"
+)
+
 type FrequencyType string
 
 const (
@@ -59,6 +66,7 @@ type Medicine struct {
 	ID                uuid.UUID     `json:"id"`
 	UserID            uuid.UUID     `json:"user_id"`
 	Name              string        `json:"name"`
+	SourceType        SourceType    `json:"source_type"`
 	GenericName       *string       `json:"generic_name"`
 	Description       *string       `json:"description"`
 	StockQuantity     float64       `json:"stock_quantity"`
@@ -107,6 +115,7 @@ type MedicineStockAdjustment struct {
 
 type CreateMedicineInput struct {
 	Name              string        `json:"name"               validate:"required"`
+	SourceType        SourceType    `json:"source_type"        validate:"required,oneof=medication supplement"`
 	GenericName       *string       `json:"generic_name"`
 	Description       *string       `json:"description"`
 	StockQuantity     float64       `json:"stock_quantity"     validate:"min=0"`

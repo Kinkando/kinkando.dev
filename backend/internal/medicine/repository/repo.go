@@ -99,6 +99,7 @@ func (r *Repository) CreateMedicine(ctx context.Context, userID uuid.UUID, in me
 		table.Medicines.EndDate,
 		table.Medicines.LowStockThreshold,
 		table.Medicines.Note,
+		table.Medicines.SourceType,
 	).VALUES(
 		postgres.UUID(userID),
 		in.Name,
@@ -115,6 +116,7 @@ func (r *Repository) CreateMedicine(ctx context.Context, userID uuid.UUID, in me
 		endDateExpr(endDate),
 		threshold,
 		in.Note,
+		string(in.SourceType),
 	).RETURNING(table.Medicines.AllColumns)
 
 	var dest model.Medicines
@@ -176,6 +178,7 @@ func (r *Repository) UpdateMedicine(ctx context.Context, id uuid.UUID, userID uu
 		table.Medicines.EndDate,
 		table.Medicines.LowStockThreshold,
 		table.Medicines.Note,
+		table.Medicines.SourceType,
 		table.Medicines.UpdatedAt,
 	).SET(
 		in.Name,
@@ -192,6 +195,7 @@ func (r *Repository) UpdateMedicine(ctx context.Context, id uuid.UUID, userID uu
 		endDateExpr(endDate),
 		threshold,
 		in.Note,
+		string(in.SourceType),
 		postgres.NOW(),
 	).WHERE(
 		table.Medicines.ID.EQ(postgres.UUID(id)).
@@ -526,6 +530,7 @@ func toMedicine(m model.Medicines) *medicine.Medicine {
 		ID:                m.ID,
 		UserID:            m.UserID,
 		Name:              m.Name,
+		SourceType:        medicine.SourceType(m.SourceType),
 		GenericName:       m.GenericName,
 		Description:       m.Description,
 		StockQuantity:     stock,

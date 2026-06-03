@@ -457,6 +457,8 @@ export type UpdateSessionInput = {
 
 // ---- Medicine
 
+export type MedicineSourceType = 'medication' | 'supplement'
+
 export type FrequencyType = 'daily' | 'weekly' | 'as_needed' | 'custom'
 
 export type MedicineTiming =
@@ -479,6 +481,7 @@ export type Medicine = {
   id: string
   user_id: string
   name: string
+  source_type: MedicineSourceType
   generic_name: string | null
   description: string | null
   stock_quantity: number
@@ -525,6 +528,7 @@ export type MedicineStockAdjustment = {
 
 export type CreateMedicineInput = {
   name: string
+  source_type: MedicineSourceType
   generic_name: string | null
   description: string | null
   stock_quantity: number

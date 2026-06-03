@@ -36,6 +36,7 @@ type medicinesTable struct {
 	CreatedAt         postgres.ColumnTimestampz
 	UpdatedAt         postgres.ColumnTimestampz
 	ArchivedAt        postgres.ColumnTimestampz
+	SourceType        postgres.ColumnString
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -96,9 +97,10 @@ func newMedicinesTableImpl(schemaName, tableName, alias string) medicinesTable {
 		CreatedAtColumn         = postgres.TimestampzColumn("created_at")
 		UpdatedAtColumn         = postgres.TimestampzColumn("updated_at")
 		ArchivedAtColumn        = postgres.TimestampzColumn("archived_at")
-		allColumns              = postgres.ColumnList{IDColumn, UserIDColumn, NameColumn, GenericNameColumn, DescriptionColumn, StockQuantityColumn, StockUnitColumn, DosageAmountColumn, DosageUnitColumn, FrequencyTypeColumn, FrequencyValueColumn, TimingColumn, StartDateColumn, EndDateColumn, LowStockThresholdColumn, NoteColumn, CreatedAtColumn, UpdatedAtColumn, ArchivedAtColumn}
-		mutableColumns          = postgres.ColumnList{UserIDColumn, NameColumn, GenericNameColumn, DescriptionColumn, StockQuantityColumn, StockUnitColumn, DosageAmountColumn, DosageUnitColumn, FrequencyTypeColumn, FrequencyValueColumn, TimingColumn, StartDateColumn, EndDateColumn, LowStockThresholdColumn, NoteColumn, CreatedAtColumn, UpdatedAtColumn, ArchivedAtColumn}
-		defaultColumns          = postgres.ColumnList{IDColumn, StockQuantityColumn, LowStockThresholdColumn, CreatedAtColumn, UpdatedAtColumn}
+		SourceTypeColumn        = postgres.StringColumn("source_type")
+		allColumns              = postgres.ColumnList{IDColumn, UserIDColumn, NameColumn, GenericNameColumn, DescriptionColumn, StockQuantityColumn, StockUnitColumn, DosageAmountColumn, DosageUnitColumn, FrequencyTypeColumn, FrequencyValueColumn, TimingColumn, StartDateColumn, EndDateColumn, LowStockThresholdColumn, NoteColumn, CreatedAtColumn, UpdatedAtColumn, ArchivedAtColumn, SourceTypeColumn}
+		mutableColumns          = postgres.ColumnList{UserIDColumn, NameColumn, GenericNameColumn, DescriptionColumn, StockQuantityColumn, StockUnitColumn, DosageAmountColumn, DosageUnitColumn, FrequencyTypeColumn, FrequencyValueColumn, TimingColumn, StartDateColumn, EndDateColumn, LowStockThresholdColumn, NoteColumn, CreatedAtColumn, UpdatedAtColumn, ArchivedAtColumn, SourceTypeColumn}
+		defaultColumns          = postgres.ColumnList{IDColumn, StockQuantityColumn, LowStockThresholdColumn, CreatedAtColumn, UpdatedAtColumn, SourceTypeColumn}
 	)
 
 	return medicinesTable{
@@ -124,6 +126,7 @@ func newMedicinesTableImpl(schemaName, tableName, alias string) medicinesTable {
 		CreatedAt:         CreatedAtColumn,
 		UpdatedAt:         UpdatedAtColumn,
 		ArchivedAt:        ArchivedAtColumn,
+		SourceType:        SourceTypeColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,

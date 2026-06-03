@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import type {
   Medicine,
   CreateMedicineInput,
+  MedicineSourceType,
   FrequencyType,
   MedicineTiming,
 } from '../../lib/api/types'
@@ -30,6 +31,12 @@ const FREQUENCY_LABELS: Record<FrequencyType, string> = {
   custom: 'Custom',
 }
 
+const SOURCE_TYPES: MedicineSourceType[] = ['medication', 'supplement']
+const SOURCE_LABELS: Record<MedicineSourceType, string> = {
+  medication: 'Medication',
+  supplement: 'Supplement',
+}
+
 const TIMINGS: Array<{ value: MedicineTiming | ''; label: string }> = [
   { value: '', label: 'Not specified' },
   { value: 'anytime', label: 'Anytime' },
@@ -46,6 +53,7 @@ const TIMINGS: Array<{ value: MedicineTiming | ''; label: string }> = [
 
 type FormState = {
   name: string
+  source_type: MedicineSourceType
   generic_name: string
   description: string
   stock_quantity: string
@@ -63,6 +71,7 @@ type FormState = {
 
 const defaultForm: FormState = {
   name: '',
+  source_type: 'medication',
   generic_name: '',
   description: '',
   stock_quantity: '0',
@@ -81,6 +90,7 @@ const defaultForm: FormState = {
 function medicineToForm(m: Medicine): FormState {
   return {
     name: m.name,
+    source_type: m.source_type,
     generic_name: m.generic_name ?? '',
     description: m.description ?? '',
     stock_quantity: String(m.stock_quantity),
@@ -122,6 +132,7 @@ export default function MedicineFormDialog({ initial, onClose }: Props) {
     const threshold = parseFloat(form.low_stock_threshold)
     return {
       name: form.name.trim(),
+      source_type: form.source_type,
       generic_name: form.generic_name.trim() || null,
       description: form.description.trim() || null,
       stock_quantity: parseFloat(form.stock_quantity) || 0,
@@ -201,6 +212,27 @@ export default function MedicineFormDialog({ initial, onClose }: Props) {
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
               />
+            </div>
+
+            {/* Type */}
+            <div>
+              <label className={labelClass}>Type *</label>
+              <select
+                className={inputClass}
+                value={form.source_type}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    source_type: e.target.value as MedicineSourceType,
+                  })
+                }
+              >
+                {SOURCE_TYPES.map((s) => (
+                  <option key={s} value={s}>
+                    {SOURCE_LABELS[s]}
+                  </option>
+                ))}
+              </select>
             </div>
 
             {/* Generic name */}

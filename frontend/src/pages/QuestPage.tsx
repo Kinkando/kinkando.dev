@@ -2,8 +2,7 @@ import { useState } from 'react'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { useQuestOverview, useQuestHistory } from '../queries/useQuest'
 import DashboardTab from '../components/quest/DashboardTab'
-import DailyTab from '../components/quest/DailyTab'
-import WeeklyTab from '../components/quest/WeeklyTab'
+import QuestTab from '../components/quest/QuestTab'
 import HistoryTab from '../components/quest/HistoryTab'
 
 type Tab = 'dashboard' | 'daily' | 'weekly' | 'history'
@@ -68,9 +67,11 @@ export default function QuestPage() {
 
       {/* Tab content */}
       {tab === 'dashboard' && <DashboardTab overview={overviewQuery.data} />}
-      {tab === 'daily' && <DailyTab daily={overviewQuery.data?.daily ?? []} />}
+      {tab === 'daily' && (
+        <QuestTab type="daily" quests={overviewQuery.data?.daily ?? []} />
+      )}
       {tab === 'weekly' && (
-        <WeeklyTab weekly={overviewQuery.data?.weekly ?? []} />
+        <QuestTab type="weekly" quests={overviewQuery.data?.weekly ?? []} />
       )}
       {tab === 'history' && <HistoryTab events={historyQuery.data ?? []} />}
     </main>

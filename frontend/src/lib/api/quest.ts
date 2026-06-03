@@ -43,6 +43,20 @@ export function deleteQuest(id: string): Promise<undefined> {
   })
 }
 
+export function activateQuest(id: string): Promise<Quest | undefined> {
+  return apiFetch<Quest>(`/quest/quests/${id}/activate`, {
+    method: 'POST',
+    auth: true,
+  })
+}
+
+export function deactivateQuest(id: string): Promise<Quest | undefined> {
+  return apiFetch<Quest>(`/quest/quests/${id}/deactivate`, {
+    method: 'POST',
+    auth: true,
+  })
+}
+
 export function completeDaily(id: string): Promise<undefined> {
   return apiFetch<undefined>(`/quest/quests/${id}/complete`, {
     method: 'POST',

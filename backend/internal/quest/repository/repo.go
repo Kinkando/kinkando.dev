@@ -142,6 +142,29 @@ func (r *Repository) DeleteQuest(ctx context.Context, id uuid.UUID, userID uuid.
 	return nil
 }
 
+func (r *Repository) SetActive(ctx context.Context, id uuid.UUID, userID uuid.UUID, active bool) (*quest.Quest, error) {
+	stmt := table.QuestDefinitions.UPDATE(
+		table.QuestDefinitions.IsActive,
+		table.QuestDefinitions.UpdatedAt,
+	).SET(
+		active,
+		time.Now().UTC(),
+	).WHERE(
+		table.QuestDefinitions.ID.EQ(postgres.UUID(id)).
+			AND(table.QuestDefinitions.UserID.EQ(postgres.UUID(userID))),
+	).RETURNING(table.QuestDefinitions.AllColumns)
+
+	var dest model.QuestDefinitions
+	if err := stmt.QueryContext(ctx, r.db, &dest); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("quest not found")
+		}
+		return nil, fmt.Errorf("set active: %w", err)
+	}
+	q := toQuest(dest)
+	return &q, nil
+}
+
 // ── Overview queries ──────────────────────────────────────────────────────────
 
 func (r *Repository) GetDailyStatus(ctx context.Context, userID uuid.UUID, today time.Time) ([]*quest.DailyQuestStatus, error) {
@@ -157,8 +180,7 @@ func (r *Repository) GetDailyStatus(ctx context.Context, userID uuid.UUID, today
 		),
 	).WHERE(
 		table.QuestDefinitions.UserID.EQ(postgres.UUID(userID)).
-			AND(table.QuestDefinitions.Type.EQ(postgres.String(string(quest.QuestTypeDaily)))).
-			AND(table.QuestDefinitions.IsActive.IS_TRUE()),
+			AND(table.QuestDefinitions.Type.EQ(postgres.String(string(quest.QuestTypeDaily)))),
 	).ORDER_BY(table.QuestDefinitions.CreatedAt.ASC())
 
 	type dailyRow struct {
@@ -197,8 +219,7 @@ func (r *Repository) GetWeeklyStatus(ctx context.Context, userID uuid.UUID, week
 		),
 	).WHERE(
 		table.QuestDefinitions.UserID.EQ(postgres.UUID(userID)).
-			AND(table.QuestDefinitions.Type.EQ(postgres.String(string(quest.QuestTypeWeekly)))).
-			AND(table.QuestDefinitions.IsActive.IS_TRUE()),
+			AND(table.QuestDefinitions.Type.EQ(postgres.String(string(quest.QuestTypeWeekly)))),
 	).GROUP_BY(
 		table.QuestDefinitions.ID,
 		table.QuestDefinitions.UserID,

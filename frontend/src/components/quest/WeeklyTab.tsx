@@ -11,6 +11,8 @@ import {
   useCreateQuest,
   useUpdateQuest,
   useDeleteQuest,
+  useActivateQuest,
+  useDeactivateQuest,
 } from '../../queries/useQuest'
 
 type Props = {
@@ -65,6 +67,8 @@ export default function WeeklyTab({ weekly }: Props) {
   const createQuest = useCreateQuest()
   const updateQuest = useUpdateQuest()
   const deleteQuest = useDeleteQuest()
+  const activateQuest = useActivateQuest()
+  const deactivateQuest = useDeactivateQuest()
 
   const isEditing = editingId !== null
   const formLoading = createQuest.isPending || updateQuest.isPending
@@ -136,6 +140,14 @@ export default function WeeklyTab({ weekly }: Props) {
       setDeleteConfirm(null)
     } catch {
       // ignore
+    }
+  }
+
+  function handleToggleActive(q: WeeklyQuestStatus) {
+    if (q.is_active) {
+      deactivateQuest.mutate(q.id)
+    } else {
+      activateQuest.mutate(q.id)
     }
   }
 
@@ -256,7 +268,10 @@ export default function WeeklyTab({ weekly }: Props) {
             {weekly.map((q) => {
               const isAutoQ = q.source_type !== 'manual'
               return (
-                <li key={q.id} className="group px-5 py-4">
+                <li
+                  key={q.id}
+                  className={`group px-5 py-4 ${!q.is_active ? 'opacity-50' : ''}`}
+                >
                   <div className="flex items-center gap-3">
                     {/* Count controls — only for manual quests */}
                     {isAutoQ ? (
@@ -338,6 +353,15 @@ export default function WeeklyTab({ weekly }: Props) {
                       </span>
                     )}
 
+                    <button
+                      onClick={() => handleToggleActive(q)}
+                      disabled={
+                        activateQuest.isPending || deactivateQuest.isPending
+                      }
+                      className="shrink-0 cursor-pointer text-xs text-gray-600 opacity-0 transition-opacity group-hover:opacity-100 hover:text-gray-100 disabled:opacity-40"
+                    >
+                      {q.is_active ? 'Deactivate' : 'Activate'}
+                    </button>
                     <button
                       onClick={() => handleEdit(q)}
                       className="shrink-0 cursor-pointer text-xs text-gray-600 opacity-0 transition-opacity group-hover:opacity-100 hover:text-gray-100"

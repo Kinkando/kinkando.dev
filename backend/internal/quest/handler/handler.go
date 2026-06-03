@@ -18,6 +18,7 @@ type Service interface {
 	ListQuests(ctx context.Context, userID uuid.UUID, questType string) ([]*quest.Quest, error)
 	UpdateQuest(ctx context.Context, id uuid.UUID, userID uuid.UUID, in quest.UpdateQuestInput) (*quest.Quest, error)
 	DeleteQuest(ctx context.Context, id uuid.UUID, userID uuid.UUID) error
+	SetActive(ctx context.Context, id uuid.UUID, userID uuid.UUID, active bool) (*quest.Quest, error)
 
 	GetOverview(ctx context.Context, userID uuid.UUID) (*quest.Overview, error)
 	CompleteDaily(ctx context.Context, userID uuid.UUID, questID uuid.UUID) error
@@ -47,6 +48,8 @@ func (h *Handler) Register(router fiber.Router) {
 	router.Post("/quests", h.createQuest)
 	router.Patch("/quests/:id", h.updateQuest)
 	router.Delete("/quests/:id", h.deleteQuest)
+	router.Post("/quests/:id/activate", h.activateQuest)
+	router.Post("/quests/:id/deactivate", h.deactivateQuest)
 
 	router.Get("/overview", h.getOverview)
 
@@ -137,6 +140,33 @@ func (h *Handler) deleteQuest(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
 	return c.SendStatus(fiber.StatusNoContent)
+}
+
+func (h *Handler) activateQuest(c *fiber.Ctx) error {
+	return h.setActive(c, true)
+}
+
+func (h *Handler) deactivateQuest(c *fiber.Ctx) error {
+	return h.setActive(c, false)
+}
+
+func (h *Handler) setActive(c *fiber.Ctx, active bool) error {
+	userID, err := h.resolveUserID(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
+	}
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid quest id"})
+	}
+	q, err := h.svc.SetActive(c.Context(), id, userID, active)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "quest not found"})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+	return c.JSON(fiber.Map{"data": q})
 }
 
 // ── Overview ──────────────────────────────────────────────────────────────────

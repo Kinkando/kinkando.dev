@@ -14,6 +14,7 @@ type Repository interface {
 	GetQuest(ctx context.Context, id uuid.UUID, userID uuid.UUID) (*quest.Quest, error)
 	UpdateQuest(ctx context.Context, id uuid.UUID, userID uuid.UUID, in quest.UpdateQuestInput) (*quest.Quest, error)
 	DeleteQuest(ctx context.Context, id uuid.UUID, userID uuid.UUID) error
+	SetActive(ctx context.Context, id uuid.UUID, userID uuid.UUID, active bool) (*quest.Quest, error)
 
 	GetDailyStatus(ctx context.Context, userID uuid.UUID, today time.Time) ([]*quest.DailyQuestStatus, error)
 	GetWeeklyStatus(ctx context.Context, userID uuid.UUID, weekStart time.Time) ([]*quest.WeeklyQuestStatus, error)
@@ -61,6 +62,10 @@ func (s *Service) UpdateQuest(ctx context.Context, id uuid.UUID, userID uuid.UUI
 
 func (s *Service) DeleteQuest(ctx context.Context, id uuid.UUID, userID uuid.UUID) error {
 	return s.repo.DeleteQuest(ctx, id, userID)
+}
+
+func (s *Service) SetActive(ctx context.Context, id uuid.UUID, userID uuid.UUID, active bool) (*quest.Quest, error) {
+	return s.repo.SetActive(ctx, id, userID, active)
 }
 
 // ── Overview ──────────────────────────────────────────────────────────────────

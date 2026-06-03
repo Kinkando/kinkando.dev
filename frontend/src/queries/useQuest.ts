@@ -5,6 +5,8 @@ import {
   createQuest,
   updateQuest,
   deleteQuest,
+  activateQuest,
+  deactivateQuest,
   completeDaily,
   uncompleteDaily,
   incrementWeekly,
@@ -62,6 +64,30 @@ export function useDeleteQuest() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => deleteQuest(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: keys.questOverview })
+      queryClient.invalidateQueries({ queryKey: keys.questList('daily') })
+      queryClient.invalidateQueries({ queryKey: keys.questList('weekly') })
+    },
+  })
+}
+
+export function useActivateQuest() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => activateQuest(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: keys.questOverview })
+      queryClient.invalidateQueries({ queryKey: keys.questList('daily') })
+      queryClient.invalidateQueries({ queryKey: keys.questList('weekly') })
+    },
+  })
+}
+
+export function useDeactivateQuest() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => deactivateQuest(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: keys.questOverview })
       queryClient.invalidateQueries({ queryKey: keys.questList('daily') })

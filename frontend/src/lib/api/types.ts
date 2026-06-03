@@ -2,7 +2,13 @@ export type User = {
   id: string
   firebase_uid: string
   email: string
+  line_id: string | null
   created_at: string
+}
+
+export type LineLinkCode = {
+  code: string
+  expires_at: string
 }
 
 export type RecordType = 'income' | 'expense'

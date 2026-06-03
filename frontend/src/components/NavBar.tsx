@@ -201,6 +201,14 @@ export default function NavBar() {
               </button>
               {avatarOpen && (
                 <div className="absolute top-full right-0 mt-1 w-44 rounded-md border border-gray-700 bg-gray-800 py-1 shadow-lg">
+                  <Link
+                    to="/account"
+                    onClick={() => setAvatarOpen(false)}
+                    className="flex items-center gap-2 px-4 py-2 text-sm text-gray-300 transition-colors hover:bg-gray-700 hover:text-gray-100"
+                  >
+                    <NavIcon name="portfolio" />
+                    Account
+                  </Link>
                   <button
                     onClick={() => {
                       setAvatarOpen(false)

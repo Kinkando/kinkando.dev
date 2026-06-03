@@ -16,6 +16,7 @@ func UseSchema(schema string) {
 	HealthProfiles = HealthProfiles.FromSchema(schema)
 	HealthSleepLogs = HealthSleepLogs.FromSchema(schema)
 	HealthWeightLogs = HealthWeightLogs.FromSchema(schema)
+	LineLinkCodes = LineLinkCodes.FromSchema(schema)
 	MedicineIntakes = MedicineIntakes.FromSchema(schema)
 	MedicineStockAdjustments = MedicineStockAdjustments.FromSchema(schema)
 	Medicines = Medicines.FromSchema(schema)

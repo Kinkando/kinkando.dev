@@ -3,6 +3,7 @@ import NavBar from './components/NavBar'
 import PortfolioPage from './pages/PortfolioPage'
 import LoginPage from './pages/LoginPage'
 // import RegisterPage from './pages/RegisterPage'
+import AccountPage from './pages/AccountPage'
 import FinancePage from './pages/FinancePage'
 import KanbanPage from './pages/KanbanPage'
 import KanbanArchivePage from './pages/KanbanArchivePage'
@@ -26,6 +27,14 @@ export default function App() {
         <Route path="/news" element={<NewsPage />} />
         <Route path="/login" element={<LoginPage />} />
         {/* <Route path="/register" element={<RegisterPage />} /> */}
+        <Route
+          path="/account"
+          element={
+            <ProtectedRoute>
+              <AccountPage />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/kanban"
           element={

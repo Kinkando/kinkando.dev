@@ -12,10 +12,9 @@ import (
 	"time"
 )
 
-type Users struct {
-	ID          uuid.UUID `sql:"primary_key"`
-	FirebaseUID string
-	Email       string
-	CreatedAt   time.Time
-	LineID      *string
+type LineLinkCodes struct {
+	Code      string `sql:"primary_key"`
+	UserID    uuid.UUID
+	ExpiresAt time.Time
+	CreatedAt time.Time
 }

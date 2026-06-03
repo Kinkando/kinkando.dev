@@ -21,6 +21,7 @@ type usersTable struct {
 	FirebaseUID postgres.ColumnString
 	Email       postgres.ColumnString
 	CreatedAt   postgres.ColumnTimestampz
+	LineID      postgres.ColumnString
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -66,8 +67,9 @@ func newUsersTableImpl(schemaName, tableName, alias string) usersTable {
 		FirebaseUIDColumn = postgres.StringColumn("firebase_uid")
 		EmailColumn       = postgres.StringColumn("email")
 		CreatedAtColumn   = postgres.TimestampzColumn("created_at")
-		allColumns        = postgres.ColumnList{IDColumn, FirebaseUIDColumn, EmailColumn, CreatedAtColumn}
-		mutableColumns    = postgres.ColumnList{FirebaseUIDColumn, EmailColumn, CreatedAtColumn}
+		LineIDColumn      = postgres.StringColumn("line_id")
+		allColumns        = postgres.ColumnList{IDColumn, FirebaseUIDColumn, EmailColumn, CreatedAtColumn, LineIDColumn}
+		mutableColumns    = postgres.ColumnList{FirebaseUIDColumn, EmailColumn, CreatedAtColumn, LineIDColumn}
 		defaultColumns    = postgres.ColumnList{IDColumn, CreatedAtColumn}
 	)
 
@@ -79,6 +81,7 @@ func newUsersTableImpl(schemaName, tableName, alias string) usersTable {
 		FirebaseUID: FirebaseUIDColumn,
 		Email:       EmailColumn,
 		CreatedAt:   CreatedAtColumn,
+		LineID:      LineIDColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,

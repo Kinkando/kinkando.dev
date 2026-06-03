@@ -5,14 +5,22 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
+	"errors"
 	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/kinkando/personal-dashboard/internal/gemini"
 	linepkg "github.com/kinkando/personal-dashboard/internal/line"
+	"github.com/kinkando/personal-dashboard/internal/user"
 	"go.uber.org/zap"
 )
+
+// Linker can associate a LINE user ID with an app user via a verification code.
+// Implemented by *user/repository.Repository.
+type Linker interface {
+	LinkByCode(ctx context.Context, code, lineUserID string) error
+}
 
 // Deps bundles dependencies for the LINE webhook handler.
 type Deps struct {
@@ -20,6 +28,7 @@ type Deps struct {
 	ChannelSecret string
 	Client        *linepkg.Client
 	Gemini        *gemini.Client // required; routes messages through Gemini + MCP
+	Linker        Linker         // optional; enables bot-based account linking
 	Logger        *zap.Logger
 }
 
@@ -29,6 +38,7 @@ type Handler struct {
 	channelSecret string
 	client        *linepkg.Client
 	gemini        *gemini.Client
+	linker        Linker
 	logger        *zap.Logger
 }
 
@@ -39,6 +49,7 @@ func New(d Deps) *Handler {
 		channelSecret: d.ChannelSecret,
 		client:        d.Client,
 		gemini:        d.Gemini,
+		linker:        d.Linker,
 		logger:        d.Logger,
 	}
 }
@@ -73,7 +84,12 @@ func (h *Handler) webhook(c *fiber.Ctx) error {
 		go func() {
 			bgCtx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 			defer cancel()
-			reply := h.handleText(bgCtx, ev.Message.Text)
+			var reply string
+			if h.isLinkCommand(ev.Message.Text) {
+				reply = h.handleLink(bgCtx, ev.Message.Text, ev.Source.UserID)
+			} else {
+				reply = h.handleText(bgCtx, ev.Message.Text)
+			}
 			if err := h.client.Reply(bgCtx, ev.ReplyToken, []linepkg.ReplyMessage{linepkg.TextMessage(reply)}); err != nil {
 				h.logger.Error("LINE reply failed", zap.String("replyToken", ev.ReplyToken), zap.Error(err))
 			}
@@ -81,6 +97,37 @@ func (h *Handler) webhook(c *fiber.Ctx) error {
 	}
 
 	return c.SendStatus(fiber.StatusOK)
+}
+
+// isLinkCommand reports whether the message is a "LINK <code>" command.
+func (h *Handler) isLinkCommand(text string) bool {
+	return strings.HasPrefix(strings.ToUpper(strings.TrimSpace(text)), "LINK ")
+}
+
+// handleLink processes a "LINK <code>" message from the given LINE user ID.
+// Returns a human-readable reply. Never forwards the message to Gemini.
+func (h *Handler) handleLink(ctx context.Context, text, lineUserID string) string {
+	if h.linker == nil {
+		return "⚠️ Account linking is not available right now."
+	}
+	// Normalise to upper-case so the code extraction is case-insensitive.
+	upper := strings.ToUpper(strings.TrimSpace(text))
+	code := strings.TrimSpace(upper[len("LINK "):])
+	if code == "" {
+		return "⚠️ Please send: LINK <your-code>"
+	}
+	err := h.linker.LinkByCode(ctx, code, lineUserID)
+	switch {
+	case err == nil:
+		return "✅ Your LINE account is now linked."
+	case errors.Is(err, user.ErrLinkCodeInvalid):
+		return "⚠️ That code is invalid or has expired. Generate a new one in Settings."
+	case errors.Is(err, user.ErrLineAlreadyLinked):
+		return "⚠️ This LINE account is already linked to another account."
+	default:
+		h.logger.Error("LINE link failed", zap.Error(err))
+		return "⚠️ Something went wrong. Please try again."
+	}
 }
 
 // handleText sends the text to Gemini (via MCP tool calls) and returns a

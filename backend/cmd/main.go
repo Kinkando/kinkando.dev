@@ -100,7 +100,7 @@ func main() {
 
 	usrRepo := userRepo.New(pgDB.SQL())
 	usrSvc := userSvc.New(usrRepo)
-	usrH := userHandler.New(usrSvc)
+	usrH := userHandler.New(usrSvc, usrRepo)
 
 	finRepo := financeRepo.New(pgDB.SQL())
 	finSvc := financeSvc.New(finRepo)
@@ -240,6 +240,7 @@ func main() {
 		ChannelSecret: cfg.LineChannelSecret,
 		Client:        lineClient,
 		Gemini:        geminiClient,
+		Linker:        usrRepo,
 		Logger:        logger,
 	})
 	lineGroup := api.Group("/line")

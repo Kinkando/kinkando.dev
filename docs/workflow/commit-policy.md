@@ -7,7 +7,7 @@
 3. Commit message: start with `feat:` / `fix:` / `refactor:` / `docs:` / `chore:`, explain the *why* in 1–2 sentences
 4. End every commit message with:
    ```
-   Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+   Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
    ```
 5. Do **not** push unless explicitly asked
 

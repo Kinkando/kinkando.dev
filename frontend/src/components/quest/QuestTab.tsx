@@ -82,7 +82,13 @@ export default function QuestTab({ type, quests }: Props) {
               return (
                 <li
                   key={q.id}
-                  className={`px-5 py-4 ${!q.is_active ? 'bg-gray-950' : ''}`}
+                  className={`px-5 py-4 first:rounded-t-xl last:rounded-b-xl ${
+                    q.completed
+                      ? 'bg-green-900'
+                      : q.is_active
+                        ? 'bg-gray-900'
+                        : 'bg-gray-950'
+                  }`}
                 >
                   <div className="flex items-center gap-3">
                     {/* Count controls — only for manual quests */}

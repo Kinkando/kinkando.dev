@@ -109,7 +109,7 @@ export default function ProgressTab({ weightLogs, profile }: Props) {
             <input
               className={inputClass}
               type="number"
-              step="0.1"
+              step="0.5"
               min="1"
               placeholder="e.g. 72.5"
               value={weight}

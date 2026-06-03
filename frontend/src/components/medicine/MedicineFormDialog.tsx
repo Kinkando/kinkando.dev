@@ -254,8 +254,8 @@ export default function MedicineFormDialog({ initial, onClose }: Props) {
               <input
                 className={inputClass}
                 type="number"
-                min="0.01"
-                step="0.01"
+                min="0.5"
+                step="0.5"
                 placeholder="e.g. 0.5"
                 value={form.dosage_amount}
                 onChange={(e) =>
@@ -348,7 +348,7 @@ export default function MedicineFormDialog({ initial, onClose }: Props) {
                 className={inputClass}
                 type="number"
                 min="0"
-                step="0.01"
+                step="0.5"
                 placeholder="e.g. 30"
                 value={form.stock_quantity}
                 onChange={(e) =>
@@ -377,7 +377,7 @@ export default function MedicineFormDialog({ initial, onClose }: Props) {
                 className={inputClass}
                 type="number"
                 min="0"
-                step="0.01"
+                step="0.5"
                 value={form.low_stock_threshold}
                 onChange={(e) =>
                   setForm({ ...form, low_stock_threshold: e.target.value })

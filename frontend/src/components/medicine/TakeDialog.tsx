@@ -70,8 +70,8 @@ export default function TakeDialog({ medicine, onClose }: Props) {
             <input
               className={inputClass}
               type="number"
-              min="0.01"
-              step="0.01"
+              min="0.5"
+              step="0.5"
               value={quantity}
               onChange={(e) => {
                 setQuantity(e.target.value)

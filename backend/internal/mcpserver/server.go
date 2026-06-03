@@ -372,6 +372,30 @@ type deleteSleepOut struct {
 	Deleted bool `json:"deleted"`
 }
 
+// ---- Weight output types ----------------------------------------------------
+
+type weightLogDTO struct {
+	ID       string  `json:"id"`
+	Weight   float64 `json:"weight"`
+	LoggedAt string  `json:"logged_at"`
+}
+
+type listWeightLogsOut struct {
+	Logs []weightLogDTO `json:"logs"`
+}
+
+type weightLogOut struct {
+	Log weightLogDTO `json:"log"`
+}
+
+func toWeightLogDTO(w *health.WeightLog) weightLogDTO {
+	return weightLogDTO{
+		ID:       w.ID.String(),
+		Weight:   w.Weight,
+		LoggedAt: w.LoggedAt.Format(time.DateOnly),
+	}
+}
+
 func toSleepLogDTO(s *health.SleepLog) sleepLogDTO {
 	return sleepLogDTO{
 		ID:              s.ID.String(),
@@ -1576,6 +1600,60 @@ func registerTools(s *mcp.Server, d Deps) {
 			return nil, deleteFoodOut{}, fmt.Errorf("delete food log: %w", err)
 		}
 		return nil, deleteFoodOut{Deleted: true}, nil
+	}))
+
+	// Weight
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        tools.HealthListWeightLogs.Name,
+		Description: tools.HealthListWeightLogs.Description,
+	}, middleware.MCPRequestLogger(d.Logger, tools.HealthListWeightLogs.Name, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, listWeightLogsOut, error) {
+		logs, err := d.HeaSvc.ListWeightLogs(ctx, d.UserUUID)
+		if err != nil {
+			return nil, listWeightLogsOut{}, fmt.Errorf("list weight logs: %w", err)
+		}
+		dtos := make([]weightLogDTO, len(logs))
+		for i, l := range logs {
+			dtos[i] = toWeightLogDTO(l)
+		}
+		return nil, listWeightLogsOut{Logs: dtos}, nil
+	}))
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        tools.HealthLogWeight.Name,
+		Description: tools.HealthLogWeight.Description,
+	}, middleware.MCPRequestLogger(d.Logger, tools.HealthLogWeight.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.HealthLogWeightIn) (*mcp.CallToolResult, weightLogOut, error) {
+		if in.Weight <= 0 {
+			return nil, weightLogOut{}, fmt.Errorf("weight must be positive, got %v", in.Weight)
+		}
+		log, err := d.HeaSvc.CreateWeightLog(ctx, d.UserUUID, health.CreateWeightInput{
+			Weight:   in.Weight,
+			LoggedAt: in.LoggedAt,
+		})
+		if err != nil {
+			return nil, weightLogOut{}, fmt.Errorf("log weight: %w", err)
+		}
+		return nil, weightLogOut{Log: toWeightLogDTO(log)}, nil
+	}))
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        tools.HealthUpdateWeight.Name,
+		Description: tools.HealthUpdateWeight.Description,
+	}, middleware.MCPRequestLogger(d.Logger, tools.HealthUpdateWeight.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.HealthUpdateWeightIn) (*mcp.CallToolResult, weightLogOut, error) {
+		logID, err := uuid.Parse(in.LogID)
+		if err != nil {
+			return nil, weightLogOut{}, fmt.Errorf("invalid log_id %q: %w", in.LogID, err)
+		}
+		if in.Weight <= 0 {
+			return nil, weightLogOut{}, fmt.Errorf("weight must be positive, got %v", in.Weight)
+		}
+		log, err := d.HeaSvc.UpdateWeightLog(ctx, logID, d.UserUUID, health.UpdateWeightInput{
+			Weight:   in.Weight,
+			LoggedAt: in.LoggedAt,
+		})
+		if err != nil {
+			return nil, weightLogOut{}, fmt.Errorf("update weight log: %w", err)
+		}
+		return nil, weightLogOut{Log: toWeightLogDTO(log)}, nil
 	}))
 
 	// Medicine

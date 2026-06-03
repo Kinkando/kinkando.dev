@@ -21,6 +21,7 @@ type Repository interface {
 
 	ListWeightLogs(ctx context.Context, userID uuid.UUID) ([]*health.WeightLog, error)
 	CreateWeightLog(ctx context.Context, userID uuid.UUID, in health.CreateWeightInput) (*health.WeightLog, error)
+	UpdateWeightLog(ctx context.Context, id uuid.UUID, userID uuid.UUID, in health.UpdateWeightInput) (*health.WeightLog, error)
 	DeleteWeightLog(ctx context.Context, id uuid.UUID, userID uuid.UUID) error
 
 	ListFoodLogs(ctx context.Context, userID uuid.UUID) ([]*health.FoodLog, error)
@@ -66,6 +67,10 @@ func (s *Service) CreateWeightLog(ctx context.Context, userID uuid.UUID, in heal
 		s.events.Publish(ctx, event.Event{Type: event.WeightLogged, UserID: userID})
 	}
 	return log, nil
+}
+
+func (s *Service) UpdateWeightLog(ctx context.Context, id uuid.UUID, userID uuid.UUID, in health.UpdateWeightInput) (*health.WeightLog, error) {
+	return s.repo.UpdateWeightLog(ctx, id, userID, in)
 }
 
 func (s *Service) DeleteWeightLog(ctx context.Context, id uuid.UUID, userID uuid.UUID) error {

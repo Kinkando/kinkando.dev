@@ -51,6 +51,8 @@ type CreateWeightInput struct {
 	LoggedAt string  `json:"logged_at"` // YYYY-MM-DD, optional
 }
 
+type UpdateWeightInput = CreateWeightInput
+
 // ── Food ─────────────────────────────────────────────────────────────────────
 
 type MealType string

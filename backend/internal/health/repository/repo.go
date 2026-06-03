@@ -139,6 +139,37 @@ func (r *Repository) CreateWeightLog(ctx context.Context, userID uuid.UUID, in h
 	return toWeightLog(dest), nil
 }
 
+func (r *Repository) UpdateWeightLog(ctx context.Context, id uuid.UUID, userID uuid.UUID, in health.UpdateWeightInput) (*health.WeightLog, error) {
+	loggedAt := time.Now().UTC().Truncate(24 * time.Hour)
+	if in.LoggedAt != "" {
+		t, err := time.Parse(time.DateOnly, in.LoggedAt)
+		if err != nil {
+			return nil, fmt.Errorf("invalid logged_at date format: %w", err)
+		}
+		loggedAt = t
+	}
+
+	stmt := table.HealthWeightLogs.UPDATE(
+		table.HealthWeightLogs.Weight,
+		table.HealthWeightLogs.LoggedAt,
+	).SET(
+		decimal.NewFromFloat(in.Weight),
+		postgres.DateT(loggedAt),
+	).WHERE(
+		table.HealthWeightLogs.ID.EQ(postgres.UUID(id)).
+			AND(table.HealthWeightLogs.UserID.EQ(postgres.UUID(userID))),
+	).RETURNING(table.HealthWeightLogs.AllColumns)
+
+	var dest model.HealthWeightLogs
+	if err := stmt.QueryContext(ctx, r.db, &dest); err != nil {
+		if err == qrm.ErrNoRows {
+			return nil, fmt.Errorf("weight log not found")
+		}
+		return nil, fmt.Errorf("update weight log: %w", err)
+	}
+	return toWeightLog(dest), nil
+}
+
 func (r *Repository) DeleteWeightLog(ctx context.Context, id uuid.UUID, userID uuid.UUID) error {
 	stmt := table.HealthWeightLogs.DELETE().WHERE(
 		table.HealthWeightLogs.ID.EQ(postgres.UUID(id)).

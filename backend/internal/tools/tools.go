@@ -55,6 +55,9 @@ func All() []ToolDef {
 		SleepLogNight,
 		SleepUpdateNight,
 		SleepDeleteNight,
+		HealthListWeightLogs,
+		HealthLogWeight,
+		HealthUpdateWeight,
 		MedicineList,
 		MedicineTake,
 		MedicineAdjustStock,
@@ -556,6 +559,38 @@ type SleepUpdateNightIn struct {
 
 type SleepDeleteNightIn struct {
 	LogID string `json:"log_id" jsonschema:"UUID of the sleep log to delete — get from sleep_list_logs"`
+}
+
+// ---- Weight -----------------------------------------------------------------
+
+var HealthListWeightLogs = ToolDef{
+	Name:        "health_list_weight_logs",
+	Description: "List all body weight logs sorted by date ascending. Returns id, weight (kg), and logged_at date. Call before health_update_weight to get the log ID.",
+}
+
+var HealthLogWeight = ToolDef{
+	Name:        "health_log_weight",
+	Description: "Log a body weight measurement in kg. One entry per day is enforced — logging the same date twice will error.",
+	Input:       HealthLogWeightIn{},
+	Required:    []string{"weight"},
+}
+
+var HealthUpdateWeight = ToolDef{
+	Name:        "health_update_weight",
+	Description: "Update an existing weight log entry. Call health_list_weight_logs first to get the log ID.",
+	Input:       HealthUpdateWeightIn{},
+	Required:    []string{"log_id", "weight"},
+}
+
+type HealthLogWeightIn struct {
+	Weight   float64 `json:"weight"    jsonschema:"Body weight in kg (required, must be > 0)"`
+	LoggedAt string  `json:"logged_at" jsonschema:"Date YYYY-MM-DD (default: today); one log per day is enforced"`
+}
+
+type HealthUpdateWeightIn struct {
+	LogID    string  `json:"log_id"    jsonschema:"UUID of the weight log to update — get from health_list_weight_logs"`
+	Weight   float64 `json:"weight"    jsonschema:"New body weight in kg (required, must be > 0)"`
+	LoggedAt string  `json:"logged_at" jsonschema:"New date YYYY-MM-DD (default: today)"`
 }
 
 // ---- Medicine ---------------------------------------------------------------

@@ -267,7 +267,7 @@ export default function NavBar() {
 
       {/* Sub row — desktop only, shown when the active group has sub-items */}
       {activeGroup?.subItems && (
-        <div className="hidden border-t border-gray-800 px-6 py-2 xl:flex">
+        <div className="flex scrollbar-none overflow-y-auto border-t border-gray-800 px-6 py-2">
           <div className="flex items-center gap-6 text-sm">
             {activeGroup.subItems.map((sub) => (
               <Link

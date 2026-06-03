@@ -1,4 +1,6 @@
+import { useNavigate } from 'react-router-dom'
 import type { QuestOverview, SourceType } from '../../lib/api/types'
+import { questSourceRoute } from './questConfig'
 
 type Props = {
   overview: QuestOverview | undefined
@@ -40,6 +42,8 @@ function SourceBadge({ source }: { source: SourceType }) {
 }
 
 export default function DashboardTab({ overview }: Props) {
+  const navigate = useNavigate()
+
   if (!overview) {
     return <p className="py-12 text-center text-sm text-gray-500">Loading…</p>
   }
@@ -108,38 +112,46 @@ export default function DashboardTab({ overview }: Props) {
             {daily.length === 0 && (
               <li className="text-xs text-gray-600">No daily quests yet.</li>
             )}
-            {daily.map((q) => (
-              <li key={q.id} className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`min-w-0 flex-1 truncate text-sm ${
-                      q.completed
-                        ? 'text-gray-500 line-through'
-                        : 'text-gray-300'
-                    }`}
-                  >
-                    {q.title}
-                  </span>
-                  <SourceBadge source={q.source_type} />
-                  {q.completed && (
-                    <span className="shrink-0 rounded bg-sky-900/60 px-1.5 py-0.5 text-xs font-medium text-sky-400">
-                      ✓
-                    </span>
-                  )}
-                  <span className="shrink-0 text-xs text-gray-500">
-                    {q.current_count}/{q.target_count}
-                  </span>
-                </div>
-                <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-800">
+            {daily.map((q) => {
+              const route = questSourceRoute(q.source_type)
+              return (
+                <li key={q.id} className="space-y-1">
                   <div
-                    className="h-full rounded-full bg-sky-500 transition-all"
-                    style={{
-                      width: `${Math.min((q.current_count / q.target_count) * 100, 100)}%`,
-                    }}
-                  />
-                </div>
-              </li>
-            ))}
+                    className={`flex items-center gap-2 ${route ? 'cursor-pointer' : ''}`}
+                    onClick={route ? () => navigate(route) : undefined}
+                  >
+                    <span
+                      className={`min-w-0 flex-1 truncate text-sm transition-colors ${
+                        q.completed
+                          ? 'text-gray-500 line-through'
+                          : route
+                            ? 'text-gray-300 hover:text-indigo-400'
+                            : 'text-gray-300'
+                      }`}
+                    >
+                      {q.title}
+                    </span>
+                    <SourceBadge source={q.source_type} />
+                    {q.completed && (
+                      <span className="shrink-0 rounded bg-sky-900/60 px-1.5 py-0.5 text-xs font-medium text-sky-400">
+                        ✓
+                      </span>
+                    )}
+                    <span className="shrink-0 text-xs text-gray-500">
+                      {q.current_count}/{q.target_count}
+                    </span>
+                  </div>
+                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-800">
+                    <div
+                      className="h-full rounded-full bg-sky-500 transition-all"
+                      style={{
+                        width: `${Math.min((q.current_count / q.target_count) * 100, 100)}%`,
+                      }}
+                    />
+                  </div>
+                </li>
+              )
+            })}
           </ul>
         </div>
 
@@ -161,38 +173,46 @@ export default function DashboardTab({ overview }: Props) {
             {weekly.length === 0 && (
               <li className="text-xs text-gray-600">No weekly quests yet.</li>
             )}
-            {weekly.map((q) => (
-              <li key={q.id} className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`min-w-0 flex-1 truncate text-sm ${
-                      q.completed
-                        ? 'text-gray-500 line-through'
-                        : 'text-gray-300'
-                    }`}
-                  >
-                    {q.title}
-                  </span>
-                  <SourceBadge source={q.source_type} />
-                  {q.completed && (
-                    <span className="shrink-0 rounded bg-violet-900/60 px-1.5 py-0.5 text-xs font-medium text-violet-400">
-                      ✓
-                    </span>
-                  )}
-                  <span className="shrink-0 text-xs text-gray-500">
-                    {q.current_count}/{q.target_count}
-                  </span>
-                </div>
-                <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-800">
+            {weekly.map((q) => {
+              const route = questSourceRoute(q.source_type)
+              return (
+                <li key={q.id} className="space-y-1">
                   <div
-                    className="h-full rounded-full bg-violet-500 transition-all"
-                    style={{
-                      width: `${Math.min((q.current_count / q.target_count) * 100, 100)}%`,
-                    }}
-                  />
-                </div>
-              </li>
-            ))}
+                    className={`flex items-center gap-2 ${route ? 'cursor-pointer' : ''}`}
+                    onClick={route ? () => navigate(route) : undefined}
+                  >
+                    <span
+                      className={`min-w-0 flex-1 truncate text-sm transition-colors ${
+                        q.completed
+                          ? 'text-gray-500 line-through'
+                          : route
+                            ? 'text-gray-300 hover:text-indigo-400'
+                            : 'text-gray-300'
+                      }`}
+                    >
+                      {q.title}
+                    </span>
+                    <SourceBadge source={q.source_type} />
+                    {q.completed && (
+                      <span className="shrink-0 rounded bg-violet-900/60 px-1.5 py-0.5 text-xs font-medium text-violet-400">
+                        ✓
+                      </span>
+                    )}
+                    <span className="shrink-0 text-xs text-gray-500">
+                      {q.current_count}/{q.target_count}
+                    </span>
+                  </div>
+                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-800">
+                    <div
+                      className="h-full rounded-full bg-violet-500 transition-all"
+                      style={{
+                        width: `${Math.min((q.current_count / q.target_count) * 100, 100)}%`,
+                      }}
+                    />
+                  </div>
+                </li>
+              )
+            })}
           </ul>
         </div>
       </div>

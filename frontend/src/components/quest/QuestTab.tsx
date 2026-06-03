@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import type { QuestType, DailyQuestStatus } from '../../lib/api/types'
 import {
   useIncrementQuest,
@@ -7,7 +8,11 @@ import {
   useActivateQuest,
   useDeactivateQuest,
 } from '../../queries/useQuest'
-import { QUEST_TYPE_CONFIG, SOURCE_LABELS } from './questConfig'
+import {
+  QUEST_TYPE_CONFIG,
+  SOURCE_LABELS,
+  questSourceRoute,
+} from './questConfig'
 import QuestFormDialog from './QuestFormDialog'
 import QuestRowMenu from './QuestRowMenu'
 
@@ -23,6 +28,7 @@ type DialogState =
 
 export default function QuestTab({ type, quests }: Props) {
   const cfg = QUEST_TYPE_CONFIG[type]
+  const navigate = useNavigate()
 
   const [dialog, setDialog] = useState<DialogState>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
@@ -72,6 +78,7 @@ export default function QuestTab({ type, quests }: Props) {
           <ul className="divide-y divide-gray-800">
             {quests.map((q) => {
               const isAutoQ = q.source_type !== 'manual'
+              const route = questSourceRoute(q.source_type)
               return (
                 <li
                   key={q.id}
@@ -115,9 +122,14 @@ export default function QuestTab({ type, quests }: Props) {
                       </div>
                     )}
 
-                    <div className="min-w-0 flex-1">
+                    <div
+                      className={`min-w-0 flex-1 ${route ? 'cursor-pointer' : ''}`}
+                      onClick={route ? () => navigate(route) : undefined}
+                    >
                       <div className="flex flex-wrap items-center gap-1.5">
-                        <p className="text-sm font-medium text-gray-100">
+                        <p
+                          className={`text-sm font-medium text-gray-100 ${route ? 'transition-colors hover:text-indigo-400' : ''}`}
+                        >
                           {q.title}
                         </p>
                         {isAutoQ && (

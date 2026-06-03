@@ -29,6 +29,18 @@ export const SOURCE_LABELS: Record<SourceType, string> = {
   supplement: 'Supplement (auto)',
 }
 
+export const QUEST_SOURCE_ROUTES: Record<SourceType, string | null> = {
+  manual: null,
+  medicine: '/health/medicine',
+  workout: '/health/workout',
+  supplement: '/health/medicine',
+}
+
+/** Returns the navigation route for an auto-linked quest, or null for manual. */
+export function questSourceRoute(source: SourceType): string | null {
+  return QUEST_SOURCE_ROUTES[source]
+}
+
 type QuestTypeConfig = {
   titleNoun: string
   period: 'day' | 'week'

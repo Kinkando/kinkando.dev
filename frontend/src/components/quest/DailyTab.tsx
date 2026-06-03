@@ -355,13 +355,17 @@ export default function DailyTab({ daily }: Props) {
                   )}
 
                   <button
+                    role="switch"
+                    aria-checked={q.is_active}
                     onClick={() => handleToggleActive(q)}
                     disabled={
                       activateQuest.isPending || deactivateQuest.isPending
                     }
-                    className="shrink-0 cursor-pointer text-xs text-gray-600 opacity-0 transition-opacity group-hover:opacity-100 hover:text-gray-100 disabled:opacity-40"
+                    className={`relative h-5 w-9 shrink-0 cursor-pointer rounded-full transition-colors focus:outline-none disabled:opacity-40 ${q.is_active ? 'bg-indigo-600' : 'bg-gray-700'}`}
                   >
-                    {q.is_active ? 'Deactivate' : 'Activate'}
+                    <span
+                      className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${q.is_active ? 'translate-x-4' : 'translate-x-0'}`}
+                    />
                   </button>
                   <button
                     onClick={() => handleEdit(q)}

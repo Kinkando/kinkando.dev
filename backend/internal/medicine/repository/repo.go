@@ -33,7 +33,7 @@ func (r *Repository) ListMedicines(ctx context.Context, userID uuid.UUID, includ
 	stmt := postgres.SELECT(table.Medicines.AllColumns).
 		FROM(table.Medicines).
 		WHERE(cond).
-		ORDER_BY(table.Medicines.CreatedAt.DESC())
+		ORDER_BY(table.Medicines.CreatedAt.ASC())
 
 	var dest []model.Medicines
 	if err := stmt.QueryContext(ctx, r.db, &dest); err != nil {

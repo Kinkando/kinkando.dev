@@ -174,6 +174,60 @@ func TestResolvePersona(t *testing.T) {
 			userMsg: "Tensei how did I sleep?",
 			want:    personaTensei,
 		},
+
+		// --- Kusuri: name mention (English) ---
+		{"kusuri name", nil, "Kusuri, did I take my pills today?", personaKusuri},
+		{"KUSURI uppercase", nil, "KUSURI how much stock do I have left?", personaKusuri},
+
+		// --- Kusuri: name mention (Thai) ---
+		{"thai kusuri name", nil, "คุสุริ บันทึกการกินยา", personaKusuri},
+
+		// --- Kusuri: keyword fallback (English) ---
+		{"keyword: medicine → Kusuri", nil, "how much medicine do I have left?", personaKusuri},
+		{"keyword: pill → Kusuri", nil, "I took a pill this morning", personaKusuri},
+		{"keyword: pills → Kusuri", nil, "remind me to take my pills", personaKusuri},
+		{"keyword: tablet → Kusuri", nil, "I only have 3 tablets left", personaKusuri},
+		{"keyword: capsule → Kusuri", nil, "take one capsule after meals", personaKusuri},
+		{"keyword: dose → Kusuri", nil, "what's my dose?", personaKusuri},
+		{"keyword: dosage → Kusuri", nil, "log my dosage", personaKusuri},
+		{"keyword: prescription → Kusuri", nil, "check my prescription refill", personaKusuri},
+		{"keyword: refill → Kusuri", nil, "I need a refill", personaKusuri},
+		{"keyword: restock → Kusuri", nil, "I restocked my medication", personaKusuri},
+		{"keyword: medication → Kusuri", nil, "list all my medication", personaKusuri},
+		{"keyword: pharmacy → Kusuri", nil, "I went to the pharmacy", personaKusuri},
+
+		// --- Kusuri: keyword fallback (Thai) ---
+		{"thai keyword: กินยา → Kusuri", nil, "บันทึกกินยาเช้านี้", personaKusuri},
+		{"thai keyword: ยาเม็ด → Kusuri", nil, "เหลือยาเม็ดกี่เม็ด", personaKusuri},
+		{"thai keyword: สต็อกยา → Kusuri", nil, "เช็คสต็อกยา", personaKusuri},
+		{"thai keyword: ยาที่เหลือ → Kusuri", nil, "ยาที่เหลืออยู่เท่าไหร่", personaKusuri},
+		{"thai keyword: เม็ดยา → Kusuri", nil, "เม็ดยาหมดแล้ว", personaKusuri},
+		{"thai keyword: โดสยา → Kusuri", nil, "บันทึกโดสยา", personaKusuri},
+
+		// --- Kusuri: sticky via history ---
+		{
+			name: "sticky: Kusuri from history",
+			history: []Message{
+				{Role: "user", Text: "Kusuri, show my medicines"},
+				{Role: "model", Text: "Here are your medicines."},
+			},
+			userMsg: "log that I just took one",
+			want:    personaKusuri,
+		},
+		{
+			name: "sticky: Thai Kusuri from history",
+			history: []Message{
+				{Role: "user", Text: "คุสุริ ดูสต็อกยา"},
+				{Role: "model", Text: "สต็อกยาของคุณมีดังนี้"},
+			},
+			userMsg: "ขอบคุณ",
+			want:    personaKusuri,
+		},
+
+		// --- Guard: no false-positive on bare ยา substring ---
+		{"no mis-route: อยากกินข้าว", nil, "อยากกินข้าว", personaAether},
+		// "อยาก" contains the sequence ยา as a substring; must not trigger Kusuri.
+		{"no mis-route: อยากดูหนัง", nil, "ฉันอยากดูหนัง", personaAether},
 	}
 
 	for _, tc := range cases {

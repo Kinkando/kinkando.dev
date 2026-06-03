@@ -13,6 +13,7 @@ const (
 	personaKaito                 // kanban task strategist — kanban_* tools
 	personaMint                  // finance assistant — finance_* tools
 	personaTensei                // health & fitness coach — workout_*, sleep_*, food_* tools
+	personaKusuri                // medicine assistant — medicine_* tools
 )
 
 const aetherInstruction = `You are Aether, the main assistant for a personal dashboard.
@@ -20,7 +21,8 @@ Reply concisely in the same language the user writes in.
 You have no tools — you cannot read or write data directly.
 For finance questions (income, expenses, records, spending), tell the user to address Mint.
 For kanban or task-management questions (cards, boards, columns), tell the user to address Kaito.
-For fitness, workout, exercise, training, sleep, or nutrition questions, tell the user to address Tensei.`
+For fitness, workout, exercise, training, sleep, or nutrition questions, tell the user to address Tensei.
+For medicine, medication, pills, doses, stock, or refill questions, tell the user to address Kusuri.`
 
 const kaitoInstruction = `You are Kaito, a task strategist for managing the personal dashboard kanban board.
 Reply concisely in the same language the user writes in.
@@ -95,10 +97,48 @@ Food:
 - Use food_update_meal to correct an existing entry — call food_list_logs first to get the log ID.
 - Use food_delete_meal to remove an entry — call food_list_logs first to get the log ID.`
 
+const kusuriInstruction = `You are Kusuri, a medication-management assistant for a personal dashboard.
+Reply concisely in the same language the user writes in.
+Always use tools to read or write data — never fabricate medicine names, stock quantities, or IDs.
+
+Your mission: help the user track their medications, stay consistent with doses, and maintain adequate stock.
+
+Principles:
+- Accuracy is critical — a wrong dose or stock count has real consequences.
+- Confirm medicine names before acting: always call medicine_list first unless you already know the exact name from the current conversation.
+- Never record a take or stock change without a confirmed medicine name from the tool response.
+- Flag low stock proactively: after any medicine_take, check if stock_after is at or below the medicine's low_stock_threshold and alert the user.
+- Be matter-of-fact and precise; no medical advice beyond reminders and tracking.
+
+Tool usage:
+
+medicine_list:
+- Call first whenever the user refers to a medicine by name — use the returned name for subsequent calls.
+- Pass include_archived: true only when the user explicitly asks about archived medicines.
+
+medicine_take:
+- Records an intake and decrements stock by quantity_taken.
+- quantity_taken defaults to the medicine's dosage_amount if the user does not specify.
+- If stock would go below zero, warn the user and ask whether to proceed; only set allow_negative: true if they confirm.
+- After taking, mention the remaining stock and flag if it is at or below low_stock_threshold.
+
+medicine_adjust_stock:
+- Use type "add" to restock (buying a new pack, etc.).
+- Use type "remove" to discard or waste tablets.
+- Use type "correction" to set an exact stock quantity (e.g. after a physical count).
+- Always supply a reason when the user explains why (e.g. "bought new pack", "expired tablets").
+
+medicine_list_intakes:
+- Call to review recent intake history, optionally filtered to a specific date.
+
+medicine_list_stock_adjustments:
+- Call to review restock / removal / correction history, optionally filtered to a specific date.`
+
 var (
 	rKaito  = regexp.MustCompile(`(?i)\bkaito\b`)
 	rMint   = regexp.MustCompile(`(?i)\bmint\b`)
 	rTensei = regexp.MustCompile(`(?i)\btensei\b`)
+	rKusuri = regexp.MustCompile(`(?i)\bkusuri\b`)
 )
 
 // Thai spellings of each persona's name. Thai script has no case and no ASCII word
@@ -109,6 +149,7 @@ const (
 	thaiMintAlt   = "มินต์" // alternative spelling without tone mark
 	thaiTensei    = "เทนเซ"
 	thaiTenseiAlt = "เท็นเซ" // alternative with mid-rising tone mark
+	thaiKusuri    = "คุสุริ"
 )
 
 // kanbanKeywords trigger personaKaito when no name is explicitly mentioned.
@@ -126,6 +167,18 @@ var financeKeywords = []string{
 	"baht", "฿", "category", "finance", "record", "cost", "payment",
 	// Thai
 	"บาท", "รายรับ", "รายจ่าย", "ค่าใช้จ่าย", "งบประมาณ", "เงินเดือน", "สรุปการเงิน",
+}
+
+// medicineKeywords trigger personaKusuri when no name is explicitly mentioned.
+// Note: bare "ยา" is intentionally excluded — it appears as a substring in many
+// common Thai words (e.g. อยาก "want") and would cause false positives.
+// Bare "stock" is also excluded as it is ambiguous with other domains.
+var medicineKeywords = []string{
+	// English
+	"medicine", "medication", "med ", "meds", "pill", "pills",
+	"tablet", "capsule", "dose", "dosage", "prescription", "refill", "restock", "pharmacy",
+	// Thai — multi-character phrases only to avoid substring collisions
+	"กินยา", "ยาเม็ด", "สต็อกยา", "ยาที่เหลือ", "เม็ดยา", "โดสยา",
 }
 
 // workoutKeywords trigger personaTensei when no name is explicitly mentioned.
@@ -166,6 +219,9 @@ func detectPersona(text string) (persona, bool) {
 	if rTensei.MatchString(text) || strings.Contains(text, thaiTensei) || strings.Contains(text, thaiTenseiAlt) {
 		return personaTensei, true
 	}
+	if rKusuri.MatchString(text) || strings.Contains(text, thaiKusuri) {
+		return personaKusuri, true
+	}
 	lower := strings.ToLower(text)
 	for _, kw := range kanbanKeywords {
 		if strings.Contains(lower, kw) {
@@ -175,6 +231,13 @@ func detectPersona(text string) (persona, bool) {
 	for _, kw := range financeKeywords {
 		if strings.Contains(lower, kw) {
 			return personaMint, true
+		}
+	}
+	// Medicine keywords checked before workout to avoid "after meal" timing phrases
+	// (which are medicine-domain context) routing to Tensei.
+	for _, kw := range medicineKeywords {
+		if strings.Contains(lower, kw) {
+			return personaKusuri, true
 		}
 	}
 	for _, kw := range workoutKeywords {

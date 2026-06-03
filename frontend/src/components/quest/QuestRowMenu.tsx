@@ -14,7 +14,9 @@ export default function QuestRowMenu({
   onDelete,
 }: Props) {
   const [menuOpen, setMenuOpen] = useState(false)
+  const [openUpward, setOpenUpward] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
+  const buttonRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
     function onClickOutside(e: MouseEvent) {
@@ -26,10 +28,19 @@ export default function QuestRowMenu({
     return () => document.removeEventListener('mousedown', onClickOutside)
   }, [menuOpen])
 
+  function handleOpen() {
+    if (buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect()
+      setOpenUpward(window.innerHeight - rect.bottom < 120)
+    }
+    setMenuOpen((o) => !o)
+  }
+
   return (
     <div className="relative shrink-0" ref={menuRef}>
       <button
-        onClick={() => setMenuOpen((o) => !o)}
+        ref={buttonRef}
+        onClick={handleOpen}
         className="cursor-pointer px-1 text-gray-600 hover:text-gray-300"
         title="Quest options"
         aria-label="Quest options"
@@ -37,7 +48,9 @@ export default function QuestRowMenu({
         ⋮
       </button>
       {menuOpen && (
-        <div className="absolute top-6 right-0 z-20 min-w-32 rounded-lg border border-gray-700 bg-gray-900 py-1 shadow-xl">
+        <div
+          className={`absolute ${openUpward ? 'bottom-6' : 'top-6'} right-0 z-20 min-w-32 rounded-lg border border-gray-700 bg-gray-900 py-1 shadow-xl`}
+        >
           <button
             className="w-full cursor-pointer px-3 py-1.5 text-left text-sm text-gray-300 hover:bg-gray-800"
             onClick={() => {

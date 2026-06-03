@@ -402,7 +402,13 @@ func (r *Repository) CreateSleepLog(ctx context.Context, userID uuid.UUID, in he
 		score,
 		in.Notes,
 		postgres.DateT(loggedAt),
-	).RETURNING(table.HealthSleepLogs.AllColumns)
+	).ON_CONFLICT(table.HealthSleepLogs.UserID, table.HealthSleepLogs.LoggedAt).
+		DO_UPDATE(postgres.SET(
+			table.HealthSleepLogs.StartedAt.SET(table.HealthSleepLogs.EXCLUDED.StartedAt),
+			table.HealthSleepLogs.EndedAt.SET(table.HealthSleepLogs.EXCLUDED.EndedAt),
+			table.HealthSleepLogs.Score.SET(table.HealthSleepLogs.EXCLUDED.Score),
+			table.HealthSleepLogs.Notes.SET(table.HealthSleepLogs.EXCLUDED.Notes),
+		)).RETURNING(table.HealthSleepLogs.AllColumns)
 
 	var dest model.HealthSleepLogs
 	if err := stmt.QueryContext(ctx, r.db, &dest); err != nil {

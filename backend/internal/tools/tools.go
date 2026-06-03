@@ -521,7 +521,7 @@ var SleepListLogs = ToolDef{
 
 var SleepLogNight = ToolDef{
 	Name:        "sleep_log_night",
-	Description: "Log a night of sleep with bedtime, wake time, Samsung Health sleep score (0–100), and optional notes.",
+	Description: "Log a night of sleep with bedtime, wake time, Samsung Health sleep score (0–100), and optional notes. One entry per day is enforced — logging the same date again updates the existing entry.",
 	Input:       SleepLogNightIn{},
 	Required:    []string{"started_at", "ended_at"},
 }
@@ -550,7 +550,7 @@ type SleepLogNightIn struct {
 	EndedAt   string `json:"ended_at"   jsonschema:"Wake time in RFC3339 format, e.g. 2026-06-02T06:45:00+07:00 (required)"`
 	Score     int    `json:"score"      jsonschema:"Samsung Health sleep score 0–100 (0 = not logging)"`
 	Notes     string `json:"notes"      jsonschema:"Optional notes"`
-	LoggedAt  string `json:"logged_at"  jsonschema:"Night-of date YYYY-MM-DD (defaults to started_at date)"`
+	LoggedAt  string `json:"logged_at"  jsonschema:"Night-of date YYYY-MM-DD (defaults to started_at date); one log per day is enforced — same date updates the existing entry"`
 }
 
 type SleepUpdateNightIn struct {

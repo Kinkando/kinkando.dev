@@ -52,7 +52,7 @@ export const QUEST_TYPE_CONFIG: Record<QuestType, QuestTypeConfig> = {
     accentBadge: 'bg-sky-900/60 text-sky-400',
     manualOptionLabel: 'Manual (check off yourself)',
     autoLead: 'auto-complete',
-    autoTail: 'No manual checkbox will be shown.',
+    autoTail: 'No manual ±buttons will be shown.',
     emptyText: 'No daily quests yet. Add one to get started.',
     deleteText:
       'Delete this daily quest? All completions and XP events will be removed.',

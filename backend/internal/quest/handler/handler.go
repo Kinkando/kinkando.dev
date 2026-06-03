@@ -21,10 +21,8 @@ type Service interface {
 	SetActive(ctx context.Context, id uuid.UUID, userID uuid.UUID, active bool) (*quest.Quest, error)
 
 	GetOverview(ctx context.Context, userID uuid.UUID) (*quest.Overview, error)
-	CompleteDaily(ctx context.Context, userID uuid.UUID, questID uuid.UUID) error
-	UncompleteDaily(ctx context.Context, userID uuid.UUID, questID uuid.UUID) error
-	IncrementWeekly(ctx context.Context, userID uuid.UUID, questID uuid.UUID) error
-	DecrementWeekly(ctx context.Context, userID uuid.UUID, questID uuid.UUID) error
+	IncrementQuest(ctx context.Context, userID uuid.UUID, questID uuid.UUID) error
+	DecrementQuest(ctx context.Context, userID uuid.UUID, questID uuid.UUID) error
 
 	ListXPEvents(ctx context.Context, userID uuid.UUID, limit int) ([]*quest.XPEvent, error)
 }
@@ -53,10 +51,8 @@ func (h *Handler) Register(router fiber.Router) {
 
 	router.Get("/overview", h.getOverview)
 
-	router.Post("/quests/:id/complete", h.completeDaily)
-	router.Delete("/quests/:id/complete", h.uncompleteDaily)
-	router.Post("/quests/:id/increment", h.incrementWeekly)
-	router.Post("/quests/:id/decrement", h.decrementWeekly)
+	router.Post("/quests/:id/increment", h.incrementQuest)
+	router.Post("/quests/:id/decrement", h.decrementQuest)
 
 	router.Get("/history", h.listHistory)
 }
@@ -185,7 +181,7 @@ func (h *Handler) getOverview(c *fiber.Ctx) error {
 
 // ── Actions ───────────────────────────────────────────────────────────────────
 
-func (h *Handler) completeDaily(c *fiber.Ctx) error {
+func (h *Handler) incrementQuest(c *fiber.Ctx) error {
 	userID, err := h.resolveUserID(c)
 	if err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
@@ -194,7 +190,7 @@ func (h *Handler) completeDaily(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid quest id"})
 	}
-	if err := h.svc.CompleteDaily(c.Context(), userID, id); err != nil {
+	if err := h.svc.IncrementQuest(c.Context(), userID, id); err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "quest not found"})
 		}
@@ -203,7 +199,7 @@ func (h *Handler) completeDaily(c *fiber.Ctx) error {
 	return c.SendStatus(fiber.StatusNoContent)
 }
 
-func (h *Handler) uncompleteDaily(c *fiber.Ctx) error {
+func (h *Handler) decrementQuest(c *fiber.Ctx) error {
 	userID, err := h.resolveUserID(c)
 	if err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
@@ -212,43 +208,7 @@ func (h *Handler) uncompleteDaily(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid quest id"})
 	}
-	if err := h.svc.UncompleteDaily(c.Context(), userID, id); err != nil {
-		if strings.Contains(err.Error(), "not found") {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "quest not found"})
-		}
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
-	}
-	return c.SendStatus(fiber.StatusNoContent)
-}
-
-func (h *Handler) incrementWeekly(c *fiber.Ctx) error {
-	userID, err := h.resolveUserID(c)
-	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
-	}
-	id, err := uuid.Parse(c.Params("id"))
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid quest id"})
-	}
-	if err := h.svc.IncrementWeekly(c.Context(), userID, id); err != nil {
-		if strings.Contains(err.Error(), "not found") {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "quest not found"})
-		}
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
-	}
-	return c.SendStatus(fiber.StatusNoContent)
-}
-
-func (h *Handler) decrementWeekly(c *fiber.Ctx) error {
-	userID, err := h.resolveUserID(c)
-	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
-	}
-	id, err := uuid.Parse(c.Params("id"))
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid quest id"})
-	}
-	if err := h.svc.DecrementWeekly(c.Context(), userID, id); err != nil {
+	if err := h.svc.DecrementQuest(c.Context(), userID, id); err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "quest not found"})
 		}

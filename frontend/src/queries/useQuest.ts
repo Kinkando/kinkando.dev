@@ -7,10 +7,8 @@ import {
   deleteQuest,
   activateQuest,
   deactivateQuest,
-  completeDaily,
-  uncompleteDaily,
-  incrementWeekly,
-  decrementWeekly,
+  incrementQuest,
+  decrementQuest,
   fetchQuestHistory,
 } from '../lib/api/quest'
 import type { CreateQuestInput, UpdateQuestInput } from '../lib/api/types'
@@ -98,10 +96,10 @@ export function useDeactivateQuest() {
 
 // ── Action mutations ──────────────────────────────────────────────────────────
 
-export function useCompleteDaily() {
+export function useIncrementQuest() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (id: string) => completeDaily(id),
+    mutationFn: (id: string) => incrementQuest(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: keys.questOverview })
       queryClient.invalidateQueries({ queryKey: keys.questHistory })
@@ -109,32 +107,10 @@ export function useCompleteDaily() {
   })
 }
 
-export function useUncompleteDaily() {
+export function useDecrementQuest() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (id: string) => uncompleteDaily(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: keys.questOverview })
-      queryClient.invalidateQueries({ queryKey: keys.questHistory })
-    },
-  })
-}
-
-export function useIncrementWeekly() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: (id: string) => incrementWeekly(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: keys.questOverview })
-      queryClient.invalidateQueries({ queryKey: keys.questHistory })
-    },
-  })
-}
-
-export function useDecrementWeekly() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: (id: string) => decrementWeekly(id),
+    mutationFn: (id: string) => decrementQuest(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: keys.questOverview })
       queryClient.invalidateQueries({ queryKey: keys.questHistory })

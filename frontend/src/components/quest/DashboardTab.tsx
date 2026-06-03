@@ -104,35 +104,40 @@ export default function DashboardTab({ overview }: Props) {
             </span>
           </div>
           <XPBar value={daily_done} max={daily_total || 1} />
-          <ul className="mt-4 space-y-2">
+          <ul className="mt-4 space-y-2.5">
             {daily.length === 0 && (
               <li className="text-xs text-gray-600">No daily quests yet.</li>
             )}
             {daily.map((q) => (
-              <li key={q.id} className="flex items-center gap-2">
-                <span
-                  className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border text-xs font-bold ${
-                    q.completed_today
-                      ? 'border-sky-500 bg-sky-500 text-white'
-                      : 'border-gray-700 text-transparent'
-                  }`}
-                >
-                  ✓
-                </span>
-                <span
-                  className={`min-w-0 flex-1 truncate text-sm ${
-                    q.completed_today
-                      ? 'text-gray-500 line-through'
-                      : 'text-gray-300'
-                  }`}
-                >
-                  {q.title}
-                </span>
-                {q.xp_reward > 0 && (
-                  <span className="ml-auto shrink-0 text-xs font-semibold text-amber-500">
-                    +{q.xp_reward}
+              <li key={q.id} className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`min-w-0 flex-1 truncate text-sm ${
+                      q.completed
+                        ? 'text-gray-500 line-through'
+                        : 'text-gray-300'
+                    }`}
+                  >
+                    {q.title}
                   </span>
-                )}
+                  <SourceBadge source={q.source_type} />
+                  {q.completed && (
+                    <span className="shrink-0 rounded bg-sky-900/60 px-1.5 py-0.5 text-xs font-medium text-sky-400">
+                      ✓
+                    </span>
+                  )}
+                  <span className="shrink-0 text-xs text-gray-500">
+                    {q.current_count}/{q.target_count}
+                  </span>
+                </div>
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-800">
+                  <div
+                    className="h-full rounded-full bg-sky-500 transition-all"
+                    style={{
+                      width: `${Math.min((q.current_count / q.target_count) * 100, 100)}%`,
+                    }}
+                  />
+                </div>
               </li>
             ))}
           </ul>

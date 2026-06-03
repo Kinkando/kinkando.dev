@@ -591,7 +591,8 @@ export type Quest = {
 }
 
 export type DailyQuestStatus = Quest & {
-  completed_today: boolean
+  current_count: number
+  completed: boolean
 }
 
 export type WeeklyQuestStatus = Quest & {

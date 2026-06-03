@@ -6,8 +6,8 @@ import type {
   SourceType,
 } from '../../lib/api/types'
 import {
-  useCompleteDaily,
-  useUncompleteDaily,
+  useIncrementQuest,
+  useDecrementQuest,
   useCreateQuest,
   useUpdateQuest,
   useDeleteQuest,
@@ -28,6 +28,7 @@ type FormState = {
   title: string
   description: string
   xp_reward: string
+  target_count: string
   source_type: SourceType
 }
 
@@ -35,6 +36,7 @@ const defaultForm: FormState = {
   title: '',
   description: '',
   xp_reward: '10',
+  target_count: '1',
   source_type: 'manual',
 }
 
@@ -43,6 +45,7 @@ function questToForm(q: DailyQuestStatus): FormState {
     title: q.title,
     description: q.description,
     xp_reward: String(q.xp_reward),
+    target_count: String(q.target_count),
     source_type: q.source_type,
   }
 }
@@ -60,8 +63,8 @@ export default function DailyTab({ daily }: Props) {
   const [formError, setFormError] = useState('')
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
 
-  const completeDaily = useCompleteDaily()
-  const uncompleteDaily = useUncompleteDaily()
+  const incrementQuest = useIncrementQuest()
+  const decrementQuest = useDecrementQuest()
   const createQuest = useCreateQuest()
   const updateQuest = useUpdateQuest()
   const deleteQuest = useDeleteQuest()
@@ -81,14 +84,6 @@ export default function DailyTab({ daily }: Props) {
     setEditingId(null)
     setForm(defaultForm)
     setFormError('')
-  }
-
-  function handleToggle(q: DailyQuestStatus) {
-    if (q.completed_today) {
-      uncompleteDaily.mutate(q.id)
-    } else {
-      completeDaily.mutate(q.id)
-    }
   }
 
   function handleToggleActive(q: DailyQuestStatus) {
@@ -112,6 +107,11 @@ export default function DailyTab({ daily }: Props) {
       setFormError('XP reward must be 0 or greater.')
       return
     }
+    const target = parseInt(form.target_count, 10)
+    if (isNaN(target) || target < 1) {
+      setFormError('Target count must be at least 1.')
+      return
+    }
 
     try {
       if (isEditing) {
@@ -121,7 +121,7 @@ export default function DailyTab({ daily }: Props) {
           title: form.title.trim(),
           description: form.description.trim(),
           xp_reward: xp,
-          target_count: 1,
+          target_count: target,
           is_active: existing.is_active,
         }
         await updateQuest.mutateAsync({ id: editingId!, input })
@@ -133,7 +133,7 @@ export default function DailyTab({ daily }: Props) {
           title: form.title.trim(),
           description: form.description.trim(),
           xp_reward: xp,
-          target_count: 1,
+          target_count: target,
         }
         await createQuest.mutateAsync(input)
       }
@@ -202,7 +202,20 @@ export default function DailyTab({ daily }: Props) {
               </select>
             </div>
             <div>
-              <label className={labelClass}>XP Reward</label>
+              <label className={labelClass}>Target count / day</label>
+              <input
+                className={inputClass}
+                type="number"
+                min="1"
+                placeholder="1"
+                value={form.target_count}
+                onChange={(e) =>
+                  setForm({ ...form, target_count: e.target.value })
+                }
+              />
+            </div>
+            <div>
+              <label className={labelClass}>XP Reward (on completion)</label>
               <input
                 className={inputClass}
                 type="number"
@@ -257,129 +270,116 @@ export default function DailyTab({ daily }: Props) {
         ) : (
           <ul className="divide-y divide-gray-800">
             {daily.map((q) => {
-              const isAuto = q.source_type !== 'manual'
+              const isAutoQ = q.source_type !== 'manual'
               return (
                 <li
                   key={q.id}
-                  className={`group flex items-center gap-3 px-5 py-3.5 ${!q.is_active ? 'opacity-50' : ''}`}
+                  className={`group px-5 py-4 ${!q.is_active ? 'opacity-50' : ''}`}
                 >
-                  {/* Check toggle — only for manual quests */}
-                  {isAuto ? (
-                    <div
-                      className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border ${
-                        q.completed_today
-                          ? 'border-sky-500 bg-sky-500 text-white'
-                          : 'border-gray-700 text-gray-700'
-                      }`}
-                    >
-                      <svg
-                        className="h-3.5 w-3.5"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        strokeWidth={3}
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M5 13l4 4L19 7"
-                        />
-                      </svg>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => handleToggle(q)}
-                      disabled={
-                        completeDaily.isPending || uncompleteDaily.isPending
-                      }
-                      className={`flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-full border transition-colors disabled:opacity-50 ${
-                        q.completed_today
-                          ? 'border-sky-500 bg-sky-500 text-white'
-                          : 'border-gray-600 text-transparent hover:border-sky-400'
-                      }`}
-                      aria-label={
-                        q.completed_today ? 'Uncheck quest' : 'Complete quest'
-                      }
-                    >
-                      <svg
-                        className="h-3.5 w-3.5"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        strokeWidth={3}
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M5 13l4 4L19 7"
-                        />
-                      </svg>
-                    </button>
-                  )}
+                  <div className="flex items-center gap-3">
+                    {/* Count controls — only for manual quests */}
+                    {isAutoQ ? (
+                      <div className="flex items-center gap-1">
+                        <span className="min-w-[2.5rem] text-center text-sm font-semibold text-gray-100">
+                          {q.current_count}/{q.target_count}
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => decrementQuest.mutate(q.id)}
+                          disabled={
+                            decrementQuest.isPending || q.current_count === 0
+                          }
+                          className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md bg-gray-800 text-sm font-bold text-gray-300 hover:bg-gray-700 disabled:opacity-40"
+                          aria-label="Decrement"
+                        >
+                          −
+                        </button>
+                        <span className="min-w-[2.5rem] text-center text-sm font-semibold text-gray-100">
+                          {q.current_count}/{q.target_count}
+                        </span>
+                        <button
+                          onClick={() => incrementQuest.mutate(q.id)}
+                          disabled={incrementQuest.isPending}
+                          className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md bg-gray-800 text-sm font-bold text-gray-300 hover:bg-gray-700 disabled:opacity-40"
+                          aria-label="Increment"
+                        >
+                          +
+                        </button>
+                      </div>
+                    )}
 
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <p
-                        className={`text-sm font-medium ${
-                          q.completed_today
-                            ? 'text-gray-500 line-through'
-                            : 'text-gray-100'
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <p className="text-sm font-medium text-gray-100">
+                          {q.title}
+                        </p>
+                        {isAutoQ && (
+                          <span className="rounded bg-gray-800 px-1.5 py-0.5 text-xs text-gray-500">
+                            ⚙ {SOURCE_LABELS[q.source_type]}
+                          </span>
+                        )}
+                        {q.completed && (
+                          <span className="rounded bg-sky-900/60 px-1.5 py-0.5 text-xs font-medium text-sky-400">
+                            Complete
+                          </span>
+                        )}
+                        {!q.is_active && (
+                          <span className="rounded bg-gray-800 px-1.5 py-0.5 text-xs text-gray-500">
+                            inactive
+                          </span>
+                        )}
+                      </div>
+                      {q.description && (
+                        <p className="mt-0.5 text-xs text-gray-600">
+                          {q.description}
+                        </p>
+                      )}
+                      {/* Progress bar */}
+                      <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-gray-800">
+                        <div
+                          className="h-full rounded-full bg-sky-500 transition-all"
+                          style={{
+                            width: `${Math.min((q.current_count / q.target_count) * 100, 100)}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    {q.xp_reward > 0 && (
+                      <span
+                        className={`shrink-0 text-xs font-semibold ${
+                          q.completed ? 'text-amber-600/60' : 'text-amber-500'
                         }`}
                       >
-                        {q.title}
-                      </p>
-                      {isAuto && (
-                        <span className="rounded bg-gray-800 px-1.5 py-0.5 text-xs text-gray-500">
-                          ⚙ {SOURCE_LABELS[q.source_type]}
-                        </span>
-                      )}
-                      {!q.is_active && (
-                        <span className="rounded bg-gray-800 px-1.5 py-0.5 text-xs text-gray-500">
-                          inactive
-                        </span>
-                      )}
-                    </div>
-                    {q.description && (
-                      <p className="mt-0.5 text-xs text-gray-600">
-                        {q.description}
-                      </p>
+                        +{q.xp_reward} XP
+                      </span>
                     )}
-                  </div>
 
-                  {q.xp_reward > 0 && (
-                    <span
-                      className={`shrink-0 text-xs font-semibold ${
-                        q.completed_today
-                          ? 'text-amber-600/60'
-                          : 'text-amber-500'
-                      }`}
+                    <button
+                      role="switch"
+                      aria-checked={q.is_active}
+                      onClick={() => handleToggleActive(q)}
+                      className={`relative h-5 w-9 shrink-0 cursor-pointer rounded-full transition-colors focus:outline-none disabled:opacity-40 ${q.is_active ? 'bg-indigo-600' : 'bg-gray-700'}`}
                     >
-                      +{q.xp_reward} XP
-                    </span>
-                  )}
-
-                  <button
-                    role="switch"
-                    aria-checked={q.is_active}
-                    onClick={() => handleToggleActive(q)}
-                    className={`relative h-5 w-9 shrink-0 cursor-pointer rounded-full transition-colors focus:outline-none disabled:opacity-40 ${q.is_active ? 'bg-indigo-600' : 'bg-gray-700'}`}
-                  >
-                    <span
-                      className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${q.is_active ? 'translate-x-4' : 'translate-x-0'}`}
-                    />
-                  </button>
-                  <button
-                    onClick={() => handleEdit(q)}
-                    className="shrink-0 cursor-pointer text-xs text-gray-600 opacity-0 transition-opacity group-hover:opacity-100 hover:text-gray-100"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => setDeleteConfirm(q.id)}
-                    className="shrink-0 cursor-pointer text-xs text-red-700 opacity-0 transition-opacity group-hover:opacity-100 hover:text-red-400"
-                  >
-                    Delete
-                  </button>
+                      <span
+                        className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${q.is_active ? 'translate-x-4' : 'translate-x-0'}`}
+                      />
+                    </button>
+                    <button
+                      onClick={() => handleEdit(q)}
+                      className="shrink-0 cursor-pointer text-xs text-gray-600 opacity-0 transition-opacity group-hover:opacity-100 hover:text-gray-100"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => setDeleteConfirm(q.id)}
+                      className="shrink-0 cursor-pointer text-xs text-red-700 opacity-0 transition-opacity group-hover:opacity-100 hover:text-red-400"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </li>
               )
             })}

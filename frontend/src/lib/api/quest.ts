@@ -57,28 +57,14 @@ export function deactivateQuest(id: string): Promise<Quest | undefined> {
   })
 }
 
-export function completeDaily(id: string): Promise<undefined> {
-  return apiFetch<undefined>(`/quest/quests/${id}/complete`, {
-    method: 'POST',
-    auth: true,
-  })
-}
-
-export function uncompleteDaily(id: string): Promise<undefined> {
-  return apiFetch<undefined>(`/quest/quests/${id}/complete`, {
-    method: 'DELETE',
-    auth: true,
-  })
-}
-
-export function incrementWeekly(id: string): Promise<undefined> {
+export function incrementQuest(id: string): Promise<undefined> {
   return apiFetch<undefined>(`/quest/quests/${id}/increment`, {
     method: 'POST',
     auth: true,
   })
 }
 
-export function decrementWeekly(id: string): Promise<undefined> {
+export function decrementQuest(id: string): Promise<undefined> {
   return apiFetch<undefined>(`/quest/quests/${id}/decrement`, {
     method: 'POST',
     auth: true,

@@ -20,10 +20,8 @@ type Repository interface {
 	GetWeeklyStatus(ctx context.Context, userID uuid.UUID, weekStart time.Time) ([]*quest.WeeklyQuestStatus, error)
 	TotalXP(ctx context.Context, userID uuid.UUID) (int, error)
 
-	CompleteDaily(ctx context.Context, userID uuid.UUID, questID uuid.UUID, date time.Time) error
-	UncompleteDaily(ctx context.Context, userID uuid.UUID, questID uuid.UUID, date time.Time) error
-	IncrementWeekly(ctx context.Context, userID uuid.UUID, questID uuid.UUID, weekStart time.Time) error
-	DecrementWeekly(ctx context.Context, userID uuid.UUID, questID uuid.UUID, weekStart time.Time) error
+	Increment(ctx context.Context, userID uuid.UUID, questID uuid.UUID, periodStart time.Time, source string) error
+	Decrement(ctx context.Context, userID uuid.UUID, questID uuid.UUID, periodStart time.Time) error
 
 	ProgressBySource(ctx context.Context, userID uuid.UUID, sourceType string, today, weekStart time.Time) error
 
@@ -44,10 +42,6 @@ func (s *Service) CreateQuest(ctx context.Context, userID uuid.UUID, in quest.Cr
 	// Default source_type to manual when omitted.
 	if in.SourceType == "" {
 		in.SourceType = quest.SourceTypeManual
-	}
-	// Daily quests always have target_count = 1.
-	if in.Type == quest.QuestTypeDaily {
-		in.TargetCount = 1
 	}
 	return s.repo.CreateQuest(ctx, userID, in)
 }
@@ -96,7 +90,7 @@ func (s *Service) GetOverview(ctx context.Context, userID uuid.UUID) (*quest.Ove
 
 	dailyDone := 0
 	for _, d := range daily {
-		if d.CompletedToday {
+		if d.Completed {
 			dailyDone++
 		}
 	}
@@ -122,66 +116,46 @@ func (s *Service) GetOverview(ctx context.Context, userID uuid.UUID) (*quest.Ove
 
 // ── Actions ───────────────────────────────────────────────────────────────────
 
-func (s *Service) CompleteDaily(ctx context.Context, userID uuid.UUID, questID uuid.UUID) error {
+// IncrementQuest adds one completion for the quest's current period.
+// Only manual quests may be incremented by the user; auto quests are driven by HandleSourceEvent.
+func (s *Service) IncrementQuest(ctx context.Context, userID uuid.UUID, questID uuid.UUID) error {
 	q, err := s.repo.GetQuest(ctx, questID, userID)
 	if err != nil {
 		return err
-	}
-	if q.Type != quest.QuestTypeDaily {
-		return questError("quest is not a daily quest")
-	}
-	if q.SourceType != quest.SourceTypeManual {
-		return questError("this quest is auto-managed and cannot be manually completed")
-	}
-	return s.repo.CompleteDaily(ctx, userID, questID, s.today())
-}
-
-func (s *Service) UncompleteDaily(ctx context.Context, userID uuid.UUID, questID uuid.UUID) error {
-	q, err := s.repo.GetQuest(ctx, questID, userID)
-	if err != nil {
-		return err
-	}
-	if q.Type != quest.QuestTypeDaily {
-		return questError("quest is not a daily quest")
-	}
-	if q.SourceType != quest.SourceTypeManual {
-		return questError("this quest is auto-managed and cannot be manually uncompleted")
-	}
-	return s.repo.UncompleteDaily(ctx, userID, questID, s.today())
-}
-
-func (s *Service) IncrementWeekly(ctx context.Context, userID uuid.UUID, questID uuid.UUID) error {
-	q, err := s.repo.GetQuest(ctx, questID, userID)
-	if err != nil {
-		return err
-	}
-	if q.Type != quest.QuestTypeWeekly {
-		return questError("quest is not a weekly quest")
 	}
 	if q.SourceType != quest.SourceTypeManual {
 		return questError("this quest is auto-managed and cannot be manually incremented")
 	}
-	return s.repo.IncrementWeekly(ctx, userID, questID, s.weekStart())
+	periodStart, source := s.periodFor(q.Type)
+	return s.repo.Increment(ctx, userID, questID, periodStart, source)
 }
 
-func (s *Service) DecrementWeekly(ctx context.Context, userID uuid.UUID, questID uuid.UUID) error {
+// DecrementQuest removes the most recent completion for the quest's current period.
+// Only manual quests may be decremented by the user.
+func (s *Service) DecrementQuest(ctx context.Context, userID uuid.UUID, questID uuid.UUID) error {
 	q, err := s.repo.GetQuest(ctx, questID, userID)
 	if err != nil {
 		return err
 	}
-	if q.Type != quest.QuestTypeWeekly {
-		return questError("quest is not a weekly quest")
-	}
 	if q.SourceType != quest.SourceTypeManual {
 		return questError("this quest is auto-managed and cannot be manually decremented")
 	}
-	return s.repo.DecrementWeekly(ctx, userID, questID, s.weekStart())
+	periodStart, _ := s.periodFor(q.Type)
+	return s.repo.Decrement(ctx, userID, questID, periodStart)
 }
 
 // HandleSourceEvent advances all active quests linked to the given sourceType
 // for the user. Called by the event bus — never by the user directly.
 func (s *Service) HandleSourceEvent(ctx context.Context, userID uuid.UUID, sourceType string) error {
 	return s.repo.ProgressBySource(ctx, userID, sourceType, s.today(), s.weekStart())
+}
+
+// periodFor returns the period start time and XP source label for the given quest type.
+func (s *Service) periodFor(qType quest.QuestType) (time.Time, string) {
+	if qType == quest.QuestTypeDaily {
+		return s.today(), "daily"
+	}
+	return s.weekStart(), "weekly"
 }
 
 // ── History ───────────────────────────────────────────────────────────────────

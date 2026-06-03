@@ -56,7 +56,8 @@ type UpdateQuestInput struct {
 
 type DailyQuestStatus struct {
 	Quest
-	CompletedToday bool `json:"completed_today"`
+	CurrentCount int  `json:"current_count"`
+	Completed    bool `json:"completed"`
 }
 
 type WeeklyQuestStatus struct {

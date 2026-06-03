@@ -6,8 +6,8 @@ import type {
   SourceType,
 } from '../../lib/api/types'
 import {
-  useIncrementWeekly,
-  useDecrementWeekly,
+  useIncrementQuest,
+  useDecrementQuest,
   useCreateQuest,
   useUpdateQuest,
   useDeleteQuest,
@@ -63,8 +63,8 @@ export default function WeeklyTab({ weekly }: Props) {
   const [formError, setFormError] = useState('')
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
 
-  const incrementWeekly = useIncrementWeekly()
-  const decrementWeekly = useDecrementWeekly()
+  const incrementWeekly = useIncrementQuest()
+  const decrementWeekly = useDecrementQuest()
   const createQuest = useCreateQuest()
   const updateQuest = useUpdateQuest()
   const deleteQuest = useDeleteQuest()

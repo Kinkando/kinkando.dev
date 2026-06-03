@@ -168,9 +168,11 @@ func (r *Repository) SetActive(ctx context.Context, id uuid.UUID, userID uuid.UU
 // ── Overview queries ──────────────────────────────────────────────────────────
 
 func (r *Repository) GetDailyStatus(ctx context.Context, userID uuid.UUID, today time.Time) ([]*quest.DailyQuestStatus, error) {
+	countExpr := postgres.COUNT(table.QuestCompletions.ID)
+
 	stmt := postgres.SELECT(
 		table.QuestDefinitions.AllColumns,
-		table.QuestCompletions.ID.AS("comp_id"),
+		countExpr.AS("current_count"),
 	).FROM(
 		table.QuestDefinitions.LEFT_JOIN(
 			table.QuestCompletions,
@@ -181,11 +183,23 @@ func (r *Repository) GetDailyStatus(ctx context.Context, userID uuid.UUID, today
 	).WHERE(
 		table.QuestDefinitions.UserID.EQ(postgres.UUID(userID)).
 			AND(table.QuestDefinitions.Type.EQ(postgres.String(string(quest.QuestTypeDaily)))),
+	).GROUP_BY(
+		table.QuestDefinitions.ID,
+		table.QuestDefinitions.UserID,
+		table.QuestDefinitions.Type,
+		table.QuestDefinitions.SourceType,
+		table.QuestDefinitions.Title,
+		table.QuestDefinitions.Description,
+		table.QuestDefinitions.XpReward,
+		table.QuestDefinitions.TargetCount,
+		table.QuestDefinitions.IsActive,
+		table.QuestDefinitions.CreatedAt,
+		table.QuestDefinitions.UpdatedAt,
 	).ORDER_BY(table.QuestDefinitions.CreatedAt.ASC())
 
 	type dailyRow struct {
 		model.QuestDefinitions
-		CompID *uuid.UUID `alias:"comp_id"`
+		CurrentCount int64 `alias:"current_count"`
 	}
 
 	var rows []dailyRow
@@ -196,9 +210,11 @@ func (r *Repository) GetDailyStatus(ctx context.Context, userID uuid.UUID, today
 	result := make([]*quest.DailyQuestStatus, len(rows))
 	for i, row := range rows {
 		q := toQuest(row.QuestDefinitions)
+		count := int(row.CurrentCount)
 		result[i] = &quest.DailyQuestStatus{
-			Quest:          q,
-			CompletedToday: row.CompID != nil,
+			Quest:        q,
+			CurrentCount: count,
+			Completed:    count >= q.TargetCount,
 		}
 	}
 	return result, nil
@@ -272,85 +288,12 @@ func (r *Repository) TotalXP(ctx context.Context, userID uuid.UUID) (int, error)
 	return int(result.TotalXP), nil
 }
 
-// ── Daily completion ──────────────────────────────────────────────────────────
+// ── Completion ────────────────────────────────────────────────────────────────
 
-func (r *Repository) CompleteDaily(ctx context.Context, userID uuid.UUID, questID uuid.UUID, date time.Time) error {
-	tx, err := r.db.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("begin tx: %w", err)
-	}
-	defer tx.Rollback() //nolint:errcheck
-
-	// Get quest to validate ownership and get XP reward + title.
-	q, err := getQuestTx(ctx, tx, questID, userID)
-	if err != nil {
-		return err
-	}
-
-	// Check if already completed today (idempotent).
-	var existing model.QuestCompletions
-	checkStmt := postgres.SELECT(table.QuestCompletions.ID).FROM(table.QuestCompletions).WHERE(
-		table.QuestCompletions.QuestID.EQ(postgres.UUID(questID)).
-			AND(table.QuestCompletions.PeriodStart.EQ(postgres.DateT(date))).
-			AND(table.QuestCompletions.UserID.EQ(postgres.UUID(userID))),
-	)
-	err = checkStmt.QueryContext(ctx, tx, &existing)
-	if err == nil {
-		// Already completed — idempotent success.
-		return tx.Commit()
-	}
-	if err != qrm.ErrNoRows {
-		return fmt.Errorf("check completion: %w", err)
-	}
-
-	// Insert completion.
-	insComp := table.QuestCompletions.INSERT(
-		table.QuestCompletions.UserID,
-		table.QuestCompletions.QuestID,
-		table.QuestCompletions.PeriodStart,
-	).VALUES(postgres.UUID(userID), postgres.UUID(questID), postgres.DateT(date))
-	if _, err := insComp.ExecContext(ctx, tx); err != nil {
-		return fmt.Errorf("insert completion: %w", err)
-	}
-
-	// Grant XP (if any), idempotent via ON CONFLICT DO NOTHING.
-	if q.XPReward > 0 {
-		if err := insertXPEvent(ctx, tx, userID, questID, q.Title, "daily", date, q.XPReward); err != nil {
-			return err
-		}
-	}
-
-	return tx.Commit()
-}
-
-func (r *Repository) UncompleteDaily(ctx context.Context, userID uuid.UUID, questID uuid.UUID, date time.Time) error {
-	tx, err := r.db.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("begin tx: %w", err)
-	}
-	defer tx.Rollback() //nolint:errcheck
-
-	// Delete completion (idempotent — if none exists, no-op).
-	delComp := table.QuestCompletions.DELETE().WHERE(
-		table.QuestCompletions.QuestID.EQ(postgres.UUID(questID)).
-			AND(table.QuestCompletions.PeriodStart.EQ(postgres.DateT(date))).
-			AND(table.QuestCompletions.UserID.EQ(postgres.UUID(userID))),
-	)
-	if _, err := delComp.ExecContext(ctx, tx); err != nil {
-		return fmt.Errorf("delete completion: %w", err)
-	}
-
-	// Revoke XP event (idempotent — if none exists, no-op).
-	if err := deleteXPEvent(ctx, tx, questID, date); err != nil {
-		return err
-	}
-
-	return tx.Commit()
-}
-
-// ── Weekly completion ─────────────────────────────────────────────────────────
-
-func (r *Repository) IncrementWeekly(ctx context.Context, userID uuid.UUID, questID uuid.UUID, weekStart time.Time) error {
+// Increment adds one completion row for the given period and grants XP once when
+// the target is first reached. source is the XP-event label ("daily" or "weekly").
+// It applies identically to both daily (periodStart = today) and weekly (periodStart = weekStart).
+func (r *Repository) Increment(ctx context.Context, userID uuid.UUID, questID uuid.UUID, periodStart time.Time, source string) error {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin tx: %w", err)
@@ -363,25 +306,25 @@ func (r *Repository) IncrementWeekly(ctx context.Context, userID uuid.UUID, ques
 		return err
 	}
 
-	// Insert a completion row (no uniqueness constraint — weekly allows multiple).
+	// Insert a completion row (no uniqueness constraint — multiple allowed per period).
 	insComp := table.QuestCompletions.INSERT(
 		table.QuestCompletions.UserID,
 		table.QuestCompletions.QuestID,
 		table.QuestCompletions.PeriodStart,
-	).VALUES(postgres.UUID(userID), postgres.UUID(questID), postgres.DateT(weekStart))
+	).VALUES(postgres.UUID(userID), postgres.UUID(questID), postgres.DateT(periodStart))
 	if _, err := insComp.ExecContext(ctx, tx); err != nil {
 		return fmt.Errorf("insert completion: %w", err)
 	}
 
 	// Recount.
-	count, err := countCompletionsTx(ctx, tx, questID, weekStart)
+	count, err := countCompletionsTx(ctx, tx, questID, periodStart)
 	if err != nil {
 		return err
 	}
 
-	// Grant XP once when target is first reached.
+	// Grant XP once when target is first reached (idempotent via ON CONFLICT DO NOTHING).
 	if q.XPReward > 0 && count >= q.TargetCount {
-		if err := insertXPEvent(ctx, tx, userID, questID, q.Title, "weekly", weekStart, q.XPReward); err != nil {
+		if err := insertXPEvent(ctx, tx, userID, questID, q.Title, source, periodStart, q.XPReward); err != nil {
 			return err
 		}
 	}
@@ -389,21 +332,23 @@ func (r *Repository) IncrementWeekly(ctx context.Context, userID uuid.UUID, ques
 	return tx.Commit()
 }
 
-func (r *Repository) DecrementWeekly(ctx context.Context, userID uuid.UUID, questID uuid.UUID, weekStart time.Time) error {
+// Decrement removes the most recent completion row for the given period and revokes
+// XP if the count drops below the target. source mirrors Increment's label.
+func (r *Repository) Decrement(ctx context.Context, userID uuid.UUID, questID uuid.UUID, periodStart time.Time) error {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin tx: %w", err)
 	}
 	defer tx.Rollback() //nolint:errcheck
 
-	// Validate ownership (also get target for reconciliation).
+	// Validate ownership (also get target for XP reconciliation).
 	q, err := getQuestTx(ctx, tx, questID, userID)
 	if err != nil {
 		return err
 	}
 
 	// Check current count before decrementing.
-	count, err := countCompletionsTx(ctx, tx, questID, weekStart)
+	count, err := countCompletionsTx(ctx, tx, questID, periodStart)
 	if err != nil {
 		return err
 	}
@@ -411,10 +356,10 @@ func (r *Repository) DecrementWeekly(ctx context.Context, userID uuid.UUID, ques
 		return fmt.Errorf("cannot decrement below 0")
 	}
 
-	// Delete the most recent completion row for this week.
+	// Delete the most recent completion row for this period.
 	selectLatest := postgres.SELECT(table.QuestCompletions.ID).FROM(table.QuestCompletions).WHERE(
 		table.QuestCompletions.QuestID.EQ(postgres.UUID(questID)).
-			AND(table.QuestCompletions.PeriodStart.EQ(postgres.DateT(weekStart))).
+			AND(table.QuestCompletions.PeriodStart.EQ(postgres.DateT(periodStart))).
 			AND(table.QuestCompletions.UserID.EQ(postgres.UUID(userID))),
 	).ORDER_BY(table.QuestCompletions.CreatedAt.DESC()).LIMIT(1)
 
@@ -434,7 +379,7 @@ func (r *Repository) DecrementWeekly(ctx context.Context, userID uuid.UUID, ques
 
 	// Revoke XP if progress dropped below target.
 	if q.XPReward > 0 && remaining < q.TargetCount {
-		if err := deleteXPEvent(ctx, tx, questID, weekStart); err != nil {
+		if err := deleteXPEvent(ctx, tx, questID, periodStart); err != nil {
 			return err
 		}
 	}
@@ -466,11 +411,11 @@ func (r *Repository) ProgressBySource(ctx context.Context, userID uuid.UUID, sou
 		q := toQuest(def)
 		switch q.Type {
 		case quest.QuestTypeDaily:
-			if err := r.CompleteDaily(ctx, userID, q.ID, today); err != nil {
-				return fmt.Errorf("progress by source: complete daily %s: %w", q.ID, err)
+			if err := r.Increment(ctx, userID, q.ID, today, "daily"); err != nil {
+				return fmt.Errorf("progress by source: increment daily %s: %w", q.ID, err)
 			}
 		case quest.QuestTypeWeekly:
-			if err := r.IncrementWeekly(ctx, userID, q.ID, weekStart); err != nil {
+			if err := r.Increment(ctx, userID, q.ID, weekStart, "weekly"); err != nil {
 				return fmt.Errorf("progress by source: increment weekly %s: %w", q.ID, err)
 			}
 		}

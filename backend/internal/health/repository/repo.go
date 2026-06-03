@@ -46,10 +46,13 @@ func (r *Repository) UpsertProfile(ctx context.Context, userID uuid.UUID, in hea
 		h := decimal.NewFromFloat(*in.Height)
 		height = &h
 	}
-	var age *int32
-	if in.Age != nil {
-		a := int32(*in.Age)
-		age = &a
+	var birthdate *time.Time
+	if in.Birthdate != nil {
+		t, err := time.Parse(time.DateOnly, *in.Birthdate)
+		if err != nil {
+			return nil, fmt.Errorf("invalid birthdate format: %w", err)
+		}
+		birthdate = &t
 	}
 	var gender *string
 	if in.Gender != nil {
@@ -65,19 +68,19 @@ func (r *Repository) UpsertProfile(ctx context.Context, userID uuid.UUID, in hea
 	stmt := table.HealthProfiles.INSERT(
 		table.HealthProfiles.UserID,
 		table.HealthProfiles.Height,
-		table.HealthProfiles.Age,
+		table.HealthProfiles.Birthdate,
 		table.HealthProfiles.Gender,
 		table.HealthProfiles.Goal,
 	).VALUES(
 		postgres.UUID(userID),
 		height,
-		age,
+		birthdate,
 		gender,
 		goal,
 	).ON_CONFLICT(table.HealthProfiles.UserID).
 		DO_UPDATE(postgres.SET(
 			table.HealthProfiles.Height.SET(table.HealthProfiles.EXCLUDED.Height),
-			table.HealthProfiles.Age.SET(table.HealthProfiles.EXCLUDED.Age),
+			table.HealthProfiles.Birthdate.SET(table.HealthProfiles.EXCLUDED.Birthdate),
 			table.HealthProfiles.Gender.SET(table.HealthProfiles.EXCLUDED.Gender),
 			table.HealthProfiles.Goal.SET(table.HealthProfiles.EXCLUDED.Goal),
 			table.HealthProfiles.UpdatedAt.SET(postgres.NOW()),
@@ -461,9 +464,9 @@ func toProfile(m model.HealthProfiles) *health.Profile {
 		h, _ := m.Height.Float64()
 		p.Height = &h
 	}
-	if m.Age != nil {
-		a := int(*m.Age)
-		p.Age = &a
+	if m.Birthdate != nil {
+		s := m.Birthdate.Format(time.DateOnly)
+		p.Birthdate = &s
 	}
 	if m.Gender != nil {
 		g := health.Gender(*m.Gender)

@@ -9,6 +9,7 @@ import {
 } from 'recharts'
 import type { HealthProfile, WeightLog } from '../../lib/api/types'
 import { computeBmi, bmiCategory, bmiColor } from './bmi'
+import { calculateAge } from '../../lib/date'
 
 type Props = {
   profile: HealthProfile | null | undefined
@@ -99,7 +100,9 @@ export default function DashboardTab({
         />
         <StatCard
           label="Age"
-          value={profile?.age != null ? `${profile.age} yrs` : '—'}
+          value={
+            profile?.birthdate ? `${calculateAge(profile.birthdate)} yrs` : '—'
+          }
         />
       </div>
 

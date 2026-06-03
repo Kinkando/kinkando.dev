@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { HealthProfile, Gender, HealthGoal } from '../../lib/api/types'
 import { useUpsertProfile, useCreateWeightLog } from '../../queries/useHealth'
+import { todayDate } from '../../lib/date'
 
 type Props = {
   profile: HealthProfile | null | undefined
@@ -13,7 +14,7 @@ const labelClass = 'mb-1 block text-xs font-medium text-gray-400'
 
 export default function SettingsTab({ profile }: Props) {
   const [height, setHeight] = useState('')
-  const [age, setAge] = useState('')
+  const [birthdate, setBirthdate] = useState('')
   const [gender, setGender] = useState<Gender | ''>('')
   const [goal, setGoal] = useState<HealthGoal | ''>('')
   const [profileError, setProfileError] = useState('')
@@ -30,7 +31,7 @@ export default function SettingsTab({ profile }: Props) {
   useEffect(() => {
     if (profile) {
       setHeight(profile.height != null ? String(profile.height) : '')
-      setAge(profile.age != null ? String(profile.age) : '')
+      setBirthdate(profile.birthdate ?? '')
       setGender(profile.gender ?? '')
       setGoal(profile.goal ?? '')
     }
@@ -42,21 +43,20 @@ export default function SettingsTab({ profile }: Props) {
     setProfileSuccess(false)
 
     const heightNum = height ? parseFloat(height) : null
-    const ageNum = age ? parseInt(age, 10) : null
 
     if (heightNum != null && heightNum <= 0) {
       setProfileError('Height must be positive.')
       return
     }
-    if (ageNum != null && ageNum <= 0) {
-      setProfileError('Age must be positive.')
+    if (birthdate && birthdate > todayDate()) {
+      setProfileError("Birthdate can't be in the future.")
       return
     }
 
     try {
       await upsertProfile.mutateAsync({
         height: heightNum,
-        age: ageNum,
+        birthdate: birthdate || null,
         gender: gender || null,
         goal: goal || null,
       })
@@ -112,14 +112,13 @@ export default function SettingsTab({ profile }: Props) {
               />
             </div>
             <div>
-              <label className={labelClass}>Age (years)</label>
+              <label className={labelClass}>Birthdate</label>
               <input
                 className={inputClass}
-                type="number"
-                min="1"
-                placeholder="e.g. 28"
-                value={age}
-                onChange={(e) => setAge(e.target.value)}
+                type="date"
+                max={todayDate()}
+                value={birthdate}
+                onChange={(e) => setBirthdate(e.target.value)}
               />
             </div>
             <div>

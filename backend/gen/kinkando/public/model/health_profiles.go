@@ -17,9 +17,9 @@ type HealthProfiles struct {
 	ID        uuid.UUID `sql:"primary_key"`
 	UserID    uuid.UUID
 	Height    *decimal.Decimal
-	Age       *int32
 	Gender    *string
 	Goal      *string
 	CreatedAt time.Time
 	UpdatedAt time.Time
+	Birthdate *time.Time
 }

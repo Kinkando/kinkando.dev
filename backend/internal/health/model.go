@@ -25,8 +25,8 @@ const (
 type Profile struct {
 	ID        uuid.UUID `json:"id"`
 	UserID    uuid.UUID `json:"user_id"`
-	Height    *float64  `json:"height"` // cm
-	Age       *int      `json:"age"`
+	Height    *float64  `json:"height"`    // cm
+	Birthdate *string   `json:"birthdate"` // YYYY-MM-DD
 	Gender    *Gender   `json:"gender"`
 	Goal      *Goal     `json:"goal"`
 	CreatedAt time.Time `json:"created_at"`
@@ -34,10 +34,10 @@ type Profile struct {
 }
 
 type UpsertProfileInput struct {
-	Height *float64 `json:"height" validate:"omitempty,gt=0"`
-	Age    *int     `json:"age"    validate:"omitempty,gt=0"`
-	Gender *Gender  `json:"gender" validate:"omitempty,oneof=male female other"`
-	Goal   *Goal    `json:"goal"   validate:"omitempty,oneof=lose_weight maintain gain_muscle"`
+	Height    *float64 `json:"height"    validate:"omitempty,gt=0"`
+	Birthdate *string  `json:"birthdate" validate:"omitempty,datetime=2006-01-02"`
+	Gender    *Gender  `json:"gender"    validate:"omitempty,oneof=male female other"`
+	Goal      *Goal    `json:"goal"      validate:"omitempty,oneof=lose_weight maintain gain_muscle"`
 }
 
 type WeightLog struct {

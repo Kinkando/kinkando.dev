@@ -20,11 +20,11 @@ type healthProfilesTable struct {
 	ID        postgres.ColumnString
 	UserID    postgres.ColumnString
 	Height    postgres.ColumnFloat
-	Age       postgres.ColumnInteger
 	Gender    postgres.ColumnString
 	Goal      postgres.ColumnString
 	CreatedAt postgres.ColumnTimestampz
 	UpdatedAt postgres.ColumnTimestampz
+	Birthdate postgres.ColumnDate
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -69,13 +69,13 @@ func newHealthProfilesTableImpl(schemaName, tableName, alias string) healthProfi
 		IDColumn        = postgres.StringColumn("id")
 		UserIDColumn    = postgres.StringColumn("user_id")
 		HeightColumn    = postgres.FloatColumn("height")
-		AgeColumn       = postgres.IntegerColumn("age")
 		GenderColumn    = postgres.StringColumn("gender")
 		GoalColumn      = postgres.StringColumn("goal")
 		CreatedAtColumn = postgres.TimestampzColumn("created_at")
 		UpdatedAtColumn = postgres.TimestampzColumn("updated_at")
-		allColumns      = postgres.ColumnList{IDColumn, UserIDColumn, HeightColumn, AgeColumn, GenderColumn, GoalColumn, CreatedAtColumn, UpdatedAtColumn}
-		mutableColumns  = postgres.ColumnList{UserIDColumn, HeightColumn, AgeColumn, GenderColumn, GoalColumn, CreatedAtColumn, UpdatedAtColumn}
+		BirthdateColumn = postgres.DateColumn("birthdate")
+		allColumns      = postgres.ColumnList{IDColumn, UserIDColumn, HeightColumn, GenderColumn, GoalColumn, CreatedAtColumn, UpdatedAtColumn, BirthdateColumn}
+		mutableColumns  = postgres.ColumnList{UserIDColumn, HeightColumn, GenderColumn, GoalColumn, CreatedAtColumn, UpdatedAtColumn, BirthdateColumn}
 		defaultColumns  = postgres.ColumnList{IDColumn, CreatedAtColumn, UpdatedAtColumn}
 	)
 
@@ -86,11 +86,11 @@ func newHealthProfilesTableImpl(schemaName, tableName, alias string) healthProfi
 		ID:        IDColumn,
 		UserID:    UserIDColumn,
 		Height:    HeightColumn,
-		Age:       AgeColumn,
 		Gender:    GenderColumn,
 		Goal:      GoalColumn,
 		CreatedAt: CreatedAtColumn,
 		UpdatedAt: UpdatedAtColumn,
+		Birthdate: BirthdateColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,

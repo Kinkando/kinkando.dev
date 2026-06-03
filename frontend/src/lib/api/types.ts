@@ -228,7 +228,7 @@ export type HealthProfile = {
   id: string
   user_id: string
   height: number | null // cm
-  age: number | null
+  birthdate: string | null // YYYY-MM-DD
   gender: Gender | null
   goal: HealthGoal | null
   created_at: string
@@ -237,7 +237,7 @@ export type HealthProfile = {
 
 export type UpsertProfileInput = {
   height: number | null
-  age: number | null
+  birthdate: string | null // YYYY-MM-DD
   gender: Gender | null
   goal: HealthGoal | null
 }

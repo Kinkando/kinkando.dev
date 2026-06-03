@@ -1604,9 +1604,9 @@ func registerTools(s *mcp.Server, d Deps) {
 
 	// Weight
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        tools.HealthListWeightLogs.Name,
-		Description: tools.HealthListWeightLogs.Description,
-	}, middleware.MCPRequestLogger(d.Logger, tools.HealthListWeightLogs.Name, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, listWeightLogsOut, error) {
+		Name:        tools.WeightListLogs.Name,
+		Description: tools.WeightListLogs.Description,
+	}, middleware.MCPRequestLogger(d.Logger, tools.WeightListLogs.Name, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, listWeightLogsOut, error) {
 		logs, err := d.HeaSvc.ListWeightLogs(ctx, d.UserUUID)
 		if err != nil {
 			return nil, listWeightLogsOut{}, fmt.Errorf("list weight logs: %w", err)
@@ -1619,9 +1619,9 @@ func registerTools(s *mcp.Server, d Deps) {
 	}))
 
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        tools.HealthLogWeight.Name,
-		Description: tools.HealthLogWeight.Description,
-	}, middleware.MCPRequestLogger(d.Logger, tools.HealthLogWeight.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.HealthLogWeightIn) (*mcp.CallToolResult, weightLogOut, error) {
+		Name:        tools.WeightCreateLog.Name,
+		Description: tools.WeightCreateLog.Description,
+	}, middleware.MCPRequestLogger(d.Logger, tools.WeightCreateLog.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.WeightCreateLogIn) (*mcp.CallToolResult, weightLogOut, error) {
 		if in.Weight <= 0 {
 			return nil, weightLogOut{}, fmt.Errorf("weight must be positive, got %v", in.Weight)
 		}
@@ -1636,9 +1636,9 @@ func registerTools(s *mcp.Server, d Deps) {
 	}))
 
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        tools.HealthUpdateWeight.Name,
-		Description: tools.HealthUpdateWeight.Description,
-	}, middleware.MCPRequestLogger(d.Logger, tools.HealthUpdateWeight.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.HealthUpdateWeightIn) (*mcp.CallToolResult, weightLogOut, error) {
+		Name:        tools.WeightUpdateLog.Name,
+		Description: tools.WeightUpdateLog.Description,
+	}, middleware.MCPRequestLogger(d.Logger, tools.WeightUpdateLog.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.WeightUpdateLogIn) (*mcp.CallToolResult, weightLogOut, error) {
 		logID, err := uuid.Parse(in.LogID)
 		if err != nil {
 			return nil, weightLogOut{}, fmt.Errorf("invalid log_id %q: %w", in.LogID, err)

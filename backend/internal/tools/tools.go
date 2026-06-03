@@ -46,6 +46,7 @@ func All() []ToolDef {
 		WorkoutLogExercise,
 		WorkoutAddExercise,
 		WorkoutBulkLogExercises,
+		WorkoutFinishSession,
 		FoodListLogs,
 		FoodLogMeal,
 		FoodUpdateMeal,
@@ -338,6 +339,13 @@ var WorkoutBulkLogExercises = ToolDef{
 	Required:    []string{"session_id", "items"},
 }
 
+var WorkoutFinishSession = ToolDef{
+	Name:        "workout_finish_session",
+	Description: "Mark a workout session as completed. Sets the completion timestamp and finalizes the session — no further edits are allowed after finishing. Returns the finished session.",
+	Input:       WorkoutFinishSessionIn{},
+	Required:    []string{"session_id"},
+}
+
 type WorkoutListSessionsIn struct {
 	From string `json:"from" jsonschema:"Start date YYYY-MM-DD (default: 30 days ago)"`
 	To   string `json:"to"   jsonschema:"End date YYYY-MM-DD (default: today)"`
@@ -428,6 +436,10 @@ type WorkoutBulkLogExerciseItem struct {
 type WorkoutBulkLogExercisesIn struct {
 	SessionID string                       `json:"session_id" jsonschema:"UUID of the workout session"`
 	Items     []WorkoutBulkLogExerciseItem `json:"items"      jsonschema:"List of exercises to update; must include all exercises you want to save"`
+}
+
+type WorkoutFinishSessionIn struct {
+	SessionID string `json:"session_id" jsonschema:"UUID of the workout session to finish"`
 }
 
 // ---- Food -------------------------------------------------------------------

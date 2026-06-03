@@ -450,6 +450,10 @@ type updateSessionOut struct {
 	Session workoutSessionDTO `json:"session"`
 }
 
+type finishSessionOut struct {
+	Session workoutSessionDTO `json:"session"`
+}
+
 type logExerciseOut struct {
 	Exercise sessionExerciseDTO `json:"exercise"`
 }
@@ -1299,6 +1303,21 @@ func registerTools(s *mcp.Server, d Deps) {
 	}))
 
 	mcp.AddTool(s, &mcp.Tool{
+		Name:        tools.WorkoutFinishSession.Name,
+		Description: tools.WorkoutFinishSession.Description,
+	}, middleware.MCPRequestLogger(d.Logger, tools.WorkoutFinishSession.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.WorkoutFinishSessionIn) (*mcp.CallToolResult, finishSessionOut, error) {
+		sessionID, err := uuid.Parse(in.SessionID)
+		if err != nil {
+			return nil, finishSessionOut{}, fmt.Errorf("invalid session_id %q: %w", in.SessionID, err)
+		}
+		session, err := d.WkSvc.FinishSession(ctx, sessionID, d.UserUUID)
+		if err != nil {
+			return nil, finishSessionOut{}, fmt.Errorf("finish session: %w", err)
+		}
+		return nil, finishSessionOut{Session: toWorkoutSessionDTO(session)}, nil
+	}))
+
+	mcp.AddTool(s, &mcp.Tool{
 		Name:        tools.WorkoutCreatePreset.Name,
 		Description: tools.WorkoutCreatePreset.Description,
 	}, middleware.MCPRequestLogger(d.Logger, tools.WorkoutCreatePreset.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.WorkoutCreatePresetIn) (*mcp.CallToolResult, createPresetOut, error) {
@@ -1688,14 +1707,14 @@ type medicineIntakeDTO struct {
 }
 
 type medicineStockAdjustmentDTO struct {
-	ID          string  `json:"id"`
-	MedicineName string `json:"medicine_name,omitempty"`
-	Type        string  `json:"type"`
-	Quantity    float64 `json:"quantity"`
-	StockBefore float64 `json:"stock_before"`
-	StockAfter  float64 `json:"stock_after"`
-	Reason      *string `json:"reason,omitempty"`
-	CreatedAt   string  `json:"created_at"`
+	ID           string  `json:"id"`
+	MedicineName string  `json:"medicine_name,omitempty"`
+	Type         string  `json:"type"`
+	Quantity     float64 `json:"quantity"`
+	StockBefore  float64 `json:"stock_before"`
+	StockAfter   float64 `json:"stock_after"`
+	Reason       *string `json:"reason,omitempty"`
+	CreatedAt    string  `json:"created_at"`
 }
 
 type listMedicinesOut struct {

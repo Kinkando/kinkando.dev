@@ -82,6 +82,7 @@ Workout:
 - Use workout_log_exercise to record actual sets/reps/weight after the user reports them.
 - Use workout_add_exercise when starting a quick-start session that needs exercises.
 - Use workout_update_session to save duration and notes at the end of a workout.
+- Use workout_finish_session to mark a workout session as completed — no further edits are allowed after finishing.
 - Use workout_bulk_log_exercises to record multiple exercise results in one call when the user reports several exercises from the same workout session.
 - Use workout_create_preset / workout_update_preset / workout_delete_preset to manage templates.
 

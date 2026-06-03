@@ -586,6 +586,7 @@ export type SourceType =
   | 'workout'
   | 'supplement'
   | 'weight'
+  | 'sleep'
 
 export type Quest = {
   id: string

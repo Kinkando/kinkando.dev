@@ -98,7 +98,16 @@ func (s *Service) ListSleepLogs(ctx context.Context, userID uuid.UUID) ([]*healt
 }
 
 func (s *Service) CreateSleepLog(ctx context.Context, userID uuid.UUID, in health.CreateSleepInput) (*health.SleepLog, error) {
-	return s.repo.CreateSleepLog(ctx, userID, in)
+	log, err := s.repo.CreateSleepLog(ctx, userID, in)
+	if err != nil {
+		return nil, err
+	}
+	// Publish only when the logged date is the local current day (Asia/Bangkok).
+	// Logging a past or future date must not complete today's quest.
+	if s.events != nil && log.LoggedAt.Equal(helper.Today()) {
+		s.events.Publish(ctx, event.Event{Type: event.SleepLogged, UserID: userID})
+	}
+	return log, nil
 }
 
 func (s *Service) UpdateSleepLog(ctx context.Context, id uuid.UUID, userID uuid.UUID, in health.UpdateSleepInput) (*health.SleepLog, error) {

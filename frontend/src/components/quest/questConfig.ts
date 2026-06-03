@@ -28,6 +28,7 @@ export const SOURCE_LABELS: Record<SourceType, string> = {
   workout: 'Workout (auto)',
   supplement: 'Supplement (auto)',
   weight: 'Weight (auto)',
+  sleep: 'Sleep (auto)',
 }
 
 export const QUEST_SOURCE_ROUTES: Record<SourceType, string | null> = {
@@ -36,6 +37,7 @@ export const QUEST_SOURCE_ROUTES: Record<SourceType, string | null> = {
   workout: '/health/workout',
   supplement: '/health/medicine',
   weight: '/health?tab=progress',
+  sleep: '/health/sleep',
 }
 
 /** Returns the navigation route for an auto-linked quest, or null for manual. */

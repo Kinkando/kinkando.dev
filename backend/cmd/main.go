@@ -140,6 +140,9 @@ func main() {
 	bus.Subscribe(event.WeightLogged, func(ctx context.Context, e event.Event) {
 		_ = qstSvc.HandleSourceEvent(ctx, e.UserID, string(quest.SourceTypeWeight))
 	})
+	bus.Subscribe(event.SleepLogged, func(ctx context.Context, e event.Event) {
+		_ = qstSvc.HandleSourceEvent(ctx, e.UserID, string(quest.SourceTypeSleep))
+	})
 
 	portH := portfolioHandler.New()
 

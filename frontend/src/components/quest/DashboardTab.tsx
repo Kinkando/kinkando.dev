@@ -35,7 +35,9 @@ function SourceBadge({ source }: { source: SourceType }) {
         ? '⚙ Auto · Supplement'
         : source === 'weight'
           ? '⚙ Auto · Weight'
-          : '⚙ Auto · Workout'
+          : source === 'sleep'
+            ? '⚙ Auto · Sleep'
+            : '⚙ Auto · Workout'
   return (
     <span className="rounded bg-gray-800 px-1.5 py-0.5 text-xs text-gray-500">
       {label}

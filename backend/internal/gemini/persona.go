@@ -75,6 +75,11 @@ When reviewing food data:
 
 Tool usage:
 
+Weight:
+- Call health_list_weight_logs to review history before making recommendations or updates.
+- Use health_log_weight to record a new body weight entry (kg); one entry per calendar day is enforced.
+- Use health_update_weight to correct an existing entry — call health_list_weight_logs first to get the log ID.
+
 Workout:
 - Call workout_list_sessions to review history before making recommendations.
 - Call workout_list_presets before workout_start_session unless the user names a preset.

@@ -200,8 +200,8 @@ func toRecordDTO(r *finance.Record) recordDTO {
 		Type:      string(r.Type),
 		Amount:    r.Amount,
 		Note:      r.Note,
-		Date:      r.Date.Format("2006-01-02"),
-		CreatedAt: r.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		Date:      r.Date.Format(time.DateOnly),
+		CreatedAt: r.CreatedAt.Format(time.RFC3339),
 	}
 	if r.CategoryID != nil {
 		s := r.CategoryID.String()
@@ -225,7 +225,7 @@ func toBoardDTO(b *kanban.Board) boardDTO {
 		ID:        b.ID.Hex(),
 		UserID:    b.UserID,
 		Name:      b.Name,
-		CreatedAt: b.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		CreatedAt: b.CreatedAt.Format(time.RFC3339),
 	}
 }
 
@@ -237,7 +237,7 @@ func toColumnDTO(c *kanban.Column) columnDTO {
 		Type:      c.Type,
 		IsSystem:  c.IsSystem,
 		Order:     c.Order,
-		CreatedAt: c.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		CreatedAt: c.CreatedAt.Format(time.RFC3339),
 	}
 }
 
@@ -288,18 +288,18 @@ func toCardDTO(c *kanban.Card) cardDTO {
 		Tags:          tags,
 		Order:         c.Order,
 		ArchiveReason: c.ArchiveReason,
-		CreatedAt:     c.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		CreatedAt:     c.CreatedAt.Format(time.RFC3339),
 	}
 	if c.DueDate != nil {
-		s := c.DueDate.Format("2006-01-02")
+		s := c.DueDate.Format(time.DateOnly)
 		dto.DueDate = &s
 	}
 	if c.CompletedAt != nil {
-		s := c.CompletedAt.Format("2006-01-02T15:04:05Z07:00")
+		s := c.CompletedAt.Format(time.RFC3339)
 		dto.CompletedAt = &s
 	}
 	if c.ArchivedAt != nil {
-		s := c.ArchivedAt.Format("2006-01-02T15:04:05Z07:00")
+		s := c.ArchivedAt.Format(time.RFC3339)
 		dto.ArchivedAt = &s
 	}
 	return dto
@@ -342,7 +342,7 @@ func toFoodLogDTO(f *health.FoodLog) foodLogDTO {
 		CarbsG:     f.CarbsG,
 		FatG:       f.FatG,
 		Notes:      f.Notes,
-		ConsumedAt: f.ConsumedAt.Format("2006-01-02"),
+		ConsumedAt: f.ConsumedAt.Format(time.DateOnly),
 		CreatedAt:  f.CreatedAt.Format(time.RFC3339),
 	}
 }
@@ -380,7 +380,7 @@ func toSleepLogDTO(s *health.SleepLog) sleepLogDTO {
 		DurationMinutes: s.DurationMinutes,
 		Score:           s.Score,
 		Notes:           s.Notes,
-		LoggedAt:        s.LoggedAt.Format("2006-01-02"),
+		LoggedAt:        s.LoggedAt.Format(time.DateOnly),
 		CreatedAt:       s.CreatedAt.Format(time.RFC3339),
 	}
 }
@@ -616,7 +616,7 @@ func toWorkoutSessionDTO(s *workout.Session) workoutSessionDTO {
 		ID:          s.ID.String(),
 		Name:        s.Name,
 		Type:        string(s.Type),
-		PerformedAt: s.PerformedAt.Format("2006-01-02"),
+		PerformedAt: s.PerformedAt.Format(time.DateOnly),
 	}
 	if s.DurationMinutes != nil {
 		dto.DurationMinutes = s.DurationMinutes
@@ -1025,14 +1025,14 @@ func registerTools(s *mcp.Server, d Deps) {
 		from := now.AddDate(0, 0, -30)
 		to := now
 		if in.From != "" {
-			t, err := time.Parse("2006-01-02", in.From)
+			t, err := time.Parse(time.DateOnly, in.From)
 			if err != nil {
 				return nil, listWorkoutSessionsOut{}, fmt.Errorf("invalid from date: %w", err)
 			}
 			from = t
 		}
 		if in.To != "" {
-			t, err := time.Parse("2006-01-02", in.To)
+			t, err := time.Parse(time.DateOnly, in.To)
 			if err != nil {
 				return nil, listWorkoutSessionsOut{}, fmt.Errorf("invalid to date: %w", err)
 			}
@@ -1477,14 +1477,14 @@ func registerTools(s *mcp.Server, d Deps) {
 		from := time.Time{}
 		to := time.Now().UTC().Add(24 * time.Hour)
 		if in.From != "" {
-			t, err := time.Parse("2006-01-02", in.From)
+			t, err := time.Parse(time.DateOnly, in.From)
 			if err != nil {
 				return nil, listFoodLogsOut{}, fmt.Errorf("invalid from date: %w", err)
 			}
 			from = t
 		}
 		if in.To != "" {
-			t, err := time.Parse("2006-01-02", in.To)
+			t, err := time.Parse(time.DateOnly, in.To)
 			if err != nil {
 				return nil, listFoodLogsOut{}, fmt.Errorf("invalid to date: %w", err)
 			}
@@ -1593,14 +1593,14 @@ func registerTools(s *mcp.Server, d Deps) {
 		from := time.Time{}
 		to := time.Now().UTC().Add(24 * time.Hour)
 		if in.From != "" {
-			t, err := time.Parse("2006-01-02", in.From)
+			t, err := time.Parse(time.DateOnly, in.From)
 			if err != nil {
 				return nil, listSleepLogsOut{}, fmt.Errorf("invalid from date: %w", err)
 			}
 			from = t
 		}
 		if in.To != "" {
-			t, err := time.Parse("2006-01-02", in.To)
+			t, err := time.Parse(time.DateOnly, in.To)
 			if err != nil {
 				return nil, listSleepLogsOut{}, fmt.Errorf("invalid to date: %w", err)
 			}
@@ -1895,7 +1895,7 @@ func registerMedicineTools(s *mcp.Server, d Deps) {
 	}, middleware.MCPRequestLogger(d.Logger, tools.MedicineListIntakes.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.MedicineListIntakesIn) (*mcp.CallToolResult, listMedicineIntakesOut, error) {
 		opts := medicine.ListIntakeOpts{Limit: in.Limit}
 		if in.Date != "" {
-			t, err := time.Parse("2006-01-02", in.Date)
+			t, err := time.Parse(time.DateOnly, in.Date)
 			if err != nil {
 				return nil, listMedicineIntakesOut{}, fmt.Errorf("invalid date %q (use YYYY-MM-DD): %w", in.Date, err)
 			}
@@ -1918,7 +1918,7 @@ func registerMedicineTools(s *mcp.Server, d Deps) {
 	}, middleware.MCPRequestLogger(d.Logger, tools.MedicineListStockAdjustments.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.MedicineListStockAdjustmentsIn) (*mcp.CallToolResult, listMedicineStockAdjustmentsOut, error) {
 		opts := medicine.ListAdjustmentOpts{Limit: in.Limit}
 		if in.Date != "" {
-			t, err := time.Parse("2006-01-02", in.Date)
+			t, err := time.Parse(time.DateOnly, in.Date)
 			if err != nil {
 				return nil, listMedicineStockAdjustmentsOut{}, fmt.Errorf("invalid date %q (use YYYY-MM-DD): %w", in.Date, err)
 			}

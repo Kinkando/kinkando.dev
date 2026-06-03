@@ -246,14 +246,14 @@ func (h *Handler) listSessions(c *fiber.Ctx) error {
 	to := now
 
 	if s := c.Query("from"); s != "" {
-		t, err := time.Parse("2006-01-02", s)
+		t, err := time.Parse(time.DateOnly, s)
 		if err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid from date"})
 		}
 		from = t
 	}
 	if s := c.Query("to"); s != "" {
-		t, err := time.Parse("2006-01-02", s)
+		t, err := time.Parse(time.DateOnly, s)
 		if err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid to date"})
 		}

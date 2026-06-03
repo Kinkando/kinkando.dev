@@ -70,14 +70,14 @@ func (r *Repository) CreateMedicine(ctx context.Context, userID uuid.UUID, in me
 
 	var startDate, endDate *time.Time
 	if in.StartDate != "" {
-		t, err := time.Parse("2006-01-02", in.StartDate)
+		t, err := time.Parse(time.DateOnly, in.StartDate)
 		if err != nil {
 			return nil, fmt.Errorf("invalid start_date format: %w", err)
 		}
 		startDate = &t
 	}
 	if in.EndDate != "" {
-		t, err := time.Parse("2006-01-02", in.EndDate)
+		t, err := time.Parse(time.DateOnly, in.EndDate)
 		if err != nil {
 			return nil, fmt.Errorf("invalid end_date format: %w", err)
 		}
@@ -150,14 +150,14 @@ func (r *Repository) UpdateMedicine(ctx context.Context, id uuid.UUID, userID uu
 
 	var startDate, endDate *time.Time
 	if in.StartDate != "" {
-		t, err := time.Parse("2006-01-02", in.StartDate)
+		t, err := time.Parse(time.DateOnly, in.StartDate)
 		if err != nil {
 			return nil, fmt.Errorf("invalid start_date format: %w", err)
 		}
 		startDate = &t
 	}
 	if in.EndDate != "" {
-		t, err := time.Parse("2006-01-02", in.EndDate)
+		t, err := time.Parse(time.DateOnly, in.EndDate)
 		if err != nil {
 			return nil, fmt.Errorf("invalid end_date format: %w", err)
 		}

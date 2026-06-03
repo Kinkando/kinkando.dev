@@ -238,7 +238,7 @@ func (h *Handler) listIntakesHandler(c *fiber.Ctx, medicineID *uuid.UUID) error 
 
 	opts := medicine.ListIntakeOpts{MedicineID: medicineID}
 	if dateStr := c.Query("date"); dateStr != "" {
-		t, err := time.Parse("2006-01-02", dateStr)
+		t, err := time.Parse(time.DateOnly, dateStr)
 		if err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid date format; use YYYY-MM-DD"})
 		}
@@ -284,7 +284,7 @@ func (h *Handler) listStockAdjustmentsHandler(c *fiber.Ctx, medicineID *uuid.UUI
 
 	opts := medicine.ListAdjustmentOpts{MedicineID: medicineID}
 	if dateStr := c.Query("date"); dateStr != "" {
-		t, err := time.Parse("2006-01-02", dateStr)
+		t, err := time.Parse(time.DateOnly, dateStr)
 		if err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid date format; use YYYY-MM-DD"})
 		}
@@ -317,4 +317,3 @@ func (h *Handler) resolveUserID(c *fiber.Ctx) (uuid.UUID, error) {
 	}
 	return h.users.GetIDByFirebaseUID(c.Context(), firebaseUID)
 }
-

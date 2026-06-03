@@ -405,7 +405,7 @@ func (r *Repository) CreateCard(ctx context.Context, boardID, columnID primitive
 
 	var dueDate *time.Time
 	if in.DueDate != nil && *in.DueDate != "" {
-		t, parseErr := time.Parse("2006-01-02", *in.DueDate)
+		t, parseErr := time.Parse(time.DateOnly, *in.DueDate)
 		if parseErr != nil {
 			return nil, fmt.Errorf("invalid due_date: %w", parseErr)
 		}
@@ -453,7 +453,7 @@ func (r *Repository) UpdateCard(ctx context.Context, cardID primitive.ObjectID, 
 		if *in.DueDate == "" {
 			unset["due_date"] = ""
 		} else {
-			t, parseErr := time.Parse("2006-01-02", *in.DueDate)
+			t, parseErr := time.Parse(time.DateOnly, *in.DueDate)
 			if parseErr != nil {
 				return nil, fmt.Errorf("invalid due_date: %w", parseErr)
 			}

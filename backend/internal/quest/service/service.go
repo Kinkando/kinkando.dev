@@ -16,8 +16,7 @@ type Repository interface {
 	DeleteQuest(ctx context.Context, id uuid.UUID, userID uuid.UUID) error
 	SetActive(ctx context.Context, id uuid.UUID, userID uuid.UUID, active bool) (*quest.Quest, error)
 
-	GetDailyStatus(ctx context.Context, userID uuid.UUID, today time.Time) ([]*quest.DailyQuestStatus, error)
-	GetWeeklyStatus(ctx context.Context, userID uuid.UUID, weekStart time.Time) ([]*quest.WeeklyQuestStatus, error)
+	GetQuestStatus(ctx context.Context, userID uuid.UUID, questType quest.QuestType, today time.Time) ([]*quest.QuestStatus, error)
 	TotalXP(ctx context.Context, userID uuid.UUID) (int, error)
 
 	Increment(ctx context.Context, userID uuid.UUID, questID uuid.UUID, periodStart time.Time, source string) error
@@ -68,11 +67,11 @@ func (s *Service) GetOverview(ctx context.Context, userID uuid.UUID) (*quest.Ove
 	today := s.today()
 	weekStart := s.weekStart()
 
-	daily, err := s.repo.GetDailyStatus(ctx, userID, today)
+	daily, err := s.repo.GetQuestStatus(ctx, userID, quest.QuestTypeDaily, today)
 	if err != nil {
 		return nil, err
 	}
-	weekly, err := s.repo.GetWeeklyStatus(ctx, userID, weekStart)
+	weekly, err := s.repo.GetQuestStatus(ctx, userID, quest.QuestTypeWeekly, weekStart)
 	if err != nil {
 		return nil, err
 	}
@@ -82,10 +81,10 @@ func (s *Service) GetOverview(ctx context.Context, userID uuid.UUID) (*quest.Ove
 	}
 
 	if daily == nil {
-		daily = []*quest.DailyQuestStatus{}
+		daily = []*quest.QuestStatus{}
 	}
 	if weekly == nil {
-		weekly = []*quest.WeeklyQuestStatus{}
+		weekly = []*quest.QuestStatus{}
 	}
 
 	dailyDone := 0
@@ -102,8 +101,8 @@ func (s *Service) GetOverview(ctx context.Context, userID uuid.UUID) (*quest.Ove
 	}
 
 	return &quest.Overview{
-		Date:        today.Format("2006-01-02"),
-		WeekStart:   weekStart.Format("2006-01-02"),
+		Date:        today.Format(time.DateOnly),
+		WeekStart:   weekStart.Format(time.DateOnly),
 		XP:          xpSummary(totalXP),
 		Daily:       daily,
 		Weekly:      weekly,

@@ -112,7 +112,7 @@ func (r *Repository) ListWeightLogs(ctx context.Context, userID uuid.UUID) ([]*h
 func (r *Repository) CreateWeightLog(ctx context.Context, userID uuid.UUID, in health.CreateWeightInput) (*health.WeightLog, error) {
 	loggedAt := time.Now().UTC().Truncate(24 * time.Hour)
 	if in.LoggedAt != "" {
-		t, err := time.Parse("2006-01-02", in.LoggedAt)
+		t, err := time.Parse(time.DateOnly, in.LoggedAt)
 		if err != nil {
 			return nil, fmt.Errorf("invalid logged_at date format: %w", err)
 		}
@@ -174,7 +174,7 @@ func (r *Repository) ListFoodLogs(ctx context.Context, userID uuid.UUID) ([]*hea
 func (r *Repository) CreateFoodLog(ctx context.Context, userID uuid.UUID, in health.CreateFoodInput) (*health.FoodLog, error) {
 	consumedAt := time.Now().UTC().Truncate(24 * time.Hour)
 	if in.ConsumedAt != "" {
-		t, err := time.Parse("2006-01-02", in.ConsumedAt)
+		t, err := time.Parse(time.DateOnly, in.ConsumedAt)
 		if err != nil {
 			return nil, fmt.Errorf("invalid consumed_at date format: %w", err)
 		}
@@ -232,7 +232,7 @@ func (r *Repository) CreateFoodLog(ctx context.Context, userID uuid.UUID, in hea
 func (r *Repository) UpdateFoodLog(ctx context.Context, id uuid.UUID, userID uuid.UUID, in health.UpdateFoodInput) (*health.FoodLog, error) {
 	consumedAt := time.Now().UTC().Truncate(24 * time.Hour)
 	if in.ConsumedAt != "" {
-		t, err := time.Parse("2006-01-02", in.ConsumedAt)
+		t, err := time.Parse(time.DateOnly, in.ConsumedAt)
 		if err != nil {
 			return nil, fmt.Errorf("invalid consumed_at date format: %w", err)
 		}
@@ -341,7 +341,7 @@ func (r *Repository) CreateSleepLog(ctx context.Context, userID uuid.UUID, in he
 
 	loggedAt := startedAt.UTC().Truncate(24 * time.Hour)
 	if in.LoggedAt != "" {
-		t, err := time.Parse("2006-01-02", in.LoggedAt)
+		t, err := time.Parse(time.DateOnly, in.LoggedAt)
 		if err != nil {
 			return nil, fmt.Errorf("invalid logged_at date format: %w", err)
 		}
@@ -392,7 +392,7 @@ func (r *Repository) UpdateSleepLog(ctx context.Context, id uuid.UUID, userID uu
 
 	loggedAt := startedAt.UTC().Truncate(24 * time.Hour)
 	if in.LoggedAt != "" {
-		t, err := time.Parse("2006-01-02", in.LoggedAt)
+		t, err := time.Parse(time.DateOnly, in.LoggedAt)
 		if err != nil {
 			return nil, fmt.Errorf("invalid logged_at date format: %w", err)
 		}

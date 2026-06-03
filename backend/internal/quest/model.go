@@ -54,13 +54,7 @@ type UpdateQuestInput struct {
 	IsActive    bool       `json:"is_active"`
 }
 
-type DailyQuestStatus struct {
-	Quest
-	CurrentCount int  `json:"current_count"`
-	Completed    bool `json:"completed"`
-}
-
-type WeeklyQuestStatus struct {
+type QuestStatus struct {
 	Quest
 	CurrentCount int  `json:"current_count"`
 	Completed    bool `json:"completed"`
@@ -75,15 +69,15 @@ type XPSummary struct {
 }
 
 type Overview struct {
-	Date        string               `json:"date"`
-	WeekStart   string               `json:"week_start"`
-	XP          XPSummary            `json:"xp"`
-	Daily       []*DailyQuestStatus  `json:"daily"`
-	Weekly      []*WeeklyQuestStatus `json:"weekly"`
-	DailyDone   int                  `json:"daily_done"`
-	DailyTotal  int                  `json:"daily_total"`
-	WeeklyDone  int                  `json:"weekly_done"`
-	WeeklyTotal int                  `json:"weekly_total"`
+	Date        string         `json:"date"`
+	WeekStart   string         `json:"week_start"`
+	XP          XPSummary      `json:"xp"`
+	Daily       []*QuestStatus `json:"daily"`
+	Weekly      []*QuestStatus `json:"weekly"`
+	DailyDone   int            `json:"daily_done"`
+	DailyTotal  int            `json:"daily_total"`
+	WeeklyDone  int            `json:"weekly_done"`
+	WeeklyTotal int            `json:"weekly_total"`
 }
 
 type XPEvent struct {

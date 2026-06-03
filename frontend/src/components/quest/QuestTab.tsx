@@ -81,9 +81,11 @@ export default function QuestTab({ type, quests }: Props) {
                     {/* Count controls — only for manual quests */}
                     {isAutoQ ? (
                       <div className="flex items-center gap-1">
+                        <div className="w-7"></div>
                         <span className="min-w-[2.5rem] text-center text-sm font-semibold text-gray-100">
                           {q.current_count}/{q.target_count}
                         </span>
+                        <div className="w-7"></div>
                       </div>
                     ) : (
                       <div className="flex items-center gap-1">

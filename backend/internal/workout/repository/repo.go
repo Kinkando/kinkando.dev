@@ -387,7 +387,7 @@ func (r *Repository) GenerateSession(ctx context.Context, userID uuid.UUID, date
 	// Resolve target date.
 	date := time.Now().UTC().Truncate(24 * time.Hour)
 	if dateStr != "" {
-		t, err := time.Parse("2006-01-02", dateStr)
+		t, err := time.Parse(time.DateOnly, dateStr)
 		if err != nil {
 			return nil, fmt.Errorf("invalid date format: %w", err)
 		}
@@ -434,7 +434,7 @@ func (r *Repository) GenerateSession(ctx context.Context, userID uuid.UUID, date
 func (r *Repository) CreateSession(ctx context.Context, userID uuid.UUID, in workout.CreateSessionInput) (*workout.Session, error) {
 	date := time.Now().UTC().Truncate(24 * time.Hour)
 	if in.Date != "" {
-		t, err := time.Parse("2006-01-02", in.Date)
+		t, err := time.Parse(time.DateOnly, in.Date)
 		if err != nil {
 			return nil, fmt.Errorf("invalid date format: %w", err)
 		}

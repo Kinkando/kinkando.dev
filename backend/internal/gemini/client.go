@@ -94,7 +94,7 @@ func New(ctx context.Context, d Deps) (*Client, error) {
 // loop, and returns the final text reply. The persona (and its scoped tools) is
 // resolved from the message text.
 func (c *Client) Chat(ctx context.Context, userMsg string) (string, error) {
-	msg := fmt.Sprintf("[Today: %s]\n%s", time.Now().Format("2006-01-02"), userMsg)
+	msg := fmt.Sprintf("[Today: %s]\n%s", time.Now().Format(time.DateOnly), userMsg)
 
 	p := resolvePersona(nil, userMsg)
 	chat, err := c.gc.Chats.Create(ctx, c.model, c.configs[p], nil)
@@ -163,7 +163,7 @@ type Usage struct {
 // function call, causing the model to reply with a confused error. Managing the
 // contents slice ourselves sidesteps that SDK bug entirely.
 func (c *Client) ChatStream(ctx context.Context, history []Message, userMsg string, emit func(token string) error) (Usage, error) {
-	msg := fmt.Sprintf("[Today: %s]\n%s", time.Now().Format("2006-01-02"), userMsg)
+	msg := fmt.Sprintf("[Today: %s]\n%s", time.Now().Format(time.DateOnly), userMsg)
 
 	// Build initial contents: prior history + current user message.
 	contents := make([]*genai.Content, 0, len(history)+1)

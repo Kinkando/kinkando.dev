@@ -167,7 +167,7 @@ func (r *Repository) SetActive(ctx context.Context, id uuid.UUID, userID uuid.UU
 
 // ── Overview queries ──────────────────────────────────────────────────────────
 
-func (r *Repository) GetDailyStatus(ctx context.Context, userID uuid.UUID, today time.Time) ([]*quest.DailyQuestStatus, error) {
+func (r *Repository) GetQuestStatus(ctx context.Context, userID uuid.UUID, questType quest.QuestType, today time.Time) ([]*quest.QuestStatus, error) {
 	countExpr := postgres.COUNT(table.QuestCompletions.ID)
 
 	stmt := postgres.SELECT(
@@ -182,7 +182,7 @@ func (r *Repository) GetDailyStatus(ctx context.Context, userID uuid.UUID, today
 		),
 	).WHERE(
 		table.QuestDefinitions.UserID.EQ(postgres.UUID(userID)).
-			AND(table.QuestDefinitions.Type.EQ(postgres.String(string(quest.QuestTypeDaily)))),
+			AND(table.QuestDefinitions.Type.EQ(postgres.String(string(questType)))),
 	).GROUP_BY(
 		table.QuestDefinitions.ID,
 		table.QuestDefinitions.UserID,
@@ -197,74 +197,19 @@ func (r *Repository) GetDailyStatus(ctx context.Context, userID uuid.UUID, today
 		table.QuestDefinitions.UpdatedAt,
 	).ORDER_BY(table.QuestDefinitions.CreatedAt.ASC())
 
-	type dailyRow struct {
+	var rows []struct {
 		model.QuestDefinitions
 		CurrentCount int64 `alias:"current_count"`
 	}
-
-	var rows []dailyRow
 	if err := stmt.QueryContext(ctx, r.db, &rows); err != nil {
-		return nil, fmt.Errorf("daily status: %w", err)
+		return nil, fmt.Errorf("quest status: %w", err)
 	}
 
-	result := make([]*quest.DailyQuestStatus, len(rows))
+	result := make([]*quest.QuestStatus, len(rows))
 	for i, row := range rows {
 		q := toQuest(row.QuestDefinitions)
 		count := int(row.CurrentCount)
-		result[i] = &quest.DailyQuestStatus{
-			Quest:        q,
-			CurrentCount: count,
-			Completed:    count >= q.TargetCount,
-		}
-	}
-	return result, nil
-}
-
-func (r *Repository) GetWeeklyStatus(ctx context.Context, userID uuid.UUID, weekStart time.Time) ([]*quest.WeeklyQuestStatus, error) {
-	countExpr := postgres.COUNT(table.QuestCompletions.ID)
-
-	stmt := postgres.SELECT(
-		table.QuestDefinitions.AllColumns,
-		countExpr.AS("current_count"),
-	).FROM(
-		table.QuestDefinitions.LEFT_JOIN(
-			table.QuestCompletions,
-			table.QuestCompletions.QuestID.EQ(table.QuestDefinitions.ID).
-				AND(table.QuestCompletions.PeriodStart.EQ(postgres.DateT(weekStart))).
-				AND(table.QuestCompletions.UserID.EQ(postgres.UUID(userID))),
-		),
-	).WHERE(
-		table.QuestDefinitions.UserID.EQ(postgres.UUID(userID)).
-			AND(table.QuestDefinitions.Type.EQ(postgres.String(string(quest.QuestTypeWeekly)))),
-	).GROUP_BY(
-		table.QuestDefinitions.ID,
-		table.QuestDefinitions.UserID,
-		table.QuestDefinitions.Type,
-		table.QuestDefinitions.SourceType,
-		table.QuestDefinitions.Title,
-		table.QuestDefinitions.Description,
-		table.QuestDefinitions.XpReward,
-		table.QuestDefinitions.TargetCount,
-		table.QuestDefinitions.IsActive,
-		table.QuestDefinitions.CreatedAt,
-		table.QuestDefinitions.UpdatedAt,
-	).ORDER_BY(table.QuestDefinitions.CreatedAt.ASC())
-
-	type weeklyRow struct {
-		model.QuestDefinitions
-		CurrentCount int64 `alias:"current_count"`
-	}
-
-	var rows []weeklyRow
-	if err := stmt.QueryContext(ctx, r.db, &rows); err != nil {
-		return nil, fmt.Errorf("weekly status: %w", err)
-	}
-
-	result := make([]*quest.WeeklyQuestStatus, len(rows))
-	for i, row := range rows {
-		q := toQuest(row.QuestDefinitions)
-		count := int(row.CurrentCount)
-		result[i] = &quest.WeeklyQuestStatus{
+		result[i] = &quest.QuestStatus{
 			Quest:        q,
 			CurrentCount: count,
 			Completed:    count >= q.TargetCount,
@@ -409,15 +354,8 @@ func (r *Repository) ProgressBySource(ctx context.Context, userID uuid.UUID, sou
 
 	for _, def := range defs {
 		q := toQuest(def)
-		switch q.Type {
-		case quest.QuestTypeDaily:
-			if err := r.Increment(ctx, userID, q.ID, today, "daily"); err != nil {
-				return fmt.Errorf("progress by source: increment daily %s: %w", q.ID, err)
-			}
-		case quest.QuestTypeWeekly:
-			if err := r.Increment(ctx, userID, q.ID, weekStart, "weekly"); err != nil {
-				return fmt.Errorf("progress by source: increment weekly %s: %w", q.ID, err)
-			}
+		if err := r.Increment(ctx, userID, q.ID, today, string(q.Type)); err != nil {
+			return fmt.Errorf("progress by source: increment %s quest %s: %w", q.Type, q.ID, err)
 		}
 	}
 	return nil

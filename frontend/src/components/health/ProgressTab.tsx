@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   LineChart,
   Line,
@@ -11,6 +11,7 @@ import {
 } from 'recharts'
 import type { WeightLog, HealthProfile } from '../../lib/api/types'
 import { useCreateWeightLog, useDeleteWeightLog } from '../../queries/useHealth'
+import { todayDate } from '../../lib/date'
 
 type Props = {
   weightLogs: WeightLog[] | undefined
@@ -22,10 +23,6 @@ const inputClass =
 
 const labelClass = 'mb-1 block text-xs font-medium text-gray-400'
 
-function todayStr() {
-  return new Date().toISOString().slice(0, 10)
-}
-
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString(undefined, {
     month: 'short',
@@ -35,10 +32,8 @@ function formatDate(iso: string) {
 }
 
 export default function ProgressTab({ weightLogs, profile }: Props) {
-  const [weight, setWeight] = useState(
-    weightLogs ? weightLogs[weightLogs.length - 1].weight.toString() : '',
-  )
-  const [loggedAt, setLoggedAt] = useState(todayStr())
+  const [weight, setWeight] = useState('')
+  const [loggedAt, setLoggedAt] = useState(todayDate)
   const [error, setError] = useState('')
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
 
@@ -68,6 +63,17 @@ export default function ProgressTab({ weightLogs, profile }: Props) {
           ? 'Goal: Gain Muscle'
           : null
 
+  // Pre-fill weight input with the latest logged weight once data loads
+  useEffect(() => {
+    if (latestWeight != null) {
+      setWeight((cur) => (cur === '' ? String(latestWeight) : cur))
+    }
+  }, [latestWeight])
+
+  // True when a weight entry already exists for today (Asia/Bangkok date)
+  const loggedToday =
+    weightLogs?.some((w) => w.logged_at.slice(0, 10) === todayDate()) ?? false
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
@@ -79,10 +85,10 @@ export default function ProgressTab({ weightLogs, profile }: Props) {
     try {
       await createWeight.mutateAsync({
         weight: w,
-        logged_at: loggedAt || todayStr(),
+        logged_at: loggedAt || todayDate(),
       })
       setWeight('')
-      setLoggedAt(todayStr())
+      setLoggedAt(todayDate())
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong.')
     }
@@ -102,40 +108,49 @@ export default function ProgressTab({ weightLogs, profile }: Props) {
       {/* Add weight form */}
       <div className="rounded-xl border border-gray-800 bg-gray-900 p-5">
         <h3 className="mb-4 text-sm font-medium text-gray-300">Log Weight</h3>
-        <form
-          onSubmit={handleSubmit}
-          className="flex flex-wrap items-end gap-3"
-        >
-          <div className="w-36">
-            <label className={labelClass}>Weight (kg)</label>
-            <input
-              className={inputClass}
-              type="number"
-              step="0.1"
-              min="1"
-              placeholder="e.g. 72.5"
-              value={weight}
-              onChange={(e) => setWeight(e.target.value)}
-            />
-          </div>
-          <div className="w-40">
-            <label className={labelClass}>Date</label>
-            <input
-              className={inputClass}
-              type="date"
-              value={loggedAt}
-              onChange={(e) => setLoggedAt(e.target.value)}
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={createWeight.isPending}
-            className="cursor-pointer rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
-          >
-            {createWeight.isPending ? 'Saving…' : 'Add'}
-          </button>
-        </form>
-        {error && <p className="mt-2 text-sm text-red-400">{error}</p>}
+        {loggedToday ? (
+          <p className="text-sm text-indigo-400">
+            ✓ You've already logged your weight today
+            {latestWeight != null ? ` (${latestWeight} kg)` : ''}.
+          </p>
+        ) : (
+          <>
+            <form
+              onSubmit={handleSubmit}
+              className="flex flex-wrap items-end gap-3"
+            >
+              <div className="w-36">
+                <label className={labelClass}>Weight (kg)</label>
+                <input
+                  className={inputClass}
+                  type="number"
+                  step="0.1"
+                  min="1"
+                  placeholder="e.g. 72.5"
+                  value={weight}
+                  onChange={(e) => setWeight(e.target.value)}
+                />
+              </div>
+              <div className="w-40">
+                <label className={labelClass}>Date</label>
+                <input
+                  className={inputClass}
+                  type="date"
+                  value={loggedAt}
+                  onChange={(e) => setLoggedAt(e.target.value)}
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={createWeight.isPending}
+                className="cursor-pointer rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
+              >
+                {createWeight.isPending ? 'Saving…' : 'Add'}
+              </button>
+            </form>
+            {error && <p className="mt-2 text-sm text-red-400">{error}</p>}
+          </>
+        )}
       </div>
 
       {/* Chart */}

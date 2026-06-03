@@ -165,47 +165,6 @@ export default function SettingsTab({ profile }: Props) {
           </button>
         </form>
       </div>
-
-      {/* Current weight form */}
-      <div className="rounded-xl border border-gray-800 bg-gray-900 p-5">
-        <h3 className="mb-1 text-sm font-medium text-gray-300">
-          Log Current Weight
-        </h3>
-        <p className="mb-4 text-xs text-gray-500">
-          Adds a new entry to your weight history (source of truth for BMI and
-          Progress).
-        </p>
-        <form
-          onSubmit={handleWeightSubmit}
-          className="flex flex-wrap items-end gap-3"
-        >
-          <div className="w-40">
-            <label className={labelClass}>Weight (kg)</label>
-            <input
-              className={inputClass}
-              type="number"
-              step="0.5"
-              min="1"
-              placeholder="e.g. 72.5"
-              value={currentWeight}
-              onChange={(e) => setCurrentWeight(e.target.value)}
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={createWeight.isPending}
-            className="cursor-pointer rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
-          >
-            {createWeight.isPending ? 'Saving…' : 'Log Weight'}
-          </button>
-        </form>
-        {weightError && (
-          <p className="mt-2 text-sm text-red-400">{weightError}</p>
-        )}
-        {weightSuccess && (
-          <p className="mt-2 text-sm text-emerald-400">Weight logged.</p>
-        )}
-      </div>
     </div>
   )
 }

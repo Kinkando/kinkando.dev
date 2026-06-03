@@ -37,6 +37,7 @@ import (
 	medicineRepo "github.com/kinkando/personal-dashboard/internal/medicine/repository"
 	medicineSvc "github.com/kinkando/personal-dashboard/internal/medicine/service"
 	portfolioHandler "github.com/kinkando/personal-dashboard/internal/portfolio/handler"
+	"github.com/kinkando/personal-dashboard/internal/quest"
 	questHandler "github.com/kinkando/personal-dashboard/internal/quest/handler"
 	questRepo "github.com/kinkando/personal-dashboard/internal/quest/repository"
 	questSvc "github.com/kinkando/personal-dashboard/internal/quest/service"
@@ -128,16 +129,16 @@ func main() {
 	// Subscribe quest to domain events — main.go is the only place that knows
 	// both producers and subscribers; neither side imports the other.
 	bus.Subscribe(event.MedicineTaken, func(ctx context.Context, e event.Event) {
-		_ = qstSvc.HandleSourceEvent(ctx, e.UserID, "medicine")
+		_ = qstSvc.HandleSourceEvent(ctx, e.UserID, string(quest.SourceTypeMedicine))
 	})
 	bus.Subscribe(event.SupplementTaken, func(ctx context.Context, e event.Event) {
-		_ = qstSvc.HandleSourceEvent(ctx, e.UserID, "supplement")
+		_ = qstSvc.HandleSourceEvent(ctx, e.UserID, string(quest.SourceTypeSupplement))
 	})
 	bus.Subscribe(event.WorkoutSessionFinished, func(ctx context.Context, e event.Event) {
-		_ = qstSvc.HandleSourceEvent(ctx, e.UserID, "workout")
+		_ = qstSvc.HandleSourceEvent(ctx, e.UserID, string(quest.SourceTypeWorkout))
 	})
 	bus.Subscribe(event.WeightLogged, func(ctx context.Context, e event.Event) {
-		_ = qstSvc.HandleSourceEvent(ctx, e.UserID, "weight")
+		_ = qstSvc.HandleSourceEvent(ctx, e.UserID, string(quest.SourceTypeWeight))
 	})
 
 	portH := portfolioHandler.New()

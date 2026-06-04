@@ -28,7 +28,7 @@ type DialogState =
 
 function SectionHeader({ label, count }: { label: string; count: number }) {
   return (
-    <div className="border-t border-gray-800 px-5 pt-4 pb-2 text-xs font-semibold tracking-wider text-gray-500 uppercase">
+    <div className="border-t border-gray-800 px-3 pt-4 pb-2 text-xs font-semibold tracking-wider text-gray-500 uppercase sm:px-5">
       {label} · {count}
     </div>
   )
@@ -74,22 +74,132 @@ export default function QuestTab({ type, quests }: Props) {
         ? 'text-gray-400'
         : 'text-gray-100'
 
+    const titleBadges = (
+      <div className="flex flex-wrap items-center gap-1.5">
+        {q.completed && (
+          <span className="shrink-0 text-sm text-gray-400">✓</span>
+        )}
+        <p
+          className={`text-sm font-medium ${titleColor} ${route ? 'transition-colors hover:text-indigo-400' : ''}`}
+        >
+          {q.title}
+        </p>
+        {isAutoQ && (
+          <span className="rounded bg-gray-800 px-1.5 py-0.5 text-xs text-gray-500">
+            ⚙ {SOURCE_LABELS[q.source_type]}
+          </span>
+        )}
+        {q.completed && (
+          <span
+            className={`rounded px-1.5 py-0.5 text-xs font-medium ${cfg.accentBadge}`}
+          >
+            Complete
+          </span>
+        )}
+        {!q.is_active && (
+          <span className="rounded bg-gray-800 px-1.5 py-0.5 text-xs text-gray-500">
+            inactive
+          </span>
+        )}
+      </div>
+    )
+
+    const progressBar = (
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-800">
+        <div
+          className={`h-full rounded-full transition-all ${cfg.accentBar} ${q.completed || !q.is_active ? 'opacity-40' : ''}`}
+          style={{
+            width: `${Math.min((q.current_count / q.target_count) * 100, 100)}%`,
+          }}
+        />
+      </div>
+    )
+
+    const countDisplay = (
+      <span className="min-w-[2.5rem] text-center text-sm font-semibold text-gray-100">
+        {q.current_count}/{q.target_count}
+      </span>
+    )
+
+    const xpBadge = q.xp_reward > 0 && (
+      <span
+        className={`shrink-0 text-xs font-semibold ${
+          q.completed || !q.is_active ? 'text-amber-600/40' : 'text-amber-500'
+        }`}
+      >
+        +{q.xp_reward} XP
+      </span>
+    )
+
+    const rowMenu = (
+      <QuestRowMenu
+        isActive={q.is_active}
+        onEdit={() => setDialog({ mode: 'edit', quest: q })}
+        onToggleActive={() => handleToggleActive(q)}
+        onDelete={() => setDeleteConfirm(q.id)}
+      />
+    )
+
     return (
       <li
         key={q.id}
-        className={`px-5 py-4 ${isFirst ? 'rounded-t-xl' : ''} ${isLast ? 'rounded-b-xl' : ''} ${
+        className={`px-3 py-3 sm:px-5 sm:py-4 ${isFirst ? 'rounded-t-xl' : ''} ${isLast ? 'rounded-b-xl' : ''} ${
           !q.is_active ? 'bg-gray-950 opacity-70' : 'bg-gray-900'
         }`}
       >
-        <div className="flex items-center gap-3">
-          {/* Count controls — only for manual quests */}
+        {/* Mobile layout: title row + controls/bar row */}
+        <div className="sm:hidden">
+          <div className="flex items-start gap-2">
+            <div
+              className={`min-w-0 flex-1 ${route ? 'cursor-pointer' : ''}`}
+              onClick={route ? () => navigate(route) : undefined}
+            >
+              {titleBadges}
+              {q.description && (
+                <p className="mt-0.5 text-xs text-gray-600">{q.description}</p>
+              )}
+            </div>
+            {isAutoQ && countDisplay}
+            {xpBadge}
+            {rowMenu}
+          </div>
+          <div className="mt-2 flex items-center gap-3">
+            {!isAutoQ && (
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => decrementQuest.mutate(q.id)}
+                  disabled={
+                    decrementQuest.isPending ||
+                    q.current_count === 0 ||
+                    !q.is_active
+                  }
+                  className={`flex h-9 w-9 ${!q.is_active || q.current_count === 0 ? 'cursor-not-allowed' : 'cursor-pointer'} items-center justify-center rounded-md bg-gray-800 text-sm font-bold text-gray-300 hover:bg-gray-700 disabled:opacity-40`}
+                  aria-label="Decrement"
+                >
+                  −
+                </button>
+                {countDisplay}
+                <button
+                  onClick={() => incrementQuest.mutate(q.id)}
+                  disabled={incrementQuest.isPending || !q.is_active}
+                  className={`flex h-9 w-9 ${!q.is_active ? 'cursor-not-allowed' : 'cursor-pointer'} items-center justify-center rounded-md bg-gray-800 text-sm font-bold text-gray-300 hover:bg-gray-700 disabled:opacity-40`}
+                  aria-label="Increment"
+                >
+                  +
+                </button>
+              </div>
+            )}
+            <div className="min-w-0 flex-1">{progressBar}</div>
+          </div>
+        </div>
+
+        {/* Desktop layout: single row */}
+        <div className="hidden sm:flex sm:items-center sm:gap-3">
           {isAutoQ ? (
             <div className="flex items-center gap-1">
-              <div className="w-7"></div>
-              <span className="min-w-[2.5rem] text-center text-sm font-semibold text-gray-100">
-                {q.current_count}/{q.target_count}
-              </span>
-              <div className="w-7"></div>
+              <div className="w-7" />
+              {countDisplay}
+              <div className="w-7" />
             </div>
           ) : (
             <div className="flex items-center gap-1">
@@ -105,9 +215,7 @@ export default function QuestTab({ type, quests }: Props) {
               >
                 −
               </button>
-              <span className="min-w-[2.5rem] text-center text-sm font-semibold text-gray-100">
-                {q.current_count}/{q.target_count}
-              </span>
+              {countDisplay}
               <button
                 onClick={() => incrementQuest.mutate(q.id)}
                 disabled={incrementQuest.isPending || !q.is_active}
@@ -118,70 +226,18 @@ export default function QuestTab({ type, quests }: Props) {
               </button>
             </div>
           )}
-
           <div
             className={`min-w-0 flex-1 ${route ? 'cursor-pointer' : ''}`}
             onClick={route ? () => navigate(route) : undefined}
           >
-            <div className="flex flex-wrap items-center gap-1.5">
-              {q.completed && (
-                <span className="shrink-0 text-sm text-gray-400">✓</span>
-              )}
-              <p
-                className={`text-sm font-medium ${titleColor} ${route ? 'transition-colors hover:text-indigo-400' : ''}`}
-              >
-                {q.title}
-              </p>
-              {isAutoQ && (
-                <span className="rounded bg-gray-800 px-1.5 py-0.5 text-xs text-gray-500">
-                  ⚙ {SOURCE_LABELS[q.source_type]}
-                </span>
-              )}
-              {q.completed && (
-                <span
-                  className={`rounded px-1.5 py-0.5 text-xs font-medium ${cfg.accentBadge}`}
-                >
-                  Complete
-                </span>
-              )}
-              {!q.is_active && (
-                <span className="rounded bg-gray-800 px-1.5 py-0.5 text-xs text-gray-500">
-                  inactive
-                </span>
-              )}
-            </div>
+            {titleBadges}
             {q.description && (
               <p className="mt-0.5 text-xs text-gray-600">{q.description}</p>
             )}
-            {/* Progress bar */}
-            <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-gray-800">
-              <div
-                className={`h-full rounded-full transition-all ${cfg.accentBar} ${q.completed || !q.is_active ? 'opacity-40' : ''}`}
-                style={{
-                  width: `${Math.min((q.current_count / q.target_count) * 100, 100)}%`,
-                }}
-              />
-            </div>
+            <div className="mt-2">{progressBar}</div>
           </div>
-
-          {q.xp_reward > 0 && (
-            <span
-              className={`shrink-0 text-xs font-semibold ${
-                q.completed || !q.is_active
-                  ? 'text-amber-600/40'
-                  : 'text-amber-500'
-              }`}
-            >
-              +{q.xp_reward} XP
-            </span>
-          )}
-
-          <QuestRowMenu
-            isActive={q.is_active}
-            onEdit={() => setDialog({ mode: 'edit', quest: q })}
-            onToggleActive={() => handleToggleActive(q)}
-            onDelete={() => setDeleteConfirm(q.id)}
-          />
+          {xpBadge}
+          {rowMenu}
         </div>
       </li>
     )

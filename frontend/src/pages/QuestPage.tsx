@@ -24,9 +24,9 @@ export default function QuestPage() {
   const xp = overviewQuery.data?.xp
 
   return (
-    <main className="mx-auto max-w-5xl px-6 py-12">
+    <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6 sm:py-12">
       {/* Page header */}
-      <div className="mb-8 flex items-center justify-between">
+      <div className="mb-8 flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-black tracking-tight text-gray-100">
             Quest Log
@@ -36,7 +36,7 @@ export default function QuestPage() {
           </p>
         </div>
         {xp && (
-          <div className="flex items-center gap-2 rounded-lg border border-amber-900/40 bg-amber-950/20 px-3 py-1.5">
+          <div className="flex shrink-0 items-center gap-2 rounded-lg border border-amber-900/40 bg-amber-950/20 px-3 py-1.5">
             <span className="text-xs font-medium text-amber-600">AR</span>
             <span className="text-lg font-black text-amber-400">
               {xp.level}

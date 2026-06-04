@@ -361,8 +361,15 @@ func (r *Repository) ProgressBySource(ctx context.Context, userID uuid.UUID, sou
 
 	for _, def := range defs {
 		q := toQuest(def)
-		if err := r.Increment(ctx, userID, q.ID, today, string(q.Type)); err != nil {
-			return fmt.Errorf("progress by source: increment %s quest %s: %w", q.Type, q.ID, err)
+		switch q.Type {
+		case quest.QuestTypeDaily:
+			if err := r.Increment(ctx, userID, q.ID, today, string(q.Type)); err != nil {
+				return fmt.Errorf("progress by source: increment daily %s: %w", q.ID, err)
+			}
+		case quest.QuestTypeWeekly:
+			if err := r.Increment(ctx, userID, q.ID, weekStart, string(q.Type)); err != nil {
+				return fmt.Errorf("progress by source: increment weekly %s: %w", q.ID, err)
+			}
 		}
 	}
 	return nil

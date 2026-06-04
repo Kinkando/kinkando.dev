@@ -20,6 +20,11 @@ function weekKey(isoDate: string) {
   return mon.toISOString().slice(0, 10)
 }
 
+function dayKey(isoDate: string) {
+  const d = new Date(isoDate)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 function formatWeek(mondayISO: string) {
   const start = new Date(mondayISO)
   const end = new Date(start)
@@ -27,6 +32,9 @@ function formatWeek(mondayISO: string) {
   const opts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' }
   return `${start.toLocaleDateString(undefined, opts)} – ${end.toLocaleDateString(undefined, opts)}`
 }
+
+type DayGroup = { dayKey: string; events: XPEvent[] }
+type WeekGroup = { weekKey: string; dayGroups: DayGroup[] }
 
 export default function HistoryTab({ events }: Props) {
   if (events.length === 0) {
@@ -40,24 +48,40 @@ export default function HistoryTab({ events }: Props) {
     )
   }
 
-  // Group by Monday of the week (events arrive newest-first from API)
-  const groups: { weekKey: string; events: XPEvent[] }[] = []
-  const seenWeeks = new Map<string, XPEvent[]>()
+  const weekGroups: WeekGroup[] = []
+  const weekEntryMap = new Map<
+    string,
+    { entry: WeekGroup; dayMap: Map<string, XPEvent[]> }
+  >()
 
   for (const ev of events) {
     const wk = weekKey(ev.created_at)
-    if (!seenWeeks.has(wk)) {
-      const arr: XPEvent[] = []
-      seenWeeks.set(wk, arr)
-      groups.push({ weekKey: wk, events: arr })
+    const dk = dayKey(ev.created_at)
+
+    if (!weekEntryMap.has(wk)) {
+      const entry: WeekGroup = { weekKey: wk, dayGroups: [] }
+      weekEntryMap.set(wk, { entry, dayMap: new Map() })
+      weekGroups.push(entry)
     }
-    seenWeeks.get(wk)!.push(ev)
+
+    const { entry: weekEntry, dayMap } = weekEntryMap.get(wk)!
+
+    if (!dayMap.has(dk)) {
+      const dayEvents: XPEvent[] = []
+      dayMap.set(dk, dayEvents)
+      weekEntry.dayGroups.push({ dayKey: dk, events: dayEvents })
+    }
+
+    dayMap.get(dk)!.push(ev)
   }
 
   return (
     <div className="space-y-4">
-      {groups.map(({ weekKey: wk, events: weekEvents }) => {
-        const weekTotal = weekEvents.reduce((sum, e) => sum + e.xp, 0)
+      {weekGroups.map(({ weekKey: wk, dayGroups }) => {
+        const weekTotal = dayGroups.reduce(
+          (sum, dg) => sum + dg.events.reduce((s, e) => s + e.xp, 0),
+          0,
+        )
         return (
           <div
             key={wk}
@@ -78,38 +102,52 @@ export default function HistoryTab({ events }: Props) {
               </span>
             </div>
 
-            {/* Event list */}
-            <ul className="divide-y divide-gray-800/60">
-              {weekEvents.map((ev) => (
-                <li key={ev.id} className="flex items-center gap-3 px-5 py-3.5">
-                  {/* Quest-type badge */}
-                  <span
-                    className={`shrink-0 rounded px-2 py-0.5 text-xs font-semibold ${
-                      ev.source === 'daily'
-                        ? 'bg-sky-900/50 text-sky-400'
-                        : 'bg-violet-900/50 text-violet-400'
-                    }`}
-                  >
-                    {ev.source === 'daily' ? 'Daily' : 'Weekly'}
-                  </span>
+            {/* Day sub-groups */}
+            {dayGroups.map(({ dayKey: dk, events: dayEvents }, di) => {
+              const dayTotal = dayEvents.reduce((sum, e) => sum + e.xp, 0)
+              return (
+                <div
+                  key={dk}
+                  className={di > 0 ? 'border-t border-gray-800' : ''}
+                >
+                  {/* Day sub-header */}
+                  <div className="flex items-center justify-between bg-gray-800/30 px-5 py-2">
+                    <span className="text-xs font-semibold text-gray-400">
+                      {formatDate(dayEvents[0].created_at)}
+                    </span>
+                    <span className="text-xs font-semibold text-amber-500/80">
+                      +{dayTotal} XP
+                    </span>
+                  </div>
 
-                  {/* Quest title */}
-                  <span className="min-w-0 flex-1 truncate text-sm text-gray-300">
-                    {ev.quest_title}
-                  </span>
-
-                  {/* Date */}
-                  <span className="shrink-0 text-xs text-gray-600">
-                    {formatDate(ev.created_at)}
-                  </span>
-
-                  {/* XP earned */}
-                  <span className="shrink-0 text-sm font-bold text-amber-400">
-                    +{ev.xp} XP
-                  </span>
-                </li>
-              ))}
-            </ul>
+                  {/* Event list */}
+                  <ul className="divide-y divide-gray-800/60">
+                    {dayEvents.map((ev) => (
+                      <li
+                        key={ev.id}
+                        className="flex items-center gap-3 px-5 py-3"
+                      >
+                        <span
+                          className={`shrink-0 rounded px-2 py-0.5 text-xs font-semibold ${
+                            ev.source === 'daily'
+                              ? 'bg-sky-900/50 text-sky-400'
+                              : 'bg-violet-900/50 text-violet-400'
+                          }`}
+                        >
+                          {ev.source === 'daily' ? 'Daily' : 'Weekly'}
+                        </span>
+                        <span className="min-w-0 flex-1 truncate text-sm text-gray-300">
+                          {ev.quest_title}
+                        </span>
+                        <span className="shrink-0 text-sm font-bold text-amber-400">
+                          +{ev.xp} XP
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )
+            })}
           </div>
         )
       })}

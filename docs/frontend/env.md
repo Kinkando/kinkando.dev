@@ -2,7 +2,7 @@
 
 Prefix: `VITE_*`. Read via `import.meta.env.VITE_*` through `src/config/env.ts`. Never use `process.env`. Never commit `.env.local`.
 
-The `VITE_FIREBASE_*` vars are also injected into `public/firebase-messaging-sw.js` at build/dev time by the `firebase-sw-env` Vite plugin (`vite.config.ts`) — do not hardcode values in that file.
+The `VITE_FIREBASE_*` vars are also injected into `public/scripts/firebase-messaging-sw.js` at build/dev time by the `firebase-sw-env` Vite plugin (`vite.config.ts`) — do not hardcode values in that file.
 
 | Variable | Purpose |
 |---|---|

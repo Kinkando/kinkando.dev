@@ -1,7 +1,7 @@
 // Firebase Cloud Messaging service worker.
 // Handles background push notifications when the app is not in the foreground.
 //
-// NOTE: This file is served at /firebase-messaging-sw.js (site root) and runs
+// NOTE: This file is served at /scripts/firebase-messaging-sw.js and runs
 // in a service-worker context where import.meta.env is NOT available.
 // Values below are injected at build/dev time from VITE_FIREBASE_* env vars by
 // the `firebase-sw-env` Vite plugin (see vite.config.ts). Do not hardcode real
@@ -31,6 +31,6 @@ messaging.onBackgroundMessage((payload) => {
 
   self.registration.showNotification(title, {
     body,
-    icon: '/logo.png',
+    icon: '../images/logo.png',
   })
 })

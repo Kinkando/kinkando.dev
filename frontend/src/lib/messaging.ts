@@ -29,7 +29,7 @@ export async function requestPushToken(): Promise<string | null> {
 
   try {
     const registration = await navigator.serviceWorker.register(
-      '/firebase-messaging-sw.js',
+      '/scripts/firebase-messaging-sw.js',
     )
     const token = await getToken(messaging, {
       vapidKey: env.vapidKey,
@@ -51,7 +51,7 @@ export async function showLocalNotification(
   body: string,
 ): Promise<void> {
   const reg = await navigator.serviceWorker.ready
-  await reg.showNotification(title, { body, icon: '/logo.png' })
+  await reg.showNotification(title, { body, icon: '/images/logo.png' })
 }
 
 /**

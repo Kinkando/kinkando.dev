@@ -4,11 +4,11 @@ import tailwindcss from '@tailwindcss/vite'
 import fs from 'node:fs'
 import path from 'node:path'
 
-const SW = 'firebase-messaging-sw.js'
+const SW = 'scripts/firebase-messaging-sw.js'
 
 /**
  * Vite plugin that injects VITE_FIREBASE_* env values into the FCM service
- * worker (public/firebase-messaging-sw.js) at both dev-serve and build time.
+ * worker (public/scripts/firebase-messaging-sw.js) at both dev-serve and build time.
  *
  * The committed SW file uses __VITE_FIREBASE_*__ placeholder tokens so no
  * real config lives in the repository; this plugin substitutes them at the

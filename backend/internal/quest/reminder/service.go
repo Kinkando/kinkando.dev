@@ -20,6 +20,12 @@ import (
 	"go.uber.org/zap"
 )
 
+// Recommended crontab (Cloudflare Worker, UTC): */30 * * * *
+// Fires every 30 minutes all day; the hour gates below make most runs no-ops.
+// Effective windows (Bangkok = UTC+7):
+//   daily quests   — every day  ≥ 20:00 BKK (13:00 UTC)
+//   weekly quests  — Sunday     ≥ 18:00 BKK (11:00 UTC)
+
 const (
 	dailyNudgeHour  = 20
 	weeklyNudgeHour = 18

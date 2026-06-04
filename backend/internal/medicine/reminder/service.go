@@ -24,6 +24,13 @@ import (
 	"go.uber.org/zap"
 )
 
+// Recommended crontab (Cloudflare Worker, UTC): */30 * * * *
+// Fires every 30 minutes all day.
+// - Dose/missed windows are 30 min wide, so every run catches exactly one slot.
+// - Supply digest (low-stock + refill) self-gates at supplyDigestHour; runs
+//   outside that window are a cheap no-op.
+// Bangkok = UTC+7, so supplyDigestHour 9 BKK = 02:00 UTC.
+
 // cronInterval is the expected interval between cron runs.  A dose slot is
 // considered "due now" when it falls inside (now-cronInterval, now].
 const cronInterval = 30 * time.Minute

@@ -18,6 +18,13 @@ import (
 	"go.uber.org/zap"
 )
 
+// Recommended crontab (Cloudflare Worker, UTC): 0,30 1-3 * * *
+// Fires at :00 and :30 of 01:00–03:00 UTC = 08:00–10:00 BKK.
+// Narrower window than the other jobs because weight logging is a morning habit;
+// nudging later in the day would be disruptive.
+// The weightNudgeHour gate ensures no notification fires before 08:00 BKK even
+// if the cron is triggered early.
+
 const (
 	weightNudgeHour = 8
 	domainWeight    = "weight"

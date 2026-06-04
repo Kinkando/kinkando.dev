@@ -152,6 +152,20 @@ func main() {
 	qstRemSvc := questReminder.New(qstRepo, remLogRepo, notiSvc, logger)
 	heaRemSvc := healthReminder.New(heaRepo, remLogRepo, notiSvc, logger)
 
+	// Recommended Cloudflare Worker cron schedules (UTC; Bangkok = UTC+7):
+	//
+	//   medicine-reminders  */30 * * * *      every 30 min all day
+	//                                          dose window = 30 min; supply digest self-gates ≥ 09:00 BKK (02:00 UTC)
+	//
+	//   quest-reminders     */30 * * * *      every 30 min all day
+	//                                          daily quest nudge self-gates ≥ 20:00 BKK (13:00 UTC)
+	//                                          weekly quest nudge self-gates Sunday ≥ 18:00 BKK (11:00 UTC)
+	//
+	//   weight-nudge        0,30 1-3 * * *    08:00–10:30 BKK (01:00–03:30 UTC)
+	//                                          self-gates ≥ 08:00 BKK; once per user per day via dedup
+	//
+	// All three endpoints are idempotent — repeat runs within the same period are
+	// suppressed by medicine_reminder_log / reminder_log unique constraints.
 	cronH := cronHandler.New(map[string]cronHandler.RunFunc{
 		"medicine-reminders": func(ctx context.Context) (any, error) { return medRemSvc.Run(ctx) },
 		"quest-reminders":    func(ctx context.Context) (any, error) { return qstRemSvc.Run(ctx) },

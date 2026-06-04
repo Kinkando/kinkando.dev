@@ -73,7 +73,6 @@ The only acceptable raw SQL is for tables that are outside the `gen/` codegen (e
 
 ## Date formatting
 
-Use `time.RFC3339` instead of the literal `"2006-01-02T15:04:05Z07:00"` and
 Use `time.DateOnly` instead of the literal `"2006-01-02"` in Go code:
 
 ```go

@@ -63,10 +63,10 @@ type RunResult struct {
 // ── Service ───────────────────────────────────────────────────────────────────
 
 type Service struct {
-	quests  QuestRepository
-	remLog  ReminderLog
-	noti    Notifier
-	log     *zap.Logger
+	quests QuestRepository
+	remLog ReminderLog
+	noti   Notifier
+	log    *zap.Logger
 }
 
 func New(quests QuestRepository, remLog ReminderLog, noti Notifier, log *zap.Logger) *Service {
@@ -78,7 +78,7 @@ func New(quests QuestRepository, remLog ReminderLog, noti Notifier, log *zap.Log
 func (s *Service) Run(ctx context.Context) (*RunResult, error) {
 	now := time.Now() // Asia/Bangkok via time.Local set in main.go
 	today := helper.Today()
-	todayKey := now.Format("2006-01-02")
+	todayKey := now.Format(time.DateOnly)
 
 	result := &RunResult{ItemsByType: make(map[string]int)}
 
@@ -113,7 +113,7 @@ func (s *Service) Run(ctx context.Context) (*RunResult, error) {
 	// ── Weekly quest nudge (Sundays only) ─────────────────────────────────
 	if now.Weekday() == time.Sunday && now.Hour() >= weeklyNudgeHour {
 		weekStart := weekStartFor(today)
-		weekKey := weekStart.Format("2006-01-02")
+		weekKey := weekStart.Format(time.DateOnly)
 
 		incomplete, err := s.quests.CountIncompleteByUser(ctx, "weekly", weekStart)
 		if err != nil {

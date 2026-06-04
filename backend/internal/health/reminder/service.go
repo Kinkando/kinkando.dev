@@ -81,7 +81,7 @@ func (s *Service) Run(ctx context.Context) (*RunResult, error) {
 	}
 
 	today := helper.Today()
-	todayKey := now.Format("2006-01-02")
+	todayKey := now.Format(time.DateOnly)
 
 	candidates, err := s.health.UsersMissingWeightToday(ctx, today)
 	if err != nil {

@@ -59,3 +59,17 @@ func GetEmail(c *fiber.Ctx) string {
 	email, _ := c.Locals(localKeyEmail).(string)
 	return email
 }
+
+// Verify verifies a Firebase ID token and returns the UID and email it encodes.
+// Use this outside of Fiber handlers where a fiber.Ctx is not available.
+func (m *Middleware) Verify(ctx context.Context, idToken string) (uid, email string, err error) {
+	token, err := m.client.VerifyIDToken(ctx, idToken)
+	if err != nil {
+		return "", "", err
+	}
+	uid = token.UID
+	if e, ok := token.Claims["email"].(string); ok {
+		email = e
+	}
+	return uid, email, nil
+}

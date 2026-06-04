@@ -14,12 +14,6 @@ type Config struct {
 	MongoURI            string `env:"MONGO_URI,required"`
 	MongoDB             string `env:"MONGO_DB,required"`
 	FirebaseCredentials string `env:"FIREBASE_CREDENTIALS,required"`
-	// MCPUserFirebaseUID and MCPAuthToken enable the /mcp endpoint on the HTTP
-	// server. Both must be set; if either is empty, MCP is disabled.
-	// MCPUserFirebaseUID is also used by the LINE webhook to identify the
-	// single app user to write records for.
-	MCPUserFirebaseUID string `env:"MCP_USER_FIREBASE_UID,required"`
-	MCPAuthToken       string `env:"MCP_AUTH_TOKEN"`
 
 	// Gemini API — powers natural-language processing in the LINE webhook.
 	GeminiAPIKey  string `env:"GEMINI_API_KEY,required"`

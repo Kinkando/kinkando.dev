@@ -75,6 +75,23 @@ func (r *Repository) GetByFirebaseUID(ctx context.Context, firebaseUID string) (
 	return toUser(dest), nil
 }
 
+// GetByLineID returns the full user row for the given LINE user ID.
+// Returns nil, nil when no row is found.
+func (r *Repository) GetByLineID(ctx context.Context, lineUserID string) (*user.User, error) {
+	stmt := postgres.SELECT(table.Users.AllColumns).
+		FROM(table.Users).
+		WHERE(table.Users.LineID.EQ(postgres.String(lineUserID)))
+
+	var dest model.Users
+	if err := stmt.QueryContext(ctx, r.db, &dest); err != nil {
+		if errors.Is(err, qrm.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("get user by line id: %w", err)
+	}
+	return toUser(dest), nil
+}
+
 // CreateLinkCode generates a one-time link code for the given user that expires
 // in 10 minutes.  Any previous pending code for the same user is replaced.
 func (r *Repository) CreateLinkCode(ctx context.Context, userID uuid.UUID) (code string, expiresAt time.Time, err error) {

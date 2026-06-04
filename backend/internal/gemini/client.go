@@ -25,23 +25,29 @@ const maxToolRounds = 8
 
 const defaultTTSModel = "gemini-2.5-flash-preview-tts"
 
+// SessionProvider resolves a per-user in-process MCP client session.
+// Satisfied by *mcpserver.Provider.
+type SessionProvider interface {
+	SessionFor(ctx context.Context, firebaseUID string) (*mcp.ClientSession, error)
+}
+
 // Deps bundles dependencies for the Gemini client.
 type Deps struct {
 	APIKey   string
 	Model    string
-	TTSModel string             // optional; defaults to defaultTTSModel
-	MCP      *mcp.ClientSession // required; routes all tool calls through the MCP server
+	TTSModel string          // optional; defaults to defaultTTSModel
+	Sessions SessionProvider // required; routes all tool calls through per-user MCP sessions
 }
 
 // Client wraps a Gemini generative model and dispatches tool calls via MCP.
 // Each persona has its own pre-built GenerateContentConfig (system instruction + scoped
 // tool declarations). The config is selected per-request based on the input text.
 type Client struct {
-	gc         *genai.Client
-	model      string
-	ttsModel   string
-	configs    map[persona]*genai.GenerateContentConfig
-	mcpSession *mcp.ClientSession
+	gc       *genai.Client
+	model    string
+	ttsModel string
+	configs  map[persona]*genai.GenerateContentConfig
+	sessions SessionProvider
 }
 
 // New creates a Client. Returns an error if the Gemini API key is invalid or unreachable.
@@ -86,18 +92,23 @@ func New(ctx context.Context, d Deps) (*Client, error) {
 		},
 	}
 	return &Client{
-		gc:         gc,
-		model:      modelName,
-		ttsModel:   ttsModelName,
-		configs:    configs,
-		mcpSession: d.MCP,
+		gc:       gc,
+		model:    modelName,
+		ttsModel: ttsModelName,
+		configs:  configs,
+		sessions: d.Sessions,
 	}, nil
 }
 
-// Chat sends userMsg to Gemini, executes any tool calls via the MCP session in a
-// loop, and returns the final text reply. The persona (and its scoped tools) is
-// resolved from the message text.
-func (c *Client) Chat(ctx context.Context, userMsg string) (string, error) {
+// Chat sends userMsg to Gemini, executes any tool calls via the per-user MCP
+// session in a loop, and returns the final text reply. The persona (and its
+// scoped tools) is resolved from the message text.
+func (c *Client) Chat(ctx context.Context, firebaseUID, userMsg string) (string, error) {
+	session, err := c.sessions.SessionFor(ctx, firebaseUID)
+	if err != nil {
+		return "", fmt.Errorf("gemini: resolve mcp session: %w", err)
+	}
+
 	msg := fmt.Sprintf("[Today: %s]\n%s", time.Now().Format(time.DateOnly), userMsg)
 
 	p := resolvePersona(nil, userMsg)
@@ -141,7 +152,7 @@ func (c *Client) Chat(ctx context.Context, userMsg string) (string, error) {
 			return "", errors.New("gemini: tool-call loop exceeded max rounds")
 		}
 
-		sendParts = c.executeToolCalls(ctx, fcParts)
+		sendParts = c.executeToolCalls(ctx, session, fcParts)
 	}
 
 	// Unreachable, but satisfies the compiler.
@@ -156,8 +167,9 @@ type Usage struct {
 }
 
 // ChatStream sends userMsg to Gemini with optional conversation history, streams
-// text tokens through emit as they arrive, executes any tool calls via MCP in a
-// loop, and returns when the model produces its final reply (or on error).
+// text tokens through emit as they arrive, executes any tool calls via the
+// per-user MCP session in a loop, and returns when the model produces its final
+// reply (or on error).
 //
 // Note: we drive GenerateContentStream directly rather than using gc.Chats, because
 // Chat.SendStream records history only when every streaming chunk passes
@@ -166,7 +178,12 @@ type Usage struct {
 // curatedHistory. Round 2 would then send a function response with no preceding
 // function call, causing the model to reply with a confused error. Managing the
 // contents slice ourselves sidesteps that SDK bug entirely.
-func (c *Client) ChatStream(ctx context.Context, history []Message, userMsg string, emit func(token string) error) (Usage, error) {
+func (c *Client) ChatStream(ctx context.Context, firebaseUID string, history []Message, userMsg string, emit func(token string) error) (Usage, error) {
+	session, err := c.sessions.SessionFor(ctx, firebaseUID)
+	if err != nil {
+		return Usage{}, fmt.Errorf("gemini: resolve mcp session: %w", err)
+	}
+
 	msg := fmt.Sprintf("[Today: %s]\n%s", time.Now().Format(time.DateOnly), userMsg)
 
 	// Build initial contents: prior history + current user message.
@@ -251,7 +268,7 @@ func (c *Client) ChatStream(ctx context.Context, history []Message, userMsg stri
 		}
 
 		// Execute tool calls and append the function-response turn.
-		toolParts := c.executeToolCalls(ctx, fcParts)
+		toolParts := c.executeToolCalls(ctx, session, fcParts)
 		frParts := make([]*genai.Part, len(toolParts))
 		for i := range toolParts {
 			pp := toolParts[i]
@@ -267,13 +284,14 @@ func (c *Client) ChatStream(ctx context.Context, history []Message, userMsg stri
 	return cumulative, errors.New("gemini: tool-call loop exceeded max rounds")
 }
 
-// executeToolCalls dispatches each function call through MCP and returns the
-// corresponding FunctionResponse parts (with ThoughtSignature echoed back).
-func (c *Client) executeToolCalls(ctx context.Context, fcParts []*genai.Part) []genai.Part {
+// executeToolCalls dispatches each function call through the provided MCP
+// session and returns the corresponding FunctionResponse parts (with
+// ThoughtSignature echoed back).
+func (c *Client) executeToolCalls(ctx context.Context, session *mcp.ClientSession, fcParts []*genai.Part) []genai.Part {
 	parts := make([]genai.Part, 0, len(fcParts))
 	for _, p := range fcParts {
 		fc := p.FunctionCall
-		res, callErr := c.mcpSession.CallTool(ctx, &mcp.CallToolParams{
+		res, callErr := session.CallTool(ctx, &mcp.CallToolParams{
 			Name:      fc.Name,
 			Arguments: fc.Args,
 		})

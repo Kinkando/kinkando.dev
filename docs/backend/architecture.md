@@ -78,11 +78,13 @@ Do not edit these by hand. Regenerate with `make gen-sql-builder-*` after schema
 
 ## MCP server
 
-Served at `POST /mcp` (Streamable HTTP, JSON). No separate process.
+Served at `POST /mcp` (Streamable HTTP, JSON). No separate process. Always mounted.
 
-**Enabled when** both `MCP_USER_FIREBASE_UID` and `MCP_AUTH_TOKEN` are set. Otherwise `/mcp` returns 404.
+**Auth:** `Authorization: Bearer <firebase-id-token>` — the same Firebase ID token used by the web app. Each request acts as the user the token belongs to.
 
-**Auth:** `Authorization: Bearer <MCP_AUTH_TOKEN>`
+**Multi-user:** one MCP server (and one in-process client session) is built and cached per Firebase UID on demand by `mcpserver.Provider`. No static user env var is required.
+
+**LINE users:** the LINE webhook resolves the sender's `line_id` to the matching app user, so AI replies act as that user. Unlinked accounts receive link instructions.
 
 **Tools (32):**
 - Finance: `finance_list_records`, `finance_list_categories`, `finance_create_category`, `finance_delete_category`, `finance_create_record`, `finance_delete_record`, `finance_monthly_summary`
@@ -92,13 +94,13 @@ Served at `POST /mcp` (Streamable HTTP, JSON). No separate process.
 - Sleep: `sleep_list_logs`, `sleep_log_night`, `sleep_update_night`, `sleep_delete_night`
 - Medicine: `medicine_list`, `medicine_take`, `medicine_adjust_stock`, `medicine_list_intakes`, `medicine_list_stock_adjustments`
 
-**Config example:**
+**Config example (Claude Code or any MCP client):**
 ```json
 {
   "kinkando": {
     "type": "http",
     "url": "http://localhost:8080/mcp",
-    "headers": { "Authorization": "Bearer <MCP_AUTH_TOKEN>" }
+    "headers": { "Authorization": "Bearer <firebase-id-token>" }
   }
 }
 ```

@@ -26,17 +26,24 @@ import (
 	"go.uber.org/zap"
 )
 
+// BaseDeps holds shared dependencies consumed by all MCP tool handlers that
+// are not tied to a specific user identity. Embed this in Deps or use it
+// directly when constructing a Provider.
+type BaseDeps struct {
+	FinSvc  *financeSvc.Service
+	KanRepo *kanbanRepo.Repository
+	WkSvc   *workoutSvc.Service
+	HeaSvc  *healthSvc.Service
+	MedSvc  *medicineSvc.Service
+	QstSvc  *questSvc.Service
+	Logger  *zap.Logger
+}
+
 // Deps bundles the shared dependencies consumed by all MCP tool handlers.
 type Deps struct {
-	FinSvc      *financeSvc.Service
-	KanRepo     *kanbanRepo.Repository
-	WkSvc       *workoutSvc.Service
-	HeaSvc      *healthSvc.Service
-	MedSvc      *medicineSvc.Service
-	QstSvc      *questSvc.Service
+	BaseDeps
 	UserUUID    uuid.UUID
 	FirebaseUID string
-	Logger      *zap.Logger
 }
 
 // New creates a new MCP server with all tools registered.

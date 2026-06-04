@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/kinkando/personal-dashboard/internal/auth"
 	"github.com/kinkando/personal-dashboard/internal/gemini"
 	"github.com/kinkando/personal-dashboard/pkg/validate"
 	"go.uber.org/zap"
@@ -78,6 +79,10 @@ func (h *Handler) chat(c *fiber.Ctx) error {
 	}
 	userMsg := last.Content
 
+	// Capture the Firebase UID before entering the detached goroutine — Fiber
+	// recycles the request context when the handler returns.
+	firebaseUID := auth.GetUserID(c)
+
 	// Set SSE headers before writing the body stream.
 	c.Set("Content-Type", "text/event-stream")
 	c.Set("Cache-Control", "no-cache")
@@ -99,7 +104,7 @@ func (h *Handler) chat(c *fiber.Ctx) error {
 			return w.Flush()
 		}
 
-		usage, err := h.gemini.ChatStream(streamCtx, history, userMsg, emit)
+		usage, err := h.gemini.ChatStream(streamCtx, firebaseUID, history, userMsg, emit)
 		if err != nil {
 			if !strings.Contains(err.Error(), "context") {
 				h.logger.Error("AI chat stream error", zap.Error(err))

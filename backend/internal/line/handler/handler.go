@@ -22,6 +22,12 @@ type Linker interface {
 	LinkByCode(ctx context.Context, code, lineUserID string) error
 }
 
+// UserLookup resolves a LINE user ID to the app user who has that line_id set.
+// Implemented by *user/repository.Repository.
+type UserLookup interface {
+	GetByLineID(ctx context.Context, lineUserID string) (*user.User, error)
+}
+
 // Deps bundles dependencies for the LINE webhook handler.
 type Deps struct {
 	ChannelID     string
@@ -29,6 +35,7 @@ type Deps struct {
 	Client        *linepkg.Client
 	Gemini        *gemini.Client // required; routes messages through Gemini + MCP
 	Linker        Linker         // optional; enables bot-based account linking
+	Users         UserLookup     // required; maps LINE user IDs to app users
 	Logger        *zap.Logger
 }
 
@@ -39,6 +46,7 @@ type Handler struct {
 	client        *linepkg.Client
 	gemini        *gemini.Client
 	linker        Linker
+	users         UserLookup
 	logger        *zap.Logger
 }
 
@@ -50,6 +58,7 @@ func New(d Deps) *Handler {
 		client:        d.Client,
 		gemini:        d.Gemini,
 		linker:        d.Linker,
+		users:         d.Users,
 		logger:        d.Logger,
 	}
 }
@@ -88,7 +97,7 @@ func (h *Handler) webhook(c *fiber.Ctx) error {
 			if h.isLinkCommand(ev.Message.Text) {
 				reply = h.handleLink(bgCtx, ev.Message.Text, ev.Source.UserID)
 			} else {
-				reply = h.handleText(bgCtx, ev.Message.Text)
+				reply = h.handleTextForLineUser(bgCtx, ev.Source.UserID, ev.Message.Text)
 			}
 			if err := h.client.Reply(bgCtx, ev.ReplyToken, []linepkg.ReplyMessage{linepkg.TextMessage(reply)}); err != nil {
 				h.logger.Error("LINE reply failed", zap.String("replyToken", ev.ReplyToken), zap.Error(err))
@@ -130,13 +139,32 @@ func (h *Handler) handleLink(ctx context.Context, text, lineUserID string) strin
 	}
 }
 
+// handleTextForLineUser resolves the LINE user ID to an app user and delegates
+// to handleText. If the LINE account is not linked, it replies with link
+// instructions instead of calling Gemini.
+func (h *Handler) handleTextForLineUser(ctx context.Context, lineUserID, text string) string {
+	if h.users != nil {
+		appUser, err := h.users.GetByLineID(ctx, lineUserID)
+		if err != nil {
+			h.logger.Error("LINE user lookup failed", zap.String("lineUserID", lineUserID), zap.Error(err))
+			return "⚠️ Something went wrong. Please try again."
+		}
+		if appUser == nil {
+			return "⚠️ Your LINE account is not linked yet.\n\nOpen the app → Settings → generate a code → send: LINK <code>"
+		}
+		return h.handleText(ctx, appUser.FirebaseUID, text)
+	}
+	// No user lookup configured — fall back to unscoped (should not happen in prod).
+	return h.handleText(ctx, "", text)
+}
+
 // handleText sends the text to Gemini (via MCP tool calls) and returns a
 // human-readable reply. Always returns a non-empty string.
-func (h *Handler) handleText(ctx context.Context, text string) string {
+func (h *Handler) handleText(ctx context.Context, firebaseUID, text string) string {
 	if h.gemini == nil {
 		return "Sorry, the assistant is unavailable right now."
 	}
-	reply, err := h.gemini.Chat(ctx, text)
+	reply, err := h.gemini.Chat(ctx, firebaseUID, text)
 	if err != nil {
 		h.logger.Error("Gemini chat failed", zap.Error(err))
 		return "Sorry, something went wrong. Please try again."

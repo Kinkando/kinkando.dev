@@ -261,7 +261,7 @@ export default function NotificationsPage() {
                   <div className="space-y-2">
                     {/* Device registration status */}
                     {deviceLoading || registerToken.isPending ? (
-                      <p className="text-sm text-gray-500">
+                      <p className="h-6 text-sm text-gray-500">
                         Checking device registration…
                       </p>
                     ) : deviceReg?.registered ? (

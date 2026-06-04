@@ -25,6 +25,7 @@ import {
   showLocalNotification,
 } from './lib/messaging'
 import { registerPushToken } from './lib/api/notifications'
+import { stateReady } from './lib/firebase'
 
 export default function App() {
   // Wire a single global foreground message listener so push notifications
@@ -34,7 +35,8 @@ export default function App() {
   useEffect(() => {
     if (!isPushSupported() || Notification.permission !== 'granted') return
     const cleanup = onForegroundMessage(showLocalNotification)
-    getCurrentToken().then((token) => {
+    getCurrentToken().then(async (token) => {
+      await stateReady()
       if (token) registerPushToken(token).catch(() => undefined)
     })
     return cleanup

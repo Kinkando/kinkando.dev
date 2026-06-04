@@ -12,3 +12,7 @@ export async function getIdToken(): Promise<string | null> {
   if (!user) return null
   return user.getIdToken()
 }
+
+export function stateReady(): Promise<void> {
+  return auth.authStateReady()
+}

@@ -44,3 +44,23 @@ Keep logic in the handler for rules that struct tags cannot capture:
 - Semantic constraints with custom error messages (e.g. blocking a reserved enum value with an explanatory note).
 - Post-bind transformations (e.g. defaulting an empty field to a sentinel value).
 - Query/path param parsing — those are not body fields and must be checked manually.
+
+## Date formatting
+
+Use `time.DateOnly` instead of the literal `"2006-01-02"` in Go code:
+
+```go
+// Good
+date, err := time.Parse(time.DateOnly, in.Date)
+key := now.Format(time.DateOnly)
+
+// Bad
+date, err := time.Parse("2006-01-02", in.Date)
+key := now.Format("2006-01-02")
+```
+
+**Exception:** struct tags are evaluated at compile time as raw string literals, so validator tags must keep the literal form:
+
+```go
+Birthdate *string `json:"birthdate" validate:"omitempty,datetime=2006-01-02"`
+```

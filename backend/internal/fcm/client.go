@@ -53,7 +53,7 @@ func (c *Client) Send(ctx context.Context, token, title, body string) error {
 		},
 	}
 	if _, err := c.mc.Send(ctx, msg); err != nil {
-		if messaging.IsRegistrationTokenNotRegistered(err) {
+		if messaging.IsUnregistered(err) {
 			return ErrTokenInvalid
 		}
 		return fmt.Errorf("fcm: send: %w", err)

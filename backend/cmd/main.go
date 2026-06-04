@@ -229,13 +229,27 @@ func main() {
 	portfolioGroup := api.Group("/portfolio")
 	portH.Register(portfolioGroup)
 
-	// Per-user MCP provider — builds and caches one server+session per Firebase UID.
-	// Replaces the old single-user startup resolution.
-	mcpProvider := mcpserver.NewProvider(mcpserver.BaseDeps{
+	// Single shared MCP server — a receiving middleware resolves the caller per
+	// request from either the HTTP header (X-MCP-User, set by mcpFirebaseAuth)
+	// or the in-process call's _meta (set by the Gemini client).
+	mcpSrv := mcpserver.New(mcpserver.Deps{
 		FinSvc: finSvc, KanRepo: kanRepo, WkSvc: wkSvc, HeaSvc: heaSvc, MedSvc: medSvc, QstSvc: qstSvc,
-		Logger: logger,
-	}, usrRepo)
-	defer mcpProvider.Close() //nolint:errcheck
+		Resolver: usrRepo, Logger: logger,
+	})
+
+	// Wire an in-process MCP client so Gemini can call tools without a network hop.
+	serverT, clientT := mcp.NewInMemoryTransports()
+	mcpServerSession, err := mcpSrv.Connect(context.Background(), serverT, nil)
+	if err != nil {
+		logger.Fatal("mcp server session", zap.Error(err))
+	}
+	defer mcpServerSession.Close() //nolint:errcheck
+	mcpCli := mcp.NewClient(&mcp.Implementation{Name: "kinkando-in-process", Version: "0.1.0"}, nil)
+	mcpClientSession, err := mcpCli.Connect(context.Background(), clientT, nil)
+	if err != nil {
+		logger.Fatal("mcp client session", zap.Error(err))
+	}
+	defer mcpClientSession.Close() //nolint:errcheck
 
 	// LINE webhook — no auth middleware; self-authenticated via X-Line-Signature.
 	// lineClient is constructed above (shared with the notification module).
@@ -244,7 +258,7 @@ func main() {
 		APIKey:   cfg.GeminiAPIKey,
 		Model:    cfg.GeminiModel,
 		TTSModel: cfg.GeminiTTSModel,
-		Sessions: mcpProvider,
+		MCP:      mcpClientSession,
 	})
 	if err != nil {
 		logger.Fatal("gemini init", zap.Error(err))
@@ -271,19 +285,11 @@ func main() {
 	logger.Info("AI chat enabled at /api/v1/ai-chat")
 
 	// MCP endpoint — always mounted; authenticated per-request via Firebase ID token.
-	// The caller must send: Authorization: Bearer <firebase-id-token>
+	// The caller must send: Authorization: Bearer <firebase-id-token>.
+	// mcpFirebaseAuth verifies the token, sets X-MCP-User, then the MCP server's
+	// receiving middleware resolves the user from that header per tool call.
 	mcpH := mcp.NewStreamableHTTPHandler(
-		func(req *http.Request) *mcp.Server {
-			uid := req.Header.Get("X-MCP-User")
-			if uid == "" {
-				return nil
-			}
-			srv, err := mcpProvider.ServerFor(req.Context(), uid)
-			if err != nil {
-				return nil
-			}
-			return srv
-		},
+		func(*http.Request) *mcp.Server { return mcpSrv },
 		&mcp.StreamableHTTPOptions{Stateless: true, JSONResponse: true},
 	)
 	app.All("/mcp", mcpFirebaseAuth(authMW), adaptor.HTTPHandler(mcpH))

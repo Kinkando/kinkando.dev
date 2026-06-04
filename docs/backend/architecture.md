@@ -83,7 +83,7 @@ Served at `POST /mcp` (Streamable HTTP, JSON). No separate process. Always mount
 
 **Auth:** `Authorization: Bearer <firebase-id-token>` — the same Firebase ID token used by the web app. Each request acts as the user the token belongs to.
 
-**Multi-user:** one MCP server (and one in-process client session) is built and cached per Firebase UID on demand by `mcpserver.Provider`. No static user env var is required.
+**Multi-user:** a single shared MCP server serves all users. A **receiving middleware** (`mcpserver.userMiddleware`) resolves the Firebase UID per request and injects the app user into `context`. Tool handlers read identity from `ctx` — no per-user server instances.
 
 **LINE users:** the LINE webhook resolves the sender's `line_id` to the matching app user, so AI replies act as that user. Unlinked accounts receive link instructions.
 

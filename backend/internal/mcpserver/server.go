@@ -26,29 +26,108 @@ import (
 	"go.uber.org/zap"
 )
 
-// BaseDeps holds shared dependencies consumed by all MCP tool handlers that
-// are not tied to a specific user identity. Embed this in Deps or use it
-// directly when constructing a Provider.
-type BaseDeps struct {
-	FinSvc  *financeSvc.Service
-	KanRepo *kanbanRepo.Repository
-	WkSvc   *workoutSvc.Service
-	HeaSvc  *healthSvc.Service
-	MedSvc  *medicineSvc.Service
-	QstSvc  *questSvc.Service
-	Logger  *zap.Logger
+// UserResolver maps a Firebase UID to the internal app user UUID.
+type UserResolver interface {
+	GetIDByFirebaseUID(ctx context.Context, firebaseUID string) (uuid.UUID, error)
 }
 
 // Deps bundles the shared dependencies consumed by all MCP tool handlers.
 type Deps struct {
-	BaseDeps
-	UserUUID    uuid.UUID
+	FinSvc   *financeSvc.Service
+	KanRepo  *kanbanRepo.Repository
+	WkSvc    *workoutSvc.Service
+	HeaSvc   *healthSvc.Service
+	MedSvc   *medicineSvc.Service
+	QstSvc   *questSvc.Service
+	Resolver UserResolver // resolves Firebase UID → internal UUID per request
+	Logger   *zap.Logger
+}
+
+// ---- Per-request user context -----------------------------------------------
+
+type ctxKey struct{}
+
+type userCtx struct {
+	UUID        uuid.UUID
 	FirebaseUID string
 }
 
-// New creates a new MCP server with all tools registered.
+// withUser stores the resolved user in ctx so tool handlers can read it.
+func withUser(ctx context.Context, u userCtx) context.Context {
+	return context.WithValue(ctx, ctxKey{}, u)
+}
+
+// ctxUserUUID returns the resolved user UUID from ctx, or uuid.Nil if absent.
+func ctxUserUUID(ctx context.Context) uuid.UUID {
+	if u, ok := ctx.Value(ctxKey{}).(userCtx); ok {
+		return u.UUID
+	}
+	return uuid.UUID{}
+}
+
+// ctxFirebaseUID returns the Firebase UID from ctx, or "" if absent.
+func ctxFirebaseUID(ctx context.Context) string {
+	if u, ok := ctx.Value(ctxKey{}).(userCtx); ok {
+		return u.FirebaseUID
+	}
+	return ""
+}
+
+// ---- User-resolving middleware -----------------------------------------------
+
+// userMiddleware is an MCP receiving middleware that resolves the caller's
+// Firebase UID to an app user and injects it into the request context.
+//
+// The UID is read from two sources, checked in order:
+//   - HTTP path: req.GetExtra().Header.Get("X-MCP-User") — set by mcpFirebaseAuth
+//     in cmd/main.go after verifying the Firebase ID token.
+//   - In-process path: req.GetParams().GetMeta()["firebaseUID"] — set by
+//     gemini.Client.executeToolCalls for each MCP tool call.
+//
+// Tool calls (method "tools/call") that arrive with no resolved user are
+// rejected with an error. All other MCP methods (initialize, tools/list, etc.)
+// pass through without a user in context.
+func userMiddleware(resolver UserResolver) mcp.Middleware {
+	return func(next mcp.MethodHandler) mcp.MethodHandler {
+		return func(ctx context.Context, method string, req mcp.Request) (mcp.Result, error) {
+			fuid := extractFirebaseUID(req)
+			if fuid != "" {
+				if id, err := resolver.GetIDByFirebaseUID(ctx, fuid); err == nil && id != (uuid.UUID{}) {
+					ctx = withUser(ctx, userCtx{UUID: id, FirebaseUID: fuid})
+				}
+			}
+			if method == "tools/call" && ctxFirebaseUID(ctx) == "" {
+				return nil, fmt.Errorf("unauthenticated: no user resolved for MCP request")
+			}
+			return next(ctx, method, req)
+		}
+	}
+}
+
+// extractFirebaseUID reads the Firebase UID from an MCP request, checking the
+// HTTP header first (set by the Fiber middleware) then _meta (set by Gemini).
+func extractFirebaseUID(req mcp.Request) string {
+	if extra := req.GetExtra(); extra != nil && extra.Header != nil {
+		if uid := extra.Header.Get("X-MCP-User"); uid != "" {
+			return uid
+		}
+	}
+	if params := req.GetParams(); params != nil {
+		if meta := params.GetMeta(); meta != nil {
+			if v, ok := meta["firebaseUID"].(string); ok {
+				return v
+			}
+		}
+	}
+	return ""
+}
+
+// New creates a new MCP server with all tools registered. A receiving
+// middleware is installed that resolves the caller's Firebase UID to an app
+// user and injects it into the request context for every tool call.
 func New(d Deps) *mcp.Server {
 	s := mcp.NewServer(&mcp.Implementation{Name: "kinkando-dashboard", Version: "0.1.0"}, nil)
+	s.AddReceivingMiddleware(userMiddleware(d.Resolver))
 	registerTools(s, d)
 	return s
 }
@@ -779,7 +858,7 @@ func registerTools(s *mcp.Server, d Deps) {
 		if in.Month == "" {
 			return nil, listRecordsOut{}, fmt.Errorf("month is required (YYYY-MM)")
 		}
-		records, err := d.FinSvc.ListRecords(ctx, d.UserUUID, in.Month)
+		records, err := d.FinSvc.ListRecords(ctx, ctxUserUUID(ctx), in.Month)
 		if err != nil {
 			return nil, listRecordsOut{}, fmt.Errorf("list records: %w", err)
 		}
@@ -797,7 +876,7 @@ func registerTools(s *mcp.Server, d Deps) {
 		Name:        tools.FinanceListCategories.Name,
 		Description: tools.FinanceListCategories.Description,
 	}, middleware.MCPRequestLogger(d.Logger, tools.FinanceListCategories.Name, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, listCategoriesOut, error) {
-		cats, err := d.FinSvc.ListCategories(ctx, d.UserUUID)
+		cats, err := d.FinSvc.ListCategories(ctx, ctxUserUUID(ctx))
 		if err != nil {
 			return nil, listCategoriesOut{}, fmt.Errorf("list categories: %w", err)
 		}
@@ -822,7 +901,7 @@ func registerTools(s *mcp.Server, d Deps) {
 		if in.Name == "" {
 			return nil, createCategoryOut{}, fmt.Errorf("name is required")
 		}
-		cat, err := d.FinSvc.CreateCategory(ctx, d.UserUUID, finance.CreateCategoryInput{
+		cat, err := d.FinSvc.CreateCategory(ctx, ctxUserUUID(ctx), finance.CreateCategoryInput{
 			Name:  in.Name,
 			Type:  rt,
 			Icon:  in.Icon,
@@ -842,7 +921,7 @@ func registerTools(s *mcp.Server, d Deps) {
 		if err != nil {
 			return nil, deleteCategoryOut{}, fmt.Errorf("invalid category id %q: %w", in.ID, err)
 		}
-		if err := d.FinSvc.DeleteCategory(ctx, id, d.UserUUID); err != nil {
+		if err := d.FinSvc.DeleteCategory(ctx, id, ctxUserUUID(ctx)); err != nil {
 			return nil, deleteCategoryOut{}, fmt.Errorf("delete category: %w", err)
 		}
 		return nil, deleteCategoryOut{Deleted: true}, nil
@@ -859,7 +938,7 @@ func registerTools(s *mcp.Server, d Deps) {
 		if in.Amount <= 0 {
 			return nil, createRecordOut{}, fmt.Errorf("amount must be positive, got %v", in.Amount)
 		}
-		cats, err := d.FinSvc.ListCategories(ctx, d.UserUUID)
+		cats, err := d.FinSvc.ListCategories(ctx, ctxUserUUID(ctx))
 		if err != nil {
 			return nil, createRecordOut{}, fmt.Errorf("list categories: %w", err)
 		}
@@ -875,7 +954,7 @@ func registerTools(s *mcp.Server, d Deps) {
 		if !found {
 			return nil, createRecordOut{}, fmt.Errorf("no %s category named %q — call finance_list_categories to see available names", in.Type, in.Category)
 		}
-		rec, err := d.FinSvc.CreateRecord(ctx, d.UserUUID, finance.CreateRecordInput{
+		rec, err := d.FinSvc.CreateRecord(ctx, ctxUserUUID(ctx), finance.CreateRecordInput{
 			Type:       rt,
 			Amount:     in.Amount,
 			CategoryID: catID,
@@ -896,7 +975,7 @@ func registerTools(s *mcp.Server, d Deps) {
 		if err != nil {
 			return nil, deleteRecordOut{}, fmt.Errorf("invalid record id %q: %w", in.ID, err)
 		}
-		if err := d.FinSvc.DeleteRecord(ctx, id, d.UserUUID); err != nil {
+		if err := d.FinSvc.DeleteRecord(ctx, id, ctxUserUUID(ctx)); err != nil {
 			return nil, deleteRecordOut{}, fmt.Errorf("delete record: %w", err)
 		}
 		return nil, deleteRecordOut{Deleted: true}, nil
@@ -909,7 +988,7 @@ func registerTools(s *mcp.Server, d Deps) {
 		if in.Month == "" {
 			return nil, monthlySummaryOut{}, fmt.Errorf("month is required (YYYY-MM)")
 		}
-		summary, err := d.FinSvc.MonthlySummary(ctx, d.UserUUID, in.Month)
+		summary, err := d.FinSvc.MonthlySummary(ctx, ctxUserUUID(ctx), in.Month)
 		if err != nil {
 			return nil, monthlySummaryOut{}, fmt.Errorf("monthly summary: %w", err)
 		}
@@ -921,7 +1000,7 @@ func registerTools(s *mcp.Server, d Deps) {
 		Name:        tools.KanbanGetBoard.Name,
 		Description: tools.KanbanGetBoard.Description,
 	}, middleware.MCPRequestLogger(d.Logger, tools.KanbanGetBoard.Name, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, getBoardOut, error) {
-		boards, err := d.KanRepo.ListBoards(ctx, d.FirebaseUID)
+		boards, err := d.KanRepo.ListBoards(ctx, ctxFirebaseUID(ctx))
 		if err != nil {
 			return nil, getBoardOut{}, fmt.Errorf("list boards: %w", err)
 		}
@@ -966,7 +1045,7 @@ func registerTools(s *mcp.Server, d Deps) {
 		if err != nil {
 			return nil, createCardOut{}, fmt.Errorf("invalid column_id %q: %w", in.ColumnID, err)
 		}
-		boards, err := d.KanRepo.ListBoards(ctx, d.FirebaseUID)
+		boards, err := d.KanRepo.ListBoards(ctx, ctxFirebaseUID(ctx))
 		if err != nil {
 			return nil, createCardOut{}, fmt.Errorf("list boards: %w", err)
 		}
@@ -1174,7 +1253,7 @@ func registerTools(s *mcp.Server, d Deps) {
 			}
 			to = t
 		}
-		sessions, err := d.WkSvc.ListSessions(ctx, d.UserUUID, from, to)
+		sessions, err := d.WkSvc.ListSessions(ctx, ctxUserUUID(ctx), from, to)
 		if err != nil {
 			return nil, listWorkoutSessionsOut{}, fmt.Errorf("list sessions: %w", err)
 		}
@@ -1189,7 +1268,7 @@ func registerTools(s *mcp.Server, d Deps) {
 		Name:        tools.WorkoutListPresets.Name,
 		Description: tools.WorkoutListPresets.Description,
 	}, middleware.MCPRequestLogger(d.Logger, tools.WorkoutListPresets.Name, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, listPresetsOut, error) {
-		presets, err := d.WkSvc.ListPresets(ctx, d.UserUUID)
+		presets, err := d.WkSvc.ListPresets(ctx, ctxUserUUID(ctx))
 		if err != nil {
 			return nil, listPresetsOut{}, fmt.Errorf("list presets: %w", err)
 		}
@@ -1208,7 +1287,7 @@ func registerTools(s *mcp.Server, d Deps) {
 		if err != nil {
 			return nil, getPresetOut{}, fmt.Errorf("invalid preset_id %q: %w", in.PresetID, err)
 		}
-		preset, err := d.WkSvc.GetPreset(ctx, presetID, d.UserUUID)
+		preset, err := d.WkSvc.GetPreset(ctx, presetID, ctxUserUUID(ctx))
 		if err != nil {
 			return nil, getPresetOut{}, fmt.Errorf("get preset: %w", err)
 		}
@@ -1219,7 +1298,7 @@ func registerTools(s *mcp.Server, d Deps) {
 		Name:        tools.WorkoutGetSchedule.Name,
 		Description: tools.WorkoutGetSchedule.Description,
 	}, middleware.MCPRequestLogger(d.Logger, tools.WorkoutGetSchedule.Name, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, getScheduleOut, error) {
-		entries, err := d.WkSvc.GetSchedule(ctx, d.UserUUID)
+		entries, err := d.WkSvc.GetSchedule(ctx, ctxUserUUID(ctx))
 		if err != nil {
 			return nil, getScheduleOut{}, fmt.Errorf("get schedule: %w", err)
 		}
@@ -1252,7 +1331,7 @@ func registerTools(s *mcp.Server, d Deps) {
 			Name: nameOverride,
 		}
 		if in.PresetName != "" {
-			presets, err := d.WkSvc.ListPresets(ctx, d.UserUUID)
+			presets, err := d.WkSvc.ListPresets(ctx, ctxUserUUID(ctx))
 			if err != nil {
 				return nil, startSessionOut{}, fmt.Errorf("list presets: %w", err)
 			}
@@ -1272,7 +1351,7 @@ func registerTools(s *mcp.Server, d Deps) {
 			t := workout.Type(in.Type)
 			input.Type = &t
 		}
-		session, err := d.WkSvc.CreateSession(ctx, d.UserUUID, input)
+		session, err := d.WkSvc.CreateSession(ctx, ctxUserUUID(ctx), input)
 		if err != nil {
 			return nil, startSessionOut{}, fmt.Errorf("start session: %w", err)
 		}
@@ -1298,7 +1377,7 @@ func registerTools(s *mcp.Server, d Deps) {
 		if in.Notes != "" {
 			notes = &in.Notes
 		}
-		session, err := d.WkSvc.UpdateSession(ctx, sessionID, d.UserUUID, workout.UpdateSessionInput{
+		session, err := d.WkSvc.UpdateSession(ctx, sessionID, ctxUserUUID(ctx), workout.UpdateSessionInput{
 			Name:            in.Name,
 			DurationMinutes: durationMinutes,
 			Notes:           notes,
@@ -1340,7 +1419,7 @@ func registerTools(s *mcp.Server, d Deps) {
 		if in.Notes != "" {
 			input.Notes = &in.Notes
 		}
-		ex, err := d.WkSvc.UpdateSessionExercise(ctx, exerciseID, sessionID, d.UserUUID, input)
+		ex, err := d.WkSvc.UpdateSessionExercise(ctx, exerciseID, sessionID, ctxUserUUID(ctx), input)
 		if err != nil {
 			return nil, logExerciseOut{}, fmt.Errorf("log exercise: %w", err)
 		}
@@ -1378,7 +1457,7 @@ func registerTools(s *mcp.Server, d Deps) {
 		if in.RestSeconds > 0 {
 			input.RestSeconds = &in.RestSeconds
 		}
-		ex, err := d.WkSvc.AddSessionExercise(ctx, sessionID, d.UserUUID, input)
+		ex, err := d.WkSvc.AddSessionExercise(ctx, sessionID, ctxUserUUID(ctx), input)
 		if err != nil {
 			return nil, addExerciseOut{}, fmt.Errorf("add exercise: %w", err)
 		}
@@ -1427,7 +1506,7 @@ func registerTools(s *mcp.Server, d Deps) {
 			}
 			items = append(items, inp)
 		}
-		exercises, err := d.WkSvc.BulkUpdateSessionExercises(ctx, sessionID, d.UserUUID, items)
+		exercises, err := d.WkSvc.BulkUpdateSessionExercises(ctx, sessionID, ctxUserUUID(ctx), items)
 		if err != nil {
 			return nil, bulkLogExercisesOut{}, fmt.Errorf("bulk log exercises: %w", err)
 		}
@@ -1446,7 +1525,7 @@ func registerTools(s *mcp.Server, d Deps) {
 		if err != nil {
 			return nil, finishSessionOut{}, fmt.Errorf("invalid session_id %q: %w", in.SessionID, err)
 		}
-		session, err := d.WkSvc.FinishSession(ctx, sessionID, d.UserUUID)
+		session, err := d.WkSvc.FinishSession(ctx, sessionID, ctxUserUUID(ctx))
 		if err != nil {
 			return nil, finishSessionOut{}, fmt.Errorf("finish session: %w", err)
 		}
@@ -1514,7 +1593,7 @@ func registerTools(s *mcp.Server, d Deps) {
 		if in.Description != "" {
 			input.Description = &in.Description
 		}
-		preset, err := d.WkSvc.CreatePreset(ctx, d.UserUUID, input)
+		preset, err := d.WkSvc.CreatePreset(ctx, ctxUserUUID(ctx), input)
 		if err != nil {
 			return nil, createPresetOut{}, fmt.Errorf("create preset: %w", err)
 		}
@@ -1579,7 +1658,7 @@ func registerTools(s *mcp.Server, d Deps) {
 		if in.Description != "" {
 			input.Description = &in.Description
 		}
-		preset, err := d.WkSvc.UpdatePreset(ctx, presetID, d.UserUUID, input)
+		preset, err := d.WkSvc.UpdatePreset(ctx, presetID, ctxUserUUID(ctx), input)
 		if err != nil {
 			return nil, updatePresetOut{}, fmt.Errorf("update preset: %w", err)
 		}
@@ -1594,7 +1673,7 @@ func registerTools(s *mcp.Server, d Deps) {
 		if err != nil {
 			return nil, deletePresetOut{}, fmt.Errorf("invalid preset_id %q: %w", in.PresetID, err)
 		}
-		if err := d.WkSvc.DeletePreset(ctx, presetID, d.UserUUID); err != nil {
+		if err := d.WkSvc.DeletePreset(ctx, presetID, ctxUserUUID(ctx)); err != nil {
 			return nil, deletePresetOut{}, fmt.Errorf("delete preset: %w", err)
 		}
 		return nil, deletePresetOut{Deleted: true}, nil
@@ -1605,7 +1684,7 @@ func registerTools(s *mcp.Server, d Deps) {
 		Name:        tools.FoodListLogs.Name,
 		Description: tools.FoodListLogs.Description,
 	}, middleware.MCPRequestLogger(d.Logger, tools.FoodListLogs.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.FoodListLogsIn) (*mcp.CallToolResult, listFoodLogsOut, error) {
-		logs, err := d.HeaSvc.ListFoodLogs(ctx, d.UserUUID)
+		logs, err := d.HeaSvc.ListFoodLogs(ctx, ctxUserUUID(ctx))
 		if err != nil {
 			return nil, listFoodLogsOut{}, fmt.Errorf("list food logs: %w", err)
 		}
@@ -1659,7 +1738,7 @@ func registerTools(s *mcp.Server, d Deps) {
 		if in.FatG > 0 {
 			inp.FatG = &in.FatG
 		}
-		log, err := d.HeaSvc.CreateFoodLog(ctx, d.UserUUID, inp)
+		log, err := d.HeaSvc.CreateFoodLog(ctx, ctxUserUUID(ctx), inp)
 		if err != nil {
 			return nil, foodLogOut{}, fmt.Errorf("create food log: %w", err)
 		}
@@ -1693,7 +1772,7 @@ func registerTools(s *mcp.Server, d Deps) {
 		if in.FatG > 0 {
 			inp.FatG = &in.FatG
 		}
-		log, err := d.HeaSvc.UpdateFoodLog(ctx, logID, d.UserUUID, inp)
+		log, err := d.HeaSvc.UpdateFoodLog(ctx, logID, ctxUserUUID(ctx), inp)
 		if err != nil {
 			return nil, foodLogOut{}, fmt.Errorf("update food log: %w", err)
 		}
@@ -1708,7 +1787,7 @@ func registerTools(s *mcp.Server, d Deps) {
 		if err != nil {
 			return nil, deleteFoodOut{}, fmt.Errorf("invalid log_id %q: %w", in.LogID, err)
 		}
-		if err := d.HeaSvc.DeleteFoodLog(ctx, logID, d.UserUUID); err != nil {
+		if err := d.HeaSvc.DeleteFoodLog(ctx, logID, ctxUserUUID(ctx)); err != nil {
 			return nil, deleteFoodOut{}, fmt.Errorf("delete food log: %w", err)
 		}
 		return nil, deleteFoodOut{Deleted: true}, nil
@@ -1719,7 +1798,7 @@ func registerTools(s *mcp.Server, d Deps) {
 		Name:        tools.WeightListLogs.Name,
 		Description: tools.WeightListLogs.Description,
 	}, middleware.MCPRequestLogger(d.Logger, tools.WeightListLogs.Name, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, listWeightLogsOut, error) {
-		logs, err := d.HeaSvc.ListWeightLogs(ctx, d.UserUUID)
+		logs, err := d.HeaSvc.ListWeightLogs(ctx, ctxUserUUID(ctx))
 		if err != nil {
 			return nil, listWeightLogsOut{}, fmt.Errorf("list weight logs: %w", err)
 		}
@@ -1737,7 +1816,7 @@ func registerTools(s *mcp.Server, d Deps) {
 		if in.Weight <= 0 {
 			return nil, weightLogOut{}, fmt.Errorf("weight must be positive, got %v", in.Weight)
 		}
-		log, err := d.HeaSvc.CreateWeightLog(ctx, d.UserUUID, health.CreateWeightInput{
+		log, err := d.HeaSvc.CreateWeightLog(ctx, ctxUserUUID(ctx), health.CreateWeightInput{
 			Weight:   in.Weight,
 			LoggedAt: in.LoggedAt,
 		})
@@ -1758,7 +1837,7 @@ func registerTools(s *mcp.Server, d Deps) {
 		if in.Weight <= 0 {
 			return nil, weightLogOut{}, fmt.Errorf("weight must be positive, got %v", in.Weight)
 		}
-		log, err := d.HeaSvc.UpdateWeightLog(ctx, logID, d.UserUUID, health.UpdateWeightInput{
+		log, err := d.HeaSvc.UpdateWeightLog(ctx, logID, ctxUserUUID(ctx), health.UpdateWeightInput{
 			Weight:   in.Weight,
 			LoggedAt: in.LoggedAt,
 		})
@@ -1779,7 +1858,7 @@ func registerTools(s *mcp.Server, d Deps) {
 		Name:        tools.SleepListLogs.Name,
 		Description: tools.SleepListLogs.Description,
 	}, middleware.MCPRequestLogger(d.Logger, tools.SleepListLogs.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.SleepListLogsIn) (*mcp.CallToolResult, listSleepLogsOut, error) {
-		logs, err := d.HeaSvc.ListSleepLogs(ctx, d.UserUUID)
+		logs, err := d.HeaSvc.ListSleepLogs(ctx, ctxUserUUID(ctx))
 		if err != nil {
 			return nil, listSleepLogsOut{}, fmt.Errorf("list sleep logs: %w", err)
 		}
@@ -1823,7 +1902,7 @@ func registerTools(s *mcp.Server, d Deps) {
 			s := in.Score
 			inp.Score = &s
 		}
-		log, err := d.HeaSvc.CreateSleepLog(ctx, d.UserUUID, inp)
+		log, err := d.HeaSvc.CreateSleepLog(ctx, ctxUserUUID(ctx), inp)
 		if err != nil {
 			return nil, sleepLogOut{}, fmt.Errorf("create sleep log: %w", err)
 		}
@@ -1848,7 +1927,7 @@ func registerTools(s *mcp.Server, d Deps) {
 			s := in.Score
 			inp.Score = &s
 		}
-		log, err := d.HeaSvc.UpdateSleepLog(ctx, logID, d.UserUUID, inp)
+		log, err := d.HeaSvc.UpdateSleepLog(ctx, logID, ctxUserUUID(ctx), inp)
 		if err != nil {
 			return nil, sleepLogOut{}, fmt.Errorf("update sleep log: %w", err)
 		}
@@ -1863,7 +1942,7 @@ func registerTools(s *mcp.Server, d Deps) {
 		if err != nil {
 			return nil, deleteSleepOut{}, fmt.Errorf("invalid log_id %q: %w", in.LogID, err)
 		}
-		if err := d.HeaSvc.DeleteSleepLog(ctx, logID, d.UserUUID); err != nil {
+		if err := d.HeaSvc.DeleteSleepLog(ctx, logID, ctxUserUUID(ctx)); err != nil {
 			return nil, deleteSleepOut{}, fmt.Errorf("delete sleep log: %w", err)
 		}
 		return nil, deleteSleepOut{Deleted: true}, nil
@@ -1988,7 +2067,7 @@ func registerMedicineTools(s *mcp.Server, d Deps) {
 		Name:        tools.MedicineList.Name,
 		Description: tools.MedicineList.Description,
 	}, middleware.MCPRequestLogger(d.Logger, tools.MedicineList.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.MedicineListIn) (*mcp.CallToolResult, listMedicinesOut, error) {
-		meds, err := d.MedSvc.ListMedicines(ctx, d.UserUUID, in.IncludeArchived)
+		meds, err := d.MedSvc.ListMedicines(ctx, ctxUserUUID(ctx), in.IncludeArchived)
 		if err != nil {
 			return nil, listMedicinesOut{}, fmt.Errorf("list medicines: %w", err)
 		}
@@ -2006,7 +2085,7 @@ func registerMedicineTools(s *mcp.Server, d Deps) {
 		if strings.TrimSpace(in.MedicineName) == "" {
 			return nil, medicineTakeOut{}, fmt.Errorf("medicine_name is required")
 		}
-		meds, err := d.MedSvc.ListMedicines(ctx, d.UserUUID, false)
+		meds, err := d.MedSvc.ListMedicines(ctx, ctxUserUUID(ctx), false)
 		if err != nil {
 			return nil, medicineTakeOut{}, fmt.Errorf("list medicines: %w", err)
 		}
@@ -2031,7 +2110,7 @@ func registerMedicineTools(s *mcp.Server, d Deps) {
 		if in.Note != "" {
 			inp.Note = &in.Note
 		}
-		intake, med, err := d.MedSvc.Take(ctx, d.UserUUID, target.ID, inp)
+		intake, med, err := d.MedSvc.Take(ctx, ctxUserUUID(ctx), target.ID, inp)
 		if err != nil {
 			return nil, medicineTakeOut{}, fmt.Errorf("take medicine: %w", err)
 		}
@@ -2054,7 +2133,7 @@ func registerMedicineTools(s *mcp.Server, d Deps) {
 		if in.Quantity <= 0 {
 			return nil, medicineAdjustStockOut{}, fmt.Errorf("quantity must be greater than 0")
 		}
-		meds, err := d.MedSvc.ListMedicines(ctx, d.UserUUID, false)
+		meds, err := d.MedSvc.ListMedicines(ctx, ctxUserUUID(ctx), false)
 		if err != nil {
 			return nil, medicineAdjustStockOut{}, fmt.Errorf("list medicines: %w", err)
 		}
@@ -2075,7 +2154,7 @@ func registerMedicineTools(s *mcp.Server, d Deps) {
 		if in.Reason != "" {
 			inp.Reason = &in.Reason
 		}
-		adj, med, err := d.MedSvc.AdjustStock(ctx, d.UserUUID, target.ID, inp)
+		adj, med, err := d.MedSvc.AdjustStock(ctx, ctxUserUUID(ctx), target.ID, inp)
 		if err != nil {
 			return nil, medicineAdjustStockOut{}, fmt.Errorf("adjust stock: %w", err)
 		}
@@ -2094,7 +2173,7 @@ func registerMedicineTools(s *mcp.Server, d Deps) {
 			}
 			opts.Date = &t
 		}
-		intakes, err := d.MedSvc.ListIntakes(ctx, d.UserUUID, opts)
+		intakes, err := d.MedSvc.ListIntakes(ctx, ctxUserUUID(ctx), opts)
 		if err != nil {
 			return nil, listMedicineIntakesOut{}, fmt.Errorf("list intakes: %w", err)
 		}
@@ -2117,7 +2196,7 @@ func registerMedicineTools(s *mcp.Server, d Deps) {
 			}
 			opts.Date = &t
 		}
-		adjs, err := d.MedSvc.ListStockAdjustments(ctx, d.UserUUID, opts)
+		adjs, err := d.MedSvc.ListStockAdjustments(ctx, ctxUserUUID(ctx), opts)
 		if err != nil {
 			return nil, listMedicineStockAdjustmentsOut{}, fmt.Errorf("list stock adjustments: %w", err)
 		}
@@ -2143,7 +2222,7 @@ func registerQuestTools(s *mcp.Server, d Deps) {
 		Name:        tools.QuestGetDashboard.Name,
 		Description: tools.QuestGetDashboard.Description,
 	}, middleware.MCPRequestLogger(d.Logger, tools.QuestGetDashboard.Name, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, questOverviewOut, error) {
-		ov, err := d.QstSvc.GetOverview(ctx, d.UserUUID)
+		ov, err := d.QstSvc.GetOverview(ctx, ctxUserUUID(ctx))
 		if err != nil {
 			return nil, questOverviewOut{}, fmt.Errorf("get quest dashboard: %w", err)
 		}
@@ -2172,7 +2251,7 @@ func registerQuestTools(s *mcp.Server, d Deps) {
 		Name:        tools.QuestListDaily.Name,
 		Description: tools.QuestListDaily.Description,
 	}, middleware.MCPRequestLogger(d.Logger, tools.QuestListDaily.Name, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, questListDailyOut, error) {
-		ov, err := d.QstSvc.GetOverview(ctx, d.UserUUID)
+		ov, err := d.QstSvc.GetOverview(ctx, ctxUserUUID(ctx))
 		if err != nil {
 			return nil, questListDailyOut{}, fmt.Errorf("list daily quests: %w", err)
 		}
@@ -2187,7 +2266,7 @@ func registerQuestTools(s *mcp.Server, d Deps) {
 		Name:        tools.QuestListWeekly.Name,
 		Description: tools.QuestListWeekly.Description,
 	}, middleware.MCPRequestLogger(d.Logger, tools.QuestListWeekly.Name, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, questListWeeklyOut, error) {
-		ov, err := d.QstSvc.GetOverview(ctx, d.UserUUID)
+		ov, err := d.QstSvc.GetOverview(ctx, ctxUserUUID(ctx))
 		if err != nil {
 			return nil, questListWeeklyOut{}, fmt.Errorf("list weekly quests: %w", err)
 		}
@@ -2202,7 +2281,7 @@ func registerQuestTools(s *mcp.Server, d Deps) {
 		Name:        tools.QuestGetXPSummary.Name,
 		Description: tools.QuestGetXPSummary.Description,
 	}, middleware.MCPRequestLogger(d.Logger, tools.QuestGetXPSummary.Name, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, questXPSummaryOut, error) {
-		ov, err := d.QstSvc.GetOverview(ctx, d.UserUUID)
+		ov, err := d.QstSvc.GetOverview(ctx, ctxUserUUID(ctx))
 		if err != nil {
 			return nil, questXPSummaryOut{}, fmt.Errorf("get xp summary: %w", err)
 		}
@@ -2213,7 +2292,7 @@ func registerQuestTools(s *mcp.Server, d Deps) {
 		Name:        tools.QuestListHistory.Name,
 		Description: tools.QuestListHistory.Description,
 	}, middleware.MCPRequestLogger(d.Logger, tools.QuestListHistory.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.QuestListHistoryIn) (*mcp.CallToolResult, questListHistoryOut, error) {
-		events, err := d.QstSvc.ListXPEvents(ctx, d.UserUUID, in.Limit)
+		events, err := d.QstSvc.ListXPEvents(ctx, ctxUserUUID(ctx), in.Limit)
 		if err != nil {
 			return nil, questListHistoryOut{}, fmt.Errorf("list xp history: %w", err)
 		}

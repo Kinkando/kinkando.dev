@@ -156,36 +156,39 @@ export default function QuestTab({ type, quests }: Props) {
                 <p className="mt-0.5 text-xs text-gray-600">{q.description}</p>
               )}
             </div>
-            {isAutoQ && countDisplay}
-            {xpBadge}
-            {rowMenu}
+            <div className="flex flex-col items-end gap-2">
+              <div className="flex items-center gap-2">
+                {countDisplay}
+                {xpBadge}
+                {rowMenu}
+              </div>
+              {!isAutoQ && (
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => decrementQuest.mutate(q.id)}
+                    disabled={
+                      decrementQuest.isPending ||
+                      q.current_count === 0 ||
+                      !q.is_active
+                    }
+                    className={`flex h-9 w-9 ${!q.is_active || q.current_count === 0 ? 'cursor-not-allowed' : 'cursor-pointer'} items-center justify-center rounded-md bg-gray-800 text-sm font-bold text-gray-300 hover:bg-gray-700 disabled:opacity-40`}
+                    aria-label="Decrement"
+                  >
+                    −
+                  </button>
+                  <button
+                    onClick={() => incrementQuest.mutate(q.id)}
+                    disabled={incrementQuest.isPending || !q.is_active}
+                    className={`flex h-9 w-9 ${!q.is_active ? 'cursor-not-allowed' : 'cursor-pointer'} items-center justify-center rounded-md bg-gray-800 text-sm font-bold text-gray-300 hover:bg-gray-700 disabled:opacity-40`}
+                    aria-label="Increment"
+                  >
+                    +
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
           <div className="mt-2 flex items-center gap-3">
-            {!isAutoQ && (
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => decrementQuest.mutate(q.id)}
-                  disabled={
-                    decrementQuest.isPending ||
-                    q.current_count === 0 ||
-                    !q.is_active
-                  }
-                  className={`flex h-9 w-9 ${!q.is_active || q.current_count === 0 ? 'cursor-not-allowed' : 'cursor-pointer'} items-center justify-center rounded-md bg-gray-800 text-sm font-bold text-gray-300 hover:bg-gray-700 disabled:opacity-40`}
-                  aria-label="Decrement"
-                >
-                  −
-                </button>
-                {countDisplay}
-                <button
-                  onClick={() => incrementQuest.mutate(q.id)}
-                  disabled={incrementQuest.isPending || !q.is_active}
-                  className={`flex h-9 w-9 ${!q.is_active ? 'cursor-not-allowed' : 'cursor-pointer'} items-center justify-center rounded-md bg-gray-800 text-sm font-bold text-gray-300 hover:bg-gray-700 disabled:opacity-40`}
-                  aria-label="Increment"
-                >
-                  +
-                </button>
-              </div>
-            )}
             <div className="min-w-0 flex-1">{progressBar}</div>
           </div>
         </div>

@@ -16,6 +16,8 @@ import (
 	"go.uber.org/zap"
 )
 
+const linkTextPrefix = "LINK "
+
 // Linker can associate a LINE user ID with an app user via a verification code.
 // Implemented by *user/repository.Repository.
 type Linker interface {
@@ -108,9 +110,9 @@ func (h *Handler) webhook(c *fiber.Ctx) error {
 	return c.SendStatus(fiber.StatusOK)
 }
 
-// isLinkCommand reports whether the message is a "LINK <code>" command.
+// isLinkCommand reports whether the message is a "LINK <code 6 upper-case alphanumeric>" command.
 func (h *Handler) isLinkCommand(text string) bool {
-	return strings.HasPrefix(strings.ToUpper(strings.TrimSpace(text)), "LINK ")
+	return strings.HasPrefix(strings.ToUpper(strings.TrimSpace(text)), linkTextPrefix) && len(text) == len(linkTextPrefix)+6
 }
 
 // handleLink processes a "LINK <code>" message from the given LINE user ID.
@@ -121,7 +123,7 @@ func (h *Handler) handleLink(ctx context.Context, text, lineUserID string) strin
 	}
 	// Normalise to upper-case so the code extraction is case-insensitive.
 	upper := strings.ToUpper(strings.TrimSpace(text))
-	code := strings.TrimSpace(upper[len("LINK "):])
+	code := strings.TrimSpace(upper[len(linkTextPrefix):])
 	if code == "" {
 		return "⚠️ Please send: LINK <your-code>"
 	}

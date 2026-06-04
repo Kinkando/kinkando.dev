@@ -9,7 +9,10 @@ import (
 	"net/http"
 )
 
-const replyAPIURL = "https://api.line.me/v2/bot/message/reply"
+const (
+	replyAPIURL = "https://api.line.me/v2/bot/message/reply"
+	pushAPIURL  = "https://api.line.me/v2/bot/message/push"
+)
 
 // Client sends messages back to LINE users via the Messaging API.
 type Client struct {
@@ -39,6 +42,38 @@ func TextMessage(text string) ReplyMessage {
 type replyRequest struct {
 	ReplyToken string         `json:"replyToken"`
 	Messages   []ReplyMessage `json:"messages"`
+}
+
+type pushRequest struct {
+	To       string         `json:"to"`
+	Messages []ReplyMessage `json:"messages"`
+}
+
+// Push sends messages to the LINE user identified by to (a LINE user ID).
+func (c *Client) Push(ctx context.Context, to string, messages []ReplyMessage) error {
+	body, err := json.Marshal(pushRequest{To: to, Messages: messages})
+	if err != nil {
+		return fmt.Errorf("marshal push: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, pushAPIURL, bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("create push request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+c.accessToken)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("send push: %w", err)
+	}
+	defer resp.Body.Close() //nolint:errcheck
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		b, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("LINE push API %d: %s", resp.StatusCode, string(b))
+	}
+	return nil
 }
 
 // Reply sends messages to the user identified by replyToken.

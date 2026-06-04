@@ -47,6 +47,7 @@ The matching frontend types in `src/lib/api/types.ts` must be TypeScript string 
 | Kanban | `/api/v1/kanban` | MongoDB | Board auto-created on first access per user |
 | Health | `/api/v1/health` | PostgreSQL | Weight logs, food logs, sleep logs, profiles |
 | AI Chat | `/api/v1/aichat` | — | Powered by Gemini; see `internal/gemini/` |
+| Notification | `/api/v1/notifications` | PostgreSQL | Per-user settings (LINE/Discord/Web Push) + FCM tokens |
 | LINE | `/api/v1/line` | — | LINE Messaging API webhook |
 | Portfolio | `/api/v1/portfolio` | — | Static data, no auth |
 | User | `/api/v1/users` | PostgreSQL | User provisioning |

@@ -1,5 +1,6 @@
 const env = {
   apiUrl: import.meta.env.VITE_API_URL as string,
+  vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY as string,
   firebaseConfig: {
     apiKey: import.meta.env.VITE_FIREBASE_API_KEY as string,
     authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN as string,

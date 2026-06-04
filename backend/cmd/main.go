@@ -18,6 +18,7 @@ import (
 	"github.com/kinkando/personal-dashboard/config"
 	aichatHandler "github.com/kinkando/personal-dashboard/internal/aichat/handler"
 	"github.com/kinkando/personal-dashboard/internal/auth"
+	"github.com/kinkando/personal-dashboard/internal/fcm"
 	financeHandler "github.com/kinkando/personal-dashboard/internal/finance/handler"
 	financeRepo "github.com/kinkando/personal-dashboard/internal/finance/repository"
 	financeSvc "github.com/kinkando/personal-dashboard/internal/finance/service"
@@ -33,6 +34,10 @@ import (
 	medicineHandler "github.com/kinkando/personal-dashboard/internal/medicine/handler"
 	medicineRepo "github.com/kinkando/personal-dashboard/internal/medicine/repository"
 	medicineSvc "github.com/kinkando/personal-dashboard/internal/medicine/service"
+	"github.com/kinkando/personal-dashboard/internal/notification"
+	notificationHandler "github.com/kinkando/personal-dashboard/internal/notification/handler"
+	notificationRepo "github.com/kinkando/personal-dashboard/internal/notification/repository"
+	notificationSvc "github.com/kinkando/personal-dashboard/internal/notification/service"
 	portfolioHandler "github.com/kinkando/personal-dashboard/internal/portfolio/handler"
 	"github.com/kinkando/personal-dashboard/internal/quest"
 	questHandler "github.com/kinkando/personal-dashboard/internal/quest/handler"
@@ -123,6 +128,19 @@ func main() {
 	qstSvc := questSvc.New(qstRepo)
 	qstH := questHandler.New(qstSvc, usrRepo)
 
+	// LINE client — constructed early so it can be shared with the notification module.
+	lineClient := line.NewClient(cfg.LineChannelAccessToken)
+
+	// Notification module (LINE push, Discord webhook, FCM web push).
+	fcmClient, err := fcm.NewClient(ctx, cfg.FirebaseCredentials)
+	if err != nil {
+		logger.Fatal("fcm init", zap.Error(err))
+	}
+	discordClient := notification.NewDiscordClient()
+	notiRepo := notificationRepo.New(pgDB.SQL())
+	notiSvc := notificationSvc.New(notiRepo, lineClient, discordClient, fcmClient, usrRepo, logger)
+	notiH := notificationHandler.New(notiSvc, usrRepo)
+
 	// Subscribe quest to domain events — main.go is the only place that knows
 	// both producers and subscribers; neither side imports the other.
 	bus.Subscribe(event.MedicineTaken, func(ctx context.Context, e event.Event) {
@@ -139,6 +157,23 @@ func main() {
 	})
 	bus.Subscribe(event.SleepLogged, func(ctx context.Context, e event.Event) {
 		_ = qstSvc.HandleSourceEvent(ctx, e.UserID, string(quest.SourceTypeSleep))
+	})
+
+	// Subscribe notification service to domain events for fan-out delivery.
+	bus.Subscribe(event.WeightLogged, func(ctx context.Context, e event.Event) {
+		notiSvc.Notify(ctx, e.UserID, notification.Message{Title: "Weight logged", Body: "Your weight log has been recorded."})
+	})
+	bus.Subscribe(event.SleepLogged, func(ctx context.Context, e event.Event) {
+		notiSvc.Notify(ctx, e.UserID, notification.Message{Title: "Sleep logged", Body: "Your sleep log has been recorded."})
+	})
+	bus.Subscribe(event.MedicineTaken, func(ctx context.Context, e event.Event) {
+		notiSvc.Notify(ctx, e.UserID, notification.Message{Title: "Medicine taken", Body: "Your medicine intake has been recorded."})
+	})
+	bus.Subscribe(event.SupplementTaken, func(ctx context.Context, e event.Event) {
+		notiSvc.Notify(ctx, e.UserID, notification.Message{Title: "Supplement taken", Body: "Your supplement intake has been recorded."})
+	})
+	bus.Subscribe(event.WorkoutSessionFinished, func(ctx context.Context, e event.Event) {
+		notiSvc.Notify(ctx, e.UserID, notification.Message{Title: "Workout complete", Body: "Great job! Your workout session has been recorded."})
 	})
 
 	portH := portfolioHandler.New()
@@ -188,6 +223,9 @@ func main() {
 	questGroup := api.Group("/quest", authMW.Require())
 	qstH.Register(questGroup)
 
+	notificationGroup := api.Group("/notifications", authMW.Require())
+	notiH.Register(notificationGroup)
+
 	portfolioGroup := api.Group("/portfolio")
 	portH.Register(portfolioGroup)
 
@@ -200,7 +238,7 @@ func main() {
 	defer mcpProvider.Close() //nolint:errcheck
 
 	// LINE webhook — no auth middleware; self-authenticated via X-Line-Signature.
-	lineClient := line.NewClient(cfg.LineChannelAccessToken)
+	// lineClient is constructed above (shared with the notification module).
 
 	geminiClient, err := gemini.New(context.Background(), gemini.Deps{
 		APIKey:   cfg.GeminiAPIKey,

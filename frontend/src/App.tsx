@@ -4,6 +4,7 @@ import PortfolioPage from './pages/PortfolioPage'
 import LoginPage from './pages/LoginPage'
 // import RegisterPage from './pages/RegisterPage'
 import AccountPage from './pages/AccountPage'
+import NotificationsPage from './pages/NotificationsPage'
 import FinancePage from './pages/FinancePage'
 import KanbanPage from './pages/KanbanPage'
 import KanbanArchivePage from './pages/KanbanArchivePage'
@@ -32,6 +33,14 @@ export default function App() {
           element={
             <ProtectedRoute>
               <AccountPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/notifications"
+          element={
+            <ProtectedRoute>
+              <NotificationsPage />
             </ProtectedRoute>
           }
         />

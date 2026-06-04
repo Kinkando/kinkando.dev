@@ -75,6 +75,23 @@ func (r *Repository) GetByFirebaseUID(ctx context.Context, firebaseUID string) (
 	return toUser(dest), nil
 }
 
+// GetByID returns the full user row for the given internal UUID.
+// Returns nil, nil when no row is found.
+func (r *Repository) GetByID(ctx context.Context, id uuid.UUID) (*user.User, error) {
+	stmt := postgres.SELECT(table.Users.AllColumns).
+		FROM(table.Users).
+		WHERE(table.Users.ID.EQ(postgres.UUID(id)))
+
+	var dest model.Users
+	if err := stmt.QueryContext(ctx, r.db, &dest); err != nil {
+		if errors.Is(err, qrm.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("get user by id: %w", err)
+	}
+	return toUser(dest), nil
+}
+
 // GetByLineID returns the full user row for the given LINE user ID.
 // Returns nil, nil when no row is found.
 func (r *Repository) GetByLineID(ctx context.Context, lineUserID string) (*user.User, error) {

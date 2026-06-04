@@ -6,6 +6,26 @@ export type User = {
   created_at: string
 }
 
+export type NotificationChannel = 'line' | 'discord' | 'web_push'
+
+export type NotificationSettings = {
+  id: string
+  user_id: string
+  line_enabled: boolean
+  discord_enabled: boolean
+  discord_webhook_url: string | null
+  web_push_enabled: boolean
+  created_at: string
+  updated_at: string
+}
+
+export type UpsertNotificationSettingsInput = {
+  line_enabled: boolean
+  discord_enabled: boolean
+  discord_webhook_url: string | null
+  web_push_enabled: boolean
+}
+
 export type LineLinkCode = {
   code: string
   expires_at: string

@@ -29,4 +29,5 @@ export const keys = {
   questOverview: ['quest', 'overview'] as const,
   questList: (type: string) => ['quest', 'list', type] as const,
   questHistory: ['quest', 'history'] as const,
+  notificationSettings: ['notifications', 'settings'] as const,
 }

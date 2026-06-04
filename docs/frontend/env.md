@@ -11,3 +11,4 @@ Prefix: `VITE_*`. Read via `import.meta.env.VITE_*` through `src/config/env.ts`.
 | `VITE_FIREBASE_STORAGE_BUCKET` | Firebase config |
 | `VITE_FIREBASE_MESSAGING_SENDER_ID` | Firebase config |
 | `VITE_FIREBASE_APP_ID` | Firebase config |
+| `VITE_FIREBASE_VAPID_KEY` | FCM Web Push VAPID key — Firebase Console → Project Settings → Cloud Messaging → Web Push certificates |

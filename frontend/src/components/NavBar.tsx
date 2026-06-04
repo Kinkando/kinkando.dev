@@ -21,6 +21,8 @@ const ICONS = {
     'M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75',
   logout:
     'M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9',
+  notifications:
+    'M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0',
 } as const
 
 function NavIcon({ name }: { name: keyof typeof ICONS }) {
@@ -209,6 +211,14 @@ export default function NavBar() {
                     <NavIcon name="portfolio" />
                     Account
                   </Link>
+                  <Link
+                    to="/notifications"
+                    onClick={() => setAvatarOpen(false)}
+                    className="flex items-center gap-2 px-4 py-2 text-sm text-gray-300 transition-colors hover:bg-gray-700 hover:text-gray-100"
+                  >
+                    <NavIcon name="notifications" />
+                    Notifications
+                  </Link>
                   <button
                     onClick={() => {
                       setAvatarOpen(false)
@@ -343,6 +353,22 @@ export default function NavBar() {
                   {user.displayName ?? user.email}
                 </span>
               </div>
+              <Link
+                to="/account"
+                className="flex items-center gap-1.5 text-gray-400 transition-colors hover:text-gray-100"
+                onClick={() => setOpen(false)}
+              >
+                <NavIcon name="portfolio" />
+                Account
+              </Link>
+              <Link
+                to="/notifications"
+                className="flex items-center gap-1.5 text-gray-400 transition-colors hover:text-gray-100"
+                onClick={() => setOpen(false)}
+              >
+                <NavIcon name="notifications" />
+                Notifications
+              </Link>
               <button
                 onClick={() => {
                   setOpen(false)

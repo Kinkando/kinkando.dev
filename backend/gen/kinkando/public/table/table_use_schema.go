@@ -10,6 +10,7 @@ package table
 // UseSchema sets a new schema name for all generated table SQL builder types. It is recommended to invoke
 // this method only once at the beginning of the program.
 func UseSchema(schema string) {
+	FcmTokens = FcmTokens.FromSchema(schema)
 	FinanceCategories = FinanceCategories.FromSchema(schema)
 	FinanceRecords = FinanceRecords.FromSchema(schema)
 	HealthFoodLogs = HealthFoodLogs.FromSchema(schema)
@@ -20,6 +21,7 @@ func UseSchema(schema string) {
 	MedicineIntakes = MedicineIntakes.FromSchema(schema)
 	MedicineStockAdjustments = MedicineStockAdjustments.FromSchema(schema)
 	Medicines = Medicines.FromSchema(schema)
+	NotificationSettings = NotificationSettings.FromSchema(schema)
 	QuestCompletions = QuestCompletions.FromSchema(schema)
 	QuestDefinitions = QuestDefinitions.FromSchema(schema)
 	SchemaMigrations = SchemaMigrations.FromSchema(schema)

@@ -42,7 +42,7 @@ export default function QuestActionsMenu({
         ⋮
       </button>
       {open && (
-        <div className="absolute top-full left-0 z-20 mt-1 min-w-44 rounded-lg border border-gray-700 bg-gray-900 py-1 shadow-xl">
+        <div className="absolute top-full right-0 z-20 mt-1 min-w-44 rounded-lg border border-gray-700 bg-gray-900 py-1 shadow-xl">
           <button
             className="w-full cursor-pointer px-3 py-1.5 text-left text-sm text-gray-300 hover:bg-gray-800"
             onClick={() => {

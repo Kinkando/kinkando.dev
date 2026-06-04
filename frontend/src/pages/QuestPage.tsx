@@ -67,7 +67,7 @@ export default function QuestPage() {
               >
                 <button
                   onClick={() => setTab(key)}
-                  className={`flex-1 cursor-pointer py-1.5 pl-3 text-left text-sm font-medium transition-colors ${
+                  className={`flex-1 cursor-pointer py-1.5 pl-3 text-center text-sm font-medium transition-colors ${
                     isActive
                       ? 'text-gray-100'
                       : 'text-gray-500 hover:text-gray-300'

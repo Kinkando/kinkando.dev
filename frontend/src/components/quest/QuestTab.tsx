@@ -13,7 +13,6 @@ import {
   SOURCE_LABELS,
   questSourceRoute,
 } from './questConfig'
-import QuestActionsMenu from './QuestActionsMenu'
 import QuestFormDialog from './QuestFormDialog'
 import QuestRowMenu from './QuestRowMenu'
 
@@ -22,10 +21,7 @@ type Props = {
   quests: DailyQuestStatus[]
 }
 
-type DialogState =
-  | { mode: 'create' }
-  | { mode: 'edit'; quest: DailyQuestStatus }
-  | null
+type DialogState = { mode: 'edit'; quest: DailyQuestStatus } | null
 
 function SectionHeader({ label, count }: { label: string; count: number }) {
   return (
@@ -253,11 +249,6 @@ export default function QuestTab({ type, quests }: Props) {
 
   return (
     <div className="space-y-6">
-      {/* Quest actions */}
-      <div className="flex justify-end">
-        <QuestActionsMenu onNewQuest={() => setDialog({ mode: 'create' })} />
-      </div>
-
       {/* Quest list */}
       <div className="rounded-xl border border-gray-800 bg-gray-900">
         {quests.length === 0 ? (
@@ -341,7 +332,7 @@ export default function QuestTab({ type, quests }: Props) {
       {dialog !== null && (
         <QuestFormDialog
           type={type}
-          initial={dialog.mode === 'edit' ? dialog.quest : undefined}
+          initial={dialog.quest}
           onClose={() => setDialog(null)}
         />
       )}

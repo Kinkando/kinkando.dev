@@ -5,6 +5,7 @@ import {
   useUpdateSleepLog,
   useDeleteSleepLog,
 } from '../../queries/useHealth'
+import { todayDate } from '../../lib/date'
 
 type Props = {
   sleepLogs: SleepLog[] | undefined
@@ -15,11 +16,6 @@ const inputClass =
 
 const labelClass = 'mb-1 block text-xs font-medium text-gray-400'
 
-/** Today's date as YYYY-MM-DD in local time */
-function todayStr() {
-  return new Date().toISOString().slice(0, 10)
-}
-
 /** Default bedtime = 22:00 local time yesterday */
 function defaultBedtime() {
   const d = new Date()
@@ -29,7 +25,7 @@ function defaultBedtime() {
 
 /** Default wake time = 06:00 local time today */
 function defaultWakeTime() {
-  return `${todayStr()}T06:00`
+  return `${todayDate()}T06:00`
 }
 
 function formatDuration(minutes: number): string {
@@ -87,7 +83,7 @@ const defaultForm: FormState = {
   ended_at: defaultWakeTime(),
   score: '',
   notes: '',
-  logged_at: todayStr(),
+  logged_at: todayDate(),
 }
 
 function logToForm(log: SleepLog): FormState {
@@ -118,6 +114,8 @@ export default function SleepTab({ sleepLogs }: Props) {
 
   const isEditing = editingId !== null
   const loading = createSleepLog.isPending || updateSleepLog.isPending
+  const loggedToday =
+    sleepLogs?.some((l) => l.logged_at.slice(0, 10) === todayDate()) ?? false
 
   function handleEdit(log: SleepLog) {
     setEditingId(log.id)
@@ -191,85 +189,93 @@ export default function SleepTab({ sleepLogs }: Props) {
         <h3 className="mb-4 text-sm font-medium text-gray-300">
           {isEditing ? 'Edit Sleep Entry' : 'Log Sleep'}
         </h3>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <label className={labelClass}>Bedtime</label>
-              <input
-                className={inputClass}
-                type="datetime-local"
-                value={form.started_at}
-                onChange={(e) =>
-                  setForm({ ...form, started_at: e.target.value })
-                }
-              />
+        {loggedToday && !isEditing ? (
+          <p className="text-sm text-indigo-400">
+            ✓ You've already logged sleep for today.
+          </p>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label className={labelClass}>Bedtime</label>
+                <input
+                  className={inputClass}
+                  type="datetime-local"
+                  value={form.started_at}
+                  onChange={(e) =>
+                    setForm({ ...form, started_at: e.target.value })
+                  }
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Wake time</label>
+                <input
+                  className={inputClass}
+                  type="datetime-local"
+                  value={form.ended_at}
+                  onChange={(e) =>
+                    setForm({ ...form, ended_at: e.target.value })
+                  }
+                />
+              </div>
+              <div>
+                <label className={labelClass}>
+                  Sleep score (0–100, Samsung Health)
+                </label>
+                <input
+                  className={inputClass}
+                  type="number"
+                  min="0"
+                  max="100"
+                  placeholder="Optional"
+                  value={form.score}
+                  onChange={(e) => setForm({ ...form, score: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Night-of date</label>
+                <input
+                  className={inputClass}
+                  type="date"
+                  value={form.logged_at}
+                  onChange={(e) =>
+                    setForm({ ...form, logged_at: e.target.value })
+                  }
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className={labelClass}>Notes</label>
+                <input
+                  className={inputClass}
+                  placeholder="Optional"
+                  value={form.notes}
+                  onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                />
+              </div>
             </div>
-            <div>
-              <label className={labelClass}>Wake time</label>
-              <input
-                className={inputClass}
-                type="datetime-local"
-                value={form.ended_at}
-                onChange={(e) => setForm({ ...form, ended_at: e.target.value })}
-              />
-            </div>
-            <div>
-              <label className={labelClass}>
-                Sleep score (0–100, Samsung Health)
-              </label>
-              <input
-                className={inputClass}
-                type="number"
-                min="0"
-                max="100"
-                placeholder="Optional"
-                value={form.score}
-                onChange={(e) => setForm({ ...form, score: e.target.value })}
-              />
-            </div>
-            <div>
-              <label className={labelClass}>Night-of date</label>
-              <input
-                className={inputClass}
-                type="date"
-                value={form.logged_at}
-                onChange={(e) =>
-                  setForm({ ...form, logged_at: e.target.value })
-                }
-              />
-            </div>
-            <div className="sm:col-span-2">
-              <label className={labelClass}>Notes</label>
-              <input
-                className={inputClass}
-                placeholder="Optional"
-                value={form.notes}
-                onChange={(e) => setForm({ ...form, notes: e.target.value })}
-              />
-            </div>
-          </div>
 
-          {error && <p className="text-sm text-red-400">{error}</p>}
+            {error && <p className="text-sm text-red-400">{error}</p>}
 
-          <div className="flex justify-end gap-2">
-            <button
-              type="submit"
-              disabled={loading}
-              className="cursor-pointer rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
-            >
-              {loading ? 'Saving…' : isEditing ? 'Update' : 'Log Sleep'}
-            </button>
-            {isEditing && (
+            <div className="flex justify-end gap-2">
               <button
-                type="button"
-                onClick={handleCancelEdit}
-                className="cursor-pointer rounded-lg bg-gray-800 px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-700"
+                type="submit"
+                disabled={loading}
+                className="cursor-pointer rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
               >
-                Cancel
+                {loading ? 'Saving…' : isEditing ? 'Update' : 'Log Sleep'}
               </button>
-            )}
-          </div>
-        </form>
+              {isEditing && (
+                <button
+                  type="button"
+                  onClick={handleCancelEdit}
+                  className="cursor-pointer rounded-lg bg-gray-800 px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-700"
+                >
+                  Cancel
+                </button>
+              )}
+            </div>
+          </form>
+        )}
       </div>
 
       {/* Sleep log list */}

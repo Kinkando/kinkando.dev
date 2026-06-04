@@ -86,8 +86,10 @@ export default function NavBar() {
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const [avatarOpen, setAvatarOpen] = useState(false)
+  const [expanded, setExpanded] = useState<string | null>(null)
   const avatarRef = useRef<HTMLDivElement>(null)
 
+  // Desktop avatar dropdown: click outside to close
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (avatarRef.current && !avatarRef.current.contains(e.target as Node)) {
@@ -97,6 +99,26 @@ export default function NavBar() {
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
+
+  // Mobile drawer: Esc to close + body scroll lock
+  useEffect(() => {
+    if (!open) {
+      document.body.style.overflow = ''
+      return
+    }
+    document.body.style.overflow = 'hidden'
+    function handleEsc(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        setOpen(false)
+        setExpanded(null)
+      }
+    }
+    document.addEventListener('keydown', handleEsc)
+    return () => {
+      document.removeEventListener('keydown', handleEsc)
+      document.body.style.overflow = ''
+    }
+  }, [open])
 
   async function handleLogout() {
     await signOut(auth)
@@ -109,6 +131,11 @@ export default function NavBar() {
     return '?'
   }
 
+  function closeDrawer() {
+    setOpen(false)
+    setExpanded(null)
+  }
+
   const pathname = location.pathname
 
   function isGroupActive(g: NavGroup) {
@@ -117,6 +144,11 @@ export default function NavBar() {
 
   const visibleGroups = GROUPS.filter((g) => !g.protected || user)
   const activeGroup = visibleGroups.find(isGroupActive)
+
+  // Bottom tab bar: 4 groups as primary tabs; rest go into the More drawer
+  const tabGroups = visibleGroups.slice(2, 6)
+  const moreGroups = visibleGroups.slice(4)
+  const moreIsActive = moreGroups.some(isGroupActive)
 
   const groupLinkClass = (g: NavGroup) =>
     `flex items-center gap-1.5 ${
@@ -133,115 +165,152 @@ export default function NavBar() {
     }`
 
   return (
-    <nav className="border-b border-gray-800 bg-gray-900">
-      {/* Main row */}
-      <div className="flex items-center justify-between px-6 py-3">
-        {/* Brand */}
-        <Link
-          to="/portfolio"
-          className="flex items-center gap-2 text-lg font-bold tracking-tight text-indigo-400"
-        >
-          <img src="/images/logo.png" alt="" className="h-7 w-auto" />
-          kinkando.dev
-        </Link>
+    <>
+      <nav className="border-b border-gray-800 bg-gray-900">
+        {/* Main row */}
+        <div className="flex items-center justify-between px-6 py-3">
+          {/* Brand */}
+          <Link
+            to="/portfolio"
+            className="flex items-center gap-2 text-lg font-bold tracking-tight text-indigo-400"
+          >
+            <img src="/images/logo.png" alt="" className="h-7 w-auto" />
+            kinkando.dev
+          </Link>
 
-        {/* Desktop main links */}
-        <div className="hidden items-center gap-6 text-sm xl:flex">
-          {visibleGroups.map((g) => (
-            <Link key={g.path} to={g.path} className={groupLinkClass(g)}>
-              <NavIcon name={g.icon} />
-              {g.label}
-            </Link>
-          ))}
-          {!user && (
-            <Link
-              to="/login"
-              className={`flex items-center gap-1.5 ${
-                pathname === '/login'
-                  ? 'text-indigo-400'
-                  : 'text-gray-400 transition-colors hover:text-gray-100'
-              }`}
-            >
-              <NavIcon name="login" />
-              Login
-            </Link>
-          )}
-          {user && (
-            <div ref={avatarRef} className="relative">
-              <button
-                onClick={() => setAvatarOpen((o) => !o)}
-                className="flex cursor-pointer items-center gap-2 rounded-md px-1 py-0.5 text-gray-300 transition-colors hover:text-gray-100"
+          {/* Desktop main links */}
+          <div className="hidden items-center gap-6 text-sm xl:flex">
+            {visibleGroups.map((g) => (
+              <Link key={g.path} to={g.path} className={groupLinkClass(g)}>
+                <NavIcon name={g.icon} />
+                {g.label}
+              </Link>
+            ))}
+            {!user && (
+              <Link
+                to="/login"
+                className={`flex items-center gap-1.5 ${
+                  pathname === '/login'
+                    ? 'text-indigo-400'
+                    : 'text-gray-400 transition-colors hover:text-gray-100'
+                }`}
               >
-                {user.photoURL ? (
-                  <img
-                    src={user.photoURL}
-                    alt=""
-                    className="h-7 w-7 rounded-full object-cover"
-                  />
-                ) : (
-                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-indigo-600 text-xs font-semibold text-white">
-                    {getInitials()}
-                  </span>
-                )}
-                <span className="max-w-[120px] truncate text-sm">
-                  {user.displayName ?? user.email}
-                </span>
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className={`h-3.5 w-3.5 transition-transform ${avatarOpen ? 'rotate-180' : ''}`}
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
+                <NavIcon name="login" />
+                Login
+              </Link>
+            )}
+            {user && (
+              <div ref={avatarRef} className="relative">
+                <button
+                  onClick={() => setAvatarOpen((o) => !o)}
+                  className="flex cursor-pointer items-center gap-2 rounded-md px-1 py-0.5 text-gray-300 transition-colors hover:text-gray-100"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M19 9l-7 7-7-7"
-                  />
-                </svg>
-              </button>
-              {avatarOpen && (
-                <div className="absolute top-full right-0 mt-1 w-44 rounded-md border border-gray-700 bg-gray-800 py-1 shadow-lg">
-                  <Link
-                    to="/account"
-                    onClick={() => setAvatarOpen(false)}
-                    className="flex items-center gap-2 px-4 py-2 text-sm text-gray-300 transition-colors hover:bg-gray-700 hover:text-gray-100"
+                  {user.photoURL ? (
+                    <img
+                      src={user.photoURL}
+                      alt=""
+                      className="h-7 w-7 rounded-full object-cover"
+                    />
+                  ) : (
+                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-indigo-600 text-xs font-semibold text-white">
+                      {getInitials()}
+                    </span>
+                  )}
+                  <span className="max-w-[120px] truncate text-sm">
+                    {user.displayName ?? user.email}
+                  </span>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className={`h-3.5 w-3.5 transition-transform ${avatarOpen ? 'rotate-180' : ''}`}
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
                   >
-                    <NavIcon name="portfolio" />
-                    Account
-                  </Link>
-                  <Link
-                    to="/notifications"
-                    onClick={() => setAvatarOpen(false)}
-                    className="flex items-center gap-2 px-4 py-2 text-sm text-gray-300 transition-colors hover:bg-gray-700 hover:text-gray-100"
-                  >
-                    <NavIcon name="notifications" />
-                    Notifications
-                  </Link>
-                  <button
-                    onClick={() => {
-                      setAvatarOpen(false)
-                      handleLogout()
-                    }}
-                    className="flex w-full cursor-pointer items-center gap-2 px-4 py-2 text-left text-sm text-gray-300 transition-colors hover:bg-gray-700 hover:text-gray-100"
-                  >
-                    <NavIcon name="logout" />
-                    Logout
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M19 9l-7 7-7-7"
+                    />
+                  </svg>
+                </button>
+                {avatarOpen && (
+                  <div className="absolute top-full right-0 mt-1 w-44 rounded-md border border-gray-700 bg-gray-800 py-1 shadow-lg">
+                    <Link
+                      to="/account"
+                      onClick={() => setAvatarOpen(false)}
+                      className="flex items-center gap-2 px-4 py-2 text-sm text-gray-300 transition-colors hover:bg-gray-700 hover:text-gray-100"
+                    >
+                      <NavIcon name="portfolio" />
+                      Account
+                    </Link>
+                    <Link
+                      to="/notifications"
+                      onClick={() => setAvatarOpen(false)}
+                      className="flex items-center gap-2 px-4 py-2 text-sm text-gray-300 transition-colors hover:bg-gray-700 hover:text-gray-100"
+                    >
+                      <NavIcon name="notifications" />
+                      Notifications
+                    </Link>
+                    <button
+                      onClick={() => {
+                        setAvatarOpen(false)
+                        handleLogout()
+                      }}
+                      className="flex w-full cursor-pointer items-center gap-2 px-4 py-2 text-left text-sm text-gray-300 transition-colors hover:bg-gray-700 hover:text-gray-100"
+                    >
+                      <NavIcon name="logout" />
+                      Logout
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Hamburger */}
-        <button
-          className="flex cursor-pointer items-center justify-center rounded-md p-1.5 text-gray-400 hover:text-gray-100 xl:hidden"
-          onClick={() => setOpen((o) => !o)}
-          aria-label="Toggle menu"
-        >
-          {open ? (
+        {/* Sub row — desktop only */}
+        {activeGroup?.subItems && (
+          <div className="hidden scrollbar-none overflow-y-auto border-t border-gray-800 px-6 py-2 xl:flex">
+            <div className="flex items-center gap-6 text-sm">
+              {activeGroup.subItems.map((sub) => (
+                <Link
+                  key={sub.path}
+                  to={sub.path}
+                  className={subLinkClass(sub.path)}
+                >
+                  {sub.label}
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+      </nav>
+
+      {/* Mobile: backdrop — tap to close drawer */}
+      {open && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 xl:hidden"
+          onClick={closeDrawer}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* Mobile: slide-in drawer panel from the right */}
+      <div
+        className={`fixed top-0 right-0 z-50 flex h-full w-72 max-w-[80%] flex-col overflow-y-auto border-l border-gray-800 bg-gray-900 transition-transform duration-300 ease-in-out xl:hidden ${
+          open ? 'translate-x-0' : 'translate-x-full'
+        }`}
+        aria-hidden={!open}
+      >
+        {/* Drawer header */}
+        <div className="flex items-center justify-between border-b border-gray-800 px-4 py-3">
+          <span className="text-sm font-semibold text-gray-300">Menu</span>
+          <button
+            className="cursor-pointer rounded-md p-1.5 text-gray-400 hover:text-gray-100"
+            onClick={closeDrawer}
+            aria-label="Close menu"
+          >
             <svg
               xmlns="http://www.w3.org/2000/svg"
               className="h-5 w-5"
@@ -256,80 +325,94 @@ export default function NavBar() {
                 d="M6 18L18 6M6 6l12 12"
               />
             </svg>
-          ) : (
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M4 6h16M4 12h16M4 18h16"
-              />
-            </svg>
-          )}
-        </button>
-      </div>
-
-      {/* Sub row — desktop only, shown when the active group has sub-items */}
-      {activeGroup?.subItems && (
-        <div className="flex scrollbar-none overflow-y-auto border-t border-gray-800 px-6 py-2">
-          <div className="flex items-center gap-6 text-sm">
-            {activeGroup.subItems.map((sub) => (
-              <Link
-                key={sub.path}
-                to={sub.path}
-                className={subLinkClass(sub.path)}
-              >
-                {sub.label}
-              </Link>
-            ))}
-          </div>
+          </button>
         </div>
-      )}
 
-      {/* Mobile drawer */}
-      {open && (
-        <div className="flex flex-col gap-4 border-t border-gray-800 px-6 py-4 text-sm xl:hidden">
-          {visibleGroups.map((g) => (
-            <div key={g.path}>
+        {/* Navigation groups with accordion sub-items */}
+        <div className="flex flex-col px-4 py-4 text-sm">
+          {visibleGroups.map((g) =>
+            g.subItems ? (
+              <div key={g.path}>
+                <div className="flex items-center justify-between">
+                  <Link
+                    to={g.path}
+                    className={`flex flex-1 items-center gap-2 py-2 ${
+                      isGroupActive(g)
+                        ? 'text-indigo-400'
+                        : 'text-gray-400 transition-colors hover:text-gray-100'
+                    }`}
+                    onClick={closeDrawer}
+                  >
+                    <NavIcon name={g.icon} />
+                    {g.label}
+                  </Link>
+                  <button
+                    className="cursor-pointer p-2 text-gray-400 hover:text-gray-100"
+                    onClick={() =>
+                      setExpanded((e) => (e === g.path ? null : g.path))
+                    }
+                    aria-label={`Toggle ${g.label} sub-menu`}
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className={`h-3.5 w-3.5 transition-transform ${expanded === g.path ? 'rotate-180' : ''}`}
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M19 9l-7 7-7-7"
+                      />
+                    </svg>
+                  </button>
+                </div>
+                {expanded === g.path && (
+                  <div className="mb-1 flex flex-col gap-1 pl-6">
+                    {g.subItems.map((sub) => (
+                      <Link
+                        key={sub.path}
+                        to={sub.path}
+                        className={`py-1.5 ${subLinkClass(sub.path)}`}
+                        onClick={closeDrawer}
+                      >
+                        {sub.label}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
               <Link
+                key={g.path}
                 to={g.path}
-                className={groupLinkClass(g)}
-                onClick={() => setOpen(false)}
+                className={`flex items-center gap-2 py-2 ${
+                  isGroupActive(g)
+                    ? 'text-indigo-400'
+                    : 'text-gray-400 transition-colors hover:text-gray-100'
+                }`}
+                onClick={closeDrawer}
               >
                 <NavIcon name={g.icon} />
                 {g.label}
               </Link>
-              {g.subItems && (
-                <div className="mt-2 flex flex-col gap-2 pl-6">
-                  {g.subItems.map((sub) => (
-                    <Link
-                      key={sub.path}
-                      to={sub.path}
-                      className={subLinkClass(sub.path)}
-                      onClick={() => setOpen(false)}
-                    >
-                      {sub.label}
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
+            ),
+          )}
+        </div>
+
+        {/* Account section — pinned to bottom */}
+        <div className="mt-auto border-t border-gray-800 px-4 py-4 text-sm">
           {!user && (
             <Link
               to="/login"
-              className={`flex items-center gap-1.5 ${
+              className={`flex items-center gap-2 py-2 ${
                 pathname === '/login'
                   ? 'text-indigo-400'
                   : 'text-gray-400 transition-colors hover:text-gray-100'
               }`}
-              onClick={() => setOpen(false)}
+              onClick={closeDrawer}
             >
               <NavIcon name="login" />
               Login
@@ -337,7 +420,7 @@ export default function NavBar() {
           )}
           {user && (
             <>
-              <div className="flex items-center gap-2 border-t border-gray-800 pt-3">
+              <div className="mb-3 flex items-center gap-2">
                 {user.photoURL ? (
                   <img
                     src={user.photoURL}
@@ -355,26 +438,26 @@ export default function NavBar() {
               </div>
               <Link
                 to="/account"
-                className="flex items-center gap-1.5 text-gray-400 transition-colors hover:text-gray-100"
-                onClick={() => setOpen(false)}
+                className="flex items-center gap-2 py-2 text-gray-400 transition-colors hover:text-gray-100"
+                onClick={closeDrawer}
               >
                 <NavIcon name="portfolio" />
                 Account
               </Link>
               <Link
                 to="/notifications"
-                className="flex items-center gap-1.5 text-gray-400 transition-colors hover:text-gray-100"
-                onClick={() => setOpen(false)}
+                className="flex items-center gap-2 py-2 text-gray-400 transition-colors hover:text-gray-100"
+                onClick={closeDrawer}
               >
                 <NavIcon name="notifications" />
                 Notifications
               </Link>
               <button
                 onClick={() => {
-                  setOpen(false)
+                  closeDrawer()
                   handleLogout()
                 }}
-                className="flex cursor-pointer items-center gap-1.5 text-left text-gray-400 transition-colors hover:text-gray-100"
+                className="flex w-full cursor-pointer items-center gap-2 py-2 text-left text-gray-400 transition-colors hover:text-gray-100"
               >
                 <NavIcon name="logout" />
                 Logout
@@ -382,7 +465,50 @@ export default function NavBar() {
             </>
           )}
         </div>
-      )}
-    </nav>
+      </div>
+
+      {/* Mobile: fixed bottom tab bar */}
+      <nav
+        className="fixed inset-x-0 bottom-0 z-40 flex border-t border-gray-800 bg-gray-900 pb-[env(safe-area-inset-bottom)] xl:hidden"
+        aria-label="Mobile navigation"
+      >
+        {tabGroups.map((g) => (
+          <Link
+            key={g.path}
+            to={g.path}
+            className={`flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] transition-colors ${
+              isGroupActive(g) ? 'text-indigo-400' : 'text-gray-400'
+            }`}
+          >
+            <NavIcon name={g.icon} />
+            {g.label}
+          </Link>
+        ))}
+        <button
+          className={`flex flex-1 cursor-pointer flex-col items-center gap-0.5 py-2 text-[10px] transition-colors ${
+            moreIsActive || open ? 'text-indigo-400' : 'text-gray-400'
+          }`}
+          onClick={() => setOpen(true)}
+          aria-label="More menu"
+        >
+          {/* Hamburger / ellipsis icon */}
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-4 w-4 shrink-0"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={1.5}
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"
+            />
+          </svg>
+          More
+        </button>
+      </nav>
+    </>
   )
 }

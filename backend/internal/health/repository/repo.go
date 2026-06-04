@@ -130,7 +130,10 @@ func (r *Repository) CreateWeightLog(ctx context.Context, userID uuid.UUID, in h
 		postgres.UUID(userID),
 		decimal.NewFromFloat(in.Weight),
 		postgres.DateT(loggedAt),
-	).RETURNING(table.HealthWeightLogs.AllColumns)
+	).ON_CONFLICT(table.HealthWeightLogs.UserID, table.HealthWeightLogs.LoggedAt).
+		DO_UPDATE(postgres.SET(
+			table.HealthWeightLogs.Weight.SET(table.HealthWeightLogs.EXCLUDED.Weight),
+		)).RETURNING(table.HealthWeightLogs.AllColumns)
 
 	var dest model.HealthWeightLogs
 	if err := stmt.QueryContext(ctx, r.db, &dest); err != nil {

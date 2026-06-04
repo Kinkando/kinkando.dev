@@ -13,6 +13,7 @@ import {
   SOURCE_LABELS,
   questSourceRoute,
 } from './questConfig'
+import QuestActionsMenu from './QuestActionsMenu'
 import QuestFormDialog from './QuestFormDialog'
 import QuestRowMenu from './QuestRowMenu'
 
@@ -252,14 +253,9 @@ export default function QuestTab({ type, quests }: Props) {
 
   return (
     <div className="space-y-6">
-      {/* Add Quest button */}
+      {/* Quest actions */}
       <div className="flex justify-end">
-        <button
-          onClick={() => setDialog({ mode: 'create' })}
-          className="cursor-pointer rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
-        >
-          Add Quest
-        </button>
+        <QuestActionsMenu onNewQuest={() => setDialog({ mode: 'create' })} />
       </div>
 
       {/* Quest list */}

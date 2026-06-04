@@ -253,7 +253,7 @@ function ExerciseLogRow({
             className={inputClass}
             type="number"
             min="0"
-            step="0.1"
+            step="0.05"
             placeholder="—"
             value={state.weight_kg}
             disabled={isLocked}

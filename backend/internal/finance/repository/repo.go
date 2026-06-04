@@ -125,7 +125,7 @@ func (r *Repository) DeleteCategory(ctx context.Context, id uuid.UUID, userID uu
 // ── Record CRUD ───────────────────────────────────────────────────────────────
 
 func (r *Repository) Create(ctx context.Context, userID uuid.UUID, in finance.CreateRecordInput) (*finance.Record, error) {
-	date, err := time.Parse("2006-01-02", in.Date)
+	date, err := time.Parse(time.DateOnly, in.Date)
 	if err != nil {
 		return nil, fmt.Errorf("invalid date format: %w", err)
 	}

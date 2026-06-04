@@ -80,7 +80,7 @@ func New(medRepo MedicineRepository, noti Notifier, log *zap.Logger) *Service {
 // (idempotency is guaranteed by the medicine_reminder_log unique constraint).
 func (s *Service) Run(ctx context.Context) (*RunResult, error) {
 	now := time.Now() // Asia/Bangkok via time.Local set in main.go
-	todayKey := now.Format("2006-01-02")
+	todayKey := now.Format(time.DateOnly)
 
 	meds, err := s.medRepo.ScanActiveMedicinesForReminders(ctx)
 	if err != nil {

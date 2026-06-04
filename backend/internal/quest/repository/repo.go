@@ -375,6 +375,46 @@ func (r *Repository) ProgressBySource(ctx context.Context, userID uuid.UUID, sou
 	return nil
 }
 
+// ── Batch reminder helpers ────────────────────────────────────────────────────
+
+// CountIncompleteByUser returns a map of userID → number of active quests of
+// the given type that still have fewer completions than their target for the
+// supplied period. It scans across all users — used exclusively by the cron
+// reminder job, never by the per-user API.
+func (r *Repository) CountIncompleteByUser(ctx context.Context, questType string, periodStart time.Time) (map[uuid.UUID]int, error) {
+	const q = `
+		SELECT d.user_id,
+		       COUNT(*) AS incomplete_count
+		FROM   quest_definitions d
+		WHERE  d.is_active = true
+		  AND  d.type      = $1
+		  AND  (
+		         SELECT COUNT(*)
+		         FROM   quest_completions c
+		         WHERE  c.quest_id     = d.id
+		           AND  c.user_id      = d.user_id
+		           AND  c.period_start = $2
+		       ) < d.target_count
+		GROUP  BY d.user_id`
+
+	rows, err := r.db.QueryContext(ctx, q, questType, periodStart)
+	if err != nil {
+		return nil, fmt.Errorf("count incomplete quests: %w", err)
+	}
+	defer rows.Close()
+
+	result := make(map[uuid.UUID]int)
+	for rows.Next() {
+		var userID uuid.UUID
+		var count int
+		if err := rows.Scan(&userID, &count); err != nil {
+			return nil, fmt.Errorf("count incomplete quests scan: %w", err)
+		}
+		result[userID] = count
+	}
+	return result, rows.Err()
+}
+
 // ── History ───────────────────────────────────────────────────────────────────
 
 func (r *Repository) ListXPEvents(ctx context.Context, userID uuid.UUID, limit int) ([]*quest.XPEvent, error) {

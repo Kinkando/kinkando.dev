@@ -32,10 +32,13 @@ import (
 	lineHandler "github.com/kinkando/personal-dashboard/internal/line/handler"
 	"github.com/kinkando/personal-dashboard/internal/mcpserver"
 	cronHandler "github.com/kinkando/personal-dashboard/internal/cron/handler"
+	healthReminder "github.com/kinkando/personal-dashboard/internal/health/reminder"
 	medicineHandler "github.com/kinkando/personal-dashboard/internal/medicine/handler"
 	medicineRepo "github.com/kinkando/personal-dashboard/internal/medicine/repository"
-	reminderSvc "github.com/kinkando/personal-dashboard/internal/medicine/reminder"
+	medReminder "github.com/kinkando/personal-dashboard/internal/medicine/reminder"
 	medicineSvc "github.com/kinkando/personal-dashboard/internal/medicine/service"
+	questReminder "github.com/kinkando/personal-dashboard/internal/quest/reminder"
+	"github.com/kinkando/personal-dashboard/internal/reminderlog"
 	"github.com/kinkando/personal-dashboard/internal/notification"
 	notificationHandler "github.com/kinkando/personal-dashboard/internal/notification/handler"
 	notificationRepo "github.com/kinkando/personal-dashboard/internal/notification/repository"
@@ -143,8 +146,17 @@ func main() {
 	notiSvc := notificationSvc.New(notiRepo, lineClient, discordClient, fcmClient, usrRepo, logger)
 	notiH := notificationHandler.New(notiSvc, usrRepo)
 
-	remSvc := reminderSvc.New(medRepo, notiSvc, logger)
-	cronH := cronHandler.New(remSvc)
+	remLogRepo := reminderlog.New(pgDB.SQL())
+
+	medRemSvc := medReminder.New(medRepo, notiSvc, logger)
+	qstRemSvc := questReminder.New(qstRepo, remLogRepo, notiSvc, logger)
+	heaRemSvc := healthReminder.New(heaRepo, remLogRepo, notiSvc, logger)
+
+	cronH := cronHandler.New(map[string]cronHandler.RunFunc{
+		"medicine-reminders": func(ctx context.Context) (any, error) { return medRemSvc.Run(ctx) },
+		"quest-reminders":    func(ctx context.Context) (any, error) { return qstRemSvc.Run(ctx) },
+		"weight-nudge":       func(ctx context.Context) (any, error) { return heaRemSvc.Run(ctx) },
+	})
 
 	// Subscribe quest to domain events — main.go is the only place that knows
 	// both producers and subscribers; neither side imports the other.

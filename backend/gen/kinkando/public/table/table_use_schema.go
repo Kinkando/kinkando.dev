@@ -25,6 +25,7 @@ func UseSchema(schema string) {
 	NotificationSettings = NotificationSettings.FromSchema(schema)
 	QuestCompletions = QuestCompletions.FromSchema(schema)
 	QuestDefinitions = QuestDefinitions.FromSchema(schema)
+	ReminderLog = ReminderLog.FromSchema(schema)
 	SchemaMigrations = SchemaMigrations.FromSchema(schema)
 	UserXpEvents = UserXpEvents.FromSchema(schema)
 	Users = Users.FromSchema(schema)

@@ -574,3 +574,37 @@ func toSleepLog(m model.HealthSleepLogs) *health.SleepLog {
 	}
 	return s
 }
+
+// ── Batch reminder helpers ────────────────────────────────────────────────────
+
+// UsersMissingWeightToday returns the IDs of users who have logged weight at
+// least once in the past but have not yet logged for the given date.
+// These are the candidates for the morning weight-log nudge. Users who have
+// never logged weight are excluded (they haven't opted into weight tracking).
+func (r *Repository) UsersMissingWeightToday(ctx context.Context, today time.Time) ([]uuid.UUID, error) {
+	const q = `
+		SELECT DISTINCT user_id
+		FROM   health_weight_logs
+		WHERE  user_id NOT IN (
+		           SELECT user_id
+		           FROM   health_weight_logs
+		           WHERE  logged_at = $1
+		       )
+		ORDER  BY user_id`
+
+	rows, err := r.db.QueryContext(ctx, q, today)
+	if err != nil {
+		return nil, fmt.Errorf("users missing weight today: %w", err)
+	}
+	defer rows.Close()
+
+	var ids []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("users missing weight today scan: %w", err)
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}

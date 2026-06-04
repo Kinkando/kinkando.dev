@@ -110,6 +110,22 @@ func (r *Repository) DeleteToken(ctx context.Context, token string) error {
 	return nil
 }
 
+// HasToken reports whether the given FCM device token is registered for userID.
+func (r *Repository) HasToken(ctx context.Context, userID uuid.UUID, token string) (bool, error) {
+	stmt := postgres.SELECT(postgres.COUNT(postgres.STAR)).
+		FROM(table.FcmTokens).
+		WHERE(
+			table.FcmTokens.UserID.EQ(postgres.UUID(userID)).
+				AND(table.FcmTokens.Token.EQ(postgres.String(token))),
+		)
+
+	var count struct{ Count int64 }
+	if err := stmt.QueryContext(ctx, r.db, &count); err != nil {
+		return false, fmt.Errorf("has fcm token: %w", err)
+	}
+	return count.Count > 0, nil
+}
+
 // ListTokens returns all FCM device tokens for the given user.
 func (r *Repository) ListTokens(ctx context.Context, userID uuid.UUID) ([]string, error) {
 	stmt := postgres.SELECT(table.FcmTokens.Token).

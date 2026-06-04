@@ -3,8 +3,10 @@ import { Link } from 'react-router-dom'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { useMe } from '../queries/useUser'
 import {
+  useDeviceRegistration,
   useNotificationSettings,
   useRegisterPushToken,
+  useRemovePushToken,
   useSendTestNotification,
   useUpdateNotificationSettings,
 } from '../queries/useNotifications'
@@ -20,9 +22,11 @@ export default function NotificationsPage() {
 
   const { data: settings, isLoading } = useNotificationSettings()
   const { data: me } = useMe()
+  const { data: deviceReg, isLoading: deviceLoading } = useDeviceRegistration()
 
   const updateSettings = useUpdateNotificationSettings()
   const registerToken = useRegisterPushToken()
+  const removeToken = useRemovePushToken()
   const sendTest = useSendTestNotification()
 
   // ── Local form state ────────────────────────────────────────────────────────
@@ -36,7 +40,6 @@ export default function NotificationsPage() {
   const [testMessage, setTestMessage] = useState('')
   const [testIsError, setTestIsError] = useState(false)
   const [pushError, setPushError] = useState('')
-  const [pushSuccess, setPushSuccess] = useState(false)
 
   // Pre-fill form when server data arrives
   useEffect(() => {
@@ -69,9 +72,13 @@ export default function NotificationsPage() {
     }
   }
 
+  /**
+   * Prompts for browser permission (if needed), obtains an FCM token, and
+   * registers it with the backend. Designed to be called automatically when
+   * the web-push toggle is enabled, and also as a manual retry.
+   */
   async function handleEnablePush() {
     setPushError('')
-    setPushSuccess(false)
     const token = await requestPushToken()
     if (!token) {
       setPushError(
@@ -81,14 +88,34 @@ export default function NotificationsPage() {
     }
     try {
       await registerToken.mutateAsync(token)
-      setPushSuccess(true)
-      setTimeout(() => setPushSuccess(false), 2500)
     } catch (err) {
       setPushError(
         err instanceof Error
           ? err.message
           : 'Could not register this device for push.',
       )
+    }
+  }
+
+  async function handleDisablePush() {
+    if (!deviceReg?.token) return
+    setPushError('')
+    try {
+      await removeToken.mutateAsync(deviceReg.token)
+    } catch (err) {
+      setPushError(
+        err instanceof Error
+          ? err.message
+          : 'Could not unregister this device.',
+      )
+    }
+  }
+
+  /** Toggle web push. When turned on, immediately kick off device registration. */
+  function handleWebPushToggle(checked: boolean) {
+    setWebPushEnabled(checked)
+    if (checked) {
+      handleEnablePush()
     }
   }
 
@@ -222,7 +249,7 @@ export default function NotificationsPage() {
                   <input
                     type="checkbox"
                     checked={webPushEnabled}
-                    onChange={(e) => setWebPushEnabled(e.target.checked)}
+                    onChange={(e) => handleWebPushToggle(e.target.checked)}
                     className="h-4 w-4 cursor-pointer rounded border-gray-600 bg-gray-800 accent-indigo-500"
                   />
                   <span className="text-sm text-gray-300">
@@ -232,20 +259,43 @@ export default function NotificationsPage() {
 
                 {webPushEnabled && (
                   <div className="space-y-2">
-                    <button
-                      onClick={handleEnablePush}
-                      disabled={registerToken.isPending}
-                      className="cursor-pointer rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
-                    >
-                      {registerToken.isPending
-                        ? 'Registering…'
-                        : 'Enable on this device'}
-                    </button>
-                    {pushSuccess && (
-                      <p className="text-sm text-emerald-400">
-                        This device is now registered for push notifications.
+                    {/* Device registration status */}
+                    {deviceLoading || registerToken.isPending ? (
+                      <p className="text-sm text-gray-500">
+                        Checking device registration…
                       </p>
+                    ) : deviceReg?.registered ? (
+                      <div className="flex items-center gap-3">
+                        <p className="text-sm text-emerald-400">
+                          This device is registered for push.
+                        </p>
+                        <button
+                          onClick={handleDisablePush}
+                          disabled={removeToken.isPending}
+                          className="cursor-pointer rounded-lg bg-gray-700 px-3 py-1 text-xs font-medium text-gray-300 hover:bg-gray-600 disabled:opacity-50"
+                        >
+                          {removeToken.isPending
+                            ? 'Removing…'
+                            : 'Disable on this device'}
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-3">
+                        <p className="text-sm text-yellow-400">
+                          This device is not registered.
+                        </p>
+                        <button
+                          onClick={handleEnablePush}
+                          disabled={registerToken.isPending}
+                          className="cursor-pointer rounded-lg bg-indigo-600 px-3 py-1 text-xs font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
+                        >
+                          {registerToken.isPending
+                            ? 'Registering…'
+                            : 'Enable on this device'}
+                        </button>
+                      </div>
                     )}
+
                     {pushError && (
                       <p className="text-sm text-red-400">{pushError}</p>
                     )}

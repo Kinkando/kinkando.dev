@@ -16,6 +16,7 @@ type Service interface {
 	UpsertSettings(ctx context.Context, userID uuid.UUID, in notification.UpsertSettingsInput) (*notification.Settings, error)
 	RegisterToken(ctx context.Context, userID uuid.UUID, token string) error
 	RemoveToken(ctx context.Context, token string) error
+	IsTokenRegistered(ctx context.Context, userID uuid.UUID, token string) (bool, error)
 	SendTest(ctx context.Context, userID uuid.UUID) *notification.DeliveryResult
 }
 
@@ -41,6 +42,7 @@ func (h *Handler) Register(router fiber.Router) {
 	router.Put("/settings", h.upsertSettings)
 	router.Post("/tokens", h.registerToken)
 	router.Delete("/tokens", h.removeToken)
+	router.Post("/tokens/check", h.checkToken)
 	router.Post("/test", h.sendTest)
 }
 
@@ -108,6 +110,25 @@ func (h *Handler) removeToken(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
 	return c.SendStatus(fiber.StatusNoContent)
+}
+
+func (h *Handler) checkToken(c *fiber.Ctx) error {
+	userID, err := h.resolveUserID(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
+	}
+	var in notification.RegisterTokenInput
+	if err := c.BodyParser(&in); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
+	}
+	if err := validate.Struct(in); err != nil {
+		return err
+	}
+	registered, err := h.svc.IsTokenRegistered(c.Context(), userID, in.Token)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+	return c.JSON(fiber.Map{"data": fiber.Map{"registered": registered}})
 }
 
 func (h *Handler) sendTest(c *fiber.Ctx) error {

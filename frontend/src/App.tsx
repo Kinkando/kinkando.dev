@@ -19,17 +19,25 @@ import NewsPage from './pages/NewsPage'
 import QuestPage from './pages/QuestPage'
 import ProtectedRoute from './auth/ProtectedRoute'
 import {
+  getCurrentToken,
   isPushSupported,
   onForegroundMessage,
   showLocalNotification,
 } from './lib/messaging'
+import { registerPushToken } from './lib/api/notifications'
 
 export default function App() {
   // Wire a single global foreground message listener so push notifications
   // display on every page when the tab is in the foreground.
+  // Also silently re-registers the current FCM token so the backend stays in
+  // sync after browser data clears or FCM rotates the token.
   useEffect(() => {
     if (!isPushSupported() || Notification.permission !== 'granted') return
-    return onForegroundMessage(showLocalNotification)
+    const cleanup = onForegroundMessage(showLocalNotification)
+    getCurrentToken().then((token) => {
+      if (token) registerPushToken(token).catch(() => undefined)
+    })
+    return cleanup
   }, [])
 
   return (

@@ -20,6 +20,7 @@ type Repository interface {
 	AddToken(ctx context.Context, userID uuid.UUID, token string) error
 	DeleteToken(ctx context.Context, token string) error
 	ListTokens(ctx context.Context, userID uuid.UUID) ([]string, error)
+	HasToken(ctx context.Context, userID uuid.UUID, token string) (bool, error)
 }
 
 // LinePusher can send a push message to a LINE user.
@@ -102,6 +103,11 @@ func (s *Service) RegisterToken(ctx context.Context, userID uuid.UUID, token str
 // RemoveToken deletes an FCM device token.
 func (s *Service) RemoveToken(ctx context.Context, token string) error {
 	return s.repo.DeleteToken(ctx, token)
+}
+
+// IsTokenRegistered reports whether the given FCM device token is registered for userID.
+func (s *Service) IsTokenRegistered(ctx context.Context, userID uuid.UUID, token string) (bool, error) {
+	return s.repo.HasToken(ctx, userID, token)
 }
 
 // ── Notification fan-out ──────────────────────────────────────────────────────

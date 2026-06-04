@@ -18,6 +18,14 @@ export function isPushSupported(): boolean {
 }
 
 /**
+ * Registers the Firebase messaging service worker and returns the registration.
+ * Shared by requestPushToken and getCurrentToken.
+ */
+async function registerServiceWorker(): Promise<ServiceWorkerRegistration> {
+  return navigator.serviceWorker.register('/scripts/firebase-messaging-sw.js')
+}
+
+/**
  * Requests notification permission, registers the service worker, and returns
  * an FCM device token. Returns null when permission is denied or an error occurs.
  */
@@ -28,9 +36,28 @@ export async function requestPushToken(): Promise<string | null> {
   if (permission !== 'granted') return null
 
   try {
-    const registration = await navigator.serviceWorker.register(
-      '/scripts/firebase-messaging-sw.js',
-    )
+    const registration = await registerServiceWorker()
+    const token = await getToken(messaging, {
+      vapidKey: env.vapidKey,
+      serviceWorkerRegistration: registration,
+    })
+    return token ?? null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Returns the current FCM device token without prompting for permission.
+ * Returns null when permission has not been granted or an error occurs.
+ * Used for silent token refresh on app load and for the device status check.
+ */
+export async function getCurrentToken(): Promise<string | null> {
+  if (!isPushSupported()) return null
+  if (Notification.permission !== 'granted') return null
+
+  try {
+    const registration = await registerServiceWorker()
     const token = await getToken(messaging, {
       vapidKey: env.vapidKey,
       serviceWorkerRegistration: registration,
@@ -45,12 +72,23 @@ export async function requestPushToken(): Promise<string | null> {
  * Displays a notification via the active service-worker registration.
  * This works in the foreground (where the browser won't auto-display)
  * and produces the same OS-level toast as the background SW handler.
+ *
+ * Races against a 3-second timeout so the call never hangs indefinitely
+ * when the service worker is not yet registered.
  */
 export async function showLocalNotification(
   title: string,
   body: string,
 ): Promise<void> {
-  const reg = await navigator.serviceWorker.ready
+  const timeout = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error('SW not ready')), 3000),
+  )
+  let reg: ServiceWorkerRegistration
+  try {
+    reg = await Promise.race([navigator.serviceWorker.ready, timeout])
+  } catch {
+    return
+  }
   await reg.showNotification(title, { body, icon: '/images/logo.png' })
 }
 

@@ -31,6 +31,16 @@ export function registerPushToken(token: string): Promise<undefined> {
   }) as Promise<undefined>
 }
 
+export function checkPushToken(
+  token: string,
+): Promise<{ registered: boolean } | undefined> {
+  return apiFetch<{ registered: boolean }>('/notifications/tokens/check', {
+    method: 'POST',
+    body: { token },
+    auth: true,
+  })
+}
+
 export function removePushToken(token: string): Promise<undefined> {
   return apiFetch('/notifications/tokens', {
     method: 'DELETE',

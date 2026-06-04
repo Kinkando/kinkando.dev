@@ -67,6 +67,8 @@ type FormState = {
   end_date: string
   low_stock_threshold: string
   note: string
+  reminder_enabled: boolean
+  reminder_times: string[] // "HH:MM" strings
 }
 
 const defaultForm: FormState = {
@@ -85,6 +87,8 @@ const defaultForm: FormState = {
   end_date: '',
   low_stock_threshold: '7',
   note: '',
+  reminder_enabled: false,
+  reminder_times: [],
 }
 
 function medicineToForm(m: Medicine): FormState {
@@ -104,6 +108,8 @@ function medicineToForm(m: Medicine): FormState {
     end_date: m.end_date ? m.end_date.slice(0, 10) : '',
     low_stock_threshold: String(m.low_stock_threshold),
     note: m.note ?? '',
+    reminder_enabled: m.reminder_enabled,
+    reminder_times: m.reminder_times ?? [],
   }
 }
 
@@ -113,6 +119,7 @@ export default function MedicineFormDialog({ initial, onClose }: Props) {
     initial ? medicineToForm(initial) : defaultForm,
   )
   const [error, setError] = useState('')
+  const [newTime, setNewTime] = useState('')
 
   const createMedicine = useCreateMedicine()
   const updateMedicine = useUpdateMedicine()
@@ -148,6 +155,8 @@ export default function MedicineFormDialog({ initial, onClose }: Props) {
       end_date: form.end_date || undefined,
       low_stock_threshold: isNaN(threshold) ? 7 : threshold,
       note: form.note.trim() || null,
+      reminder_enabled: form.reminder_enabled,
+      reminder_times: form.reminder_enabled ? form.reminder_times : [],
     }
   }
 
@@ -431,6 +440,93 @@ export default function MedicineFormDialog({ initial, onClose }: Props) {
                 onChange={(e) => setForm({ ...form, note: e.target.value })}
               />
             </div>
+          </div>
+
+          {/* ── Reminders ────────────────────────────────────────────── */}
+          <div className="space-y-3 rounded-lg border border-gray-700 bg-gray-800/50 p-3 sm:col-span-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-gray-400">
+                Dose reminders
+              </span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={form.reminder_enabled}
+                onClick={() =>
+                  setForm({ ...form, reminder_enabled: !form.reminder_enabled })
+                }
+                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none ${
+                  form.reminder_enabled ? 'bg-indigo-600' : 'bg-gray-600'
+                }`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition-transform ${
+                    form.reminder_enabled ? 'translate-x-4' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
+
+            {form.reminder_enabled && (
+              <div className="space-y-2">
+                <p className="text-xs text-gray-500">
+                  Reminder times (Asia/Bangkok)
+                </p>
+
+                {/* Existing times */}
+                <div className="flex flex-wrap gap-2">
+                  {form.reminder_times.map((t) => (
+                    <span
+                      key={t}
+                      className="flex items-center gap-1 rounded-md bg-indigo-900/50 px-2 py-1 text-xs text-indigo-300"
+                    >
+                      {t}
+                      <button
+                        type="button"
+                        aria-label={`Remove ${t}`}
+                        onClick={() =>
+                          setForm({
+                            ...form,
+                            reminder_times: form.reminder_times.filter(
+                              (x) => x !== t,
+                            ),
+                          })
+                        }
+                        className="ml-0.5 cursor-pointer text-indigo-400 hover:text-indigo-200"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+
+                {/* Add a new time */}
+                <div className="flex gap-2">
+                  <input
+                    type="time"
+                    value={newTime}
+                    onChange={(e) => setNewTime(e.target.value)}
+                    className="rounded-lg border border-gray-700 bg-gray-800 px-3 py-1.5 text-sm text-gray-100 focus:border-indigo-500 focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!newTime) return
+                      const hhmm = newTime.slice(0, 5) // "HH:MM"
+                      if (form.reminder_times.includes(hhmm)) return
+                      setForm({
+                        ...form,
+                        reminder_times: [...form.reminder_times, hhmm].sort(),
+                      })
+                      setNewTime('')
+                    }}
+                    className="cursor-pointer rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500"
+                  >
+                    Add
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {error && <p className="text-sm text-red-400">{error}</p>}

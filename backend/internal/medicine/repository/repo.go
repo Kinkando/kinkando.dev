@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -84,6 +85,11 @@ func (r *Repository) CreateMedicine(ctx context.Context, userID uuid.UUID, in me
 		endDate = &t
 	}
 
+	reminderTimes, err := marshalReminderTimes(in.ReminderTimes)
+	if err != nil {
+		return nil, fmt.Errorf("marshal reminder_times: %w", err)
+	}
+
 	cols := table.Medicines.INSERT(
 		table.Medicines.UserID,
 		table.Medicines.Name,
@@ -101,6 +107,8 @@ func (r *Repository) CreateMedicine(ctx context.Context, userID uuid.UUID, in me
 		table.Medicines.LowStockThreshold,
 		table.Medicines.Note,
 		table.Medicines.SourceType,
+		table.Medicines.ReminderEnabled,
+		table.Medicines.ReminderTimes,
 	).VALUES(
 		postgres.UUID(userID),
 		in.Name,
@@ -118,6 +126,8 @@ func (r *Repository) CreateMedicine(ctx context.Context, userID uuid.UUID, in me
 		threshold,
 		in.Note,
 		string(in.SourceType),
+		in.ReminderEnabled,
+		reminderTimes,
 	).RETURNING(table.Medicines.AllColumns)
 
 	var dest model.Medicines
@@ -164,6 +174,11 @@ func (r *Repository) UpdateMedicine(ctx context.Context, id uuid.UUID, userID uu
 		endDate = &t
 	}
 
+	reminderTimes, err := marshalReminderTimes(in.ReminderTimes)
+	if err != nil {
+		return nil, fmt.Errorf("marshal reminder_times: %w", err)
+	}
+
 	stmt := table.Medicines.UPDATE(
 		table.Medicines.Name,
 		table.Medicines.GenericName,
@@ -180,6 +195,8 @@ func (r *Repository) UpdateMedicine(ctx context.Context, id uuid.UUID, userID uu
 		table.Medicines.LowStockThreshold,
 		table.Medicines.Note,
 		table.Medicines.SourceType,
+		table.Medicines.ReminderEnabled,
+		table.Medicines.ReminderTimes,
 		table.Medicines.UpdatedAt,
 	).SET(
 		in.Name,
@@ -197,6 +214,8 @@ func (r *Repository) UpdateMedicine(ctx context.Context, id uuid.UUID, userID uu
 		threshold,
 		in.Note,
 		string(in.SourceType),
+		in.ReminderEnabled,
+		reminderTimes,
 		postgres.NOW(),
 	).WHERE(
 		table.Medicines.ID.EQ(postgres.UUID(id)).
@@ -527,6 +546,8 @@ func toMedicine(m model.Medicines) *medicine.Medicine {
 	dosage, _ := m.DosageAmount.Float64()
 	threshold, _ := m.LowStockThreshold.Float64()
 
+	reminderTimes := unmarshalReminderTimes(m.ReminderTimes)
+
 	med := &medicine.Medicine{
 		ID:                m.ID,
 		UserID:            m.UserID,
@@ -547,6 +568,8 @@ func toMedicine(m model.Medicines) *medicine.Medicine {
 		CreatedAt:         m.CreatedAt,
 		UpdatedAt:         m.UpdatedAt,
 		ArchivedAt:        m.ArchivedAt,
+		ReminderEnabled:   m.ReminderEnabled,
+		ReminderTimes:     reminderTimes,
 	}
 	if m.FrequencyValue != nil {
 		v := int(*m.FrequencyValue)
@@ -557,6 +580,32 @@ func toMedicine(m model.Medicines) *medicine.Medicine {
 		med.Timing = &t
 	}
 	return med
+}
+
+// marshalReminderTimes JSON-encodes a slice of "HH:MM" strings for storage.
+// A nil or empty slice is stored as the literal "[]".
+func marshalReminderTimes(times []string) (string, error) {
+	if len(times) == 0 {
+		return "[]", nil
+	}
+	b, err := json.Marshal(times)
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
+}
+
+// unmarshalReminderTimes decodes the JSON-encoded reminder_times column value.
+// Returns an empty (non-nil) slice on any parse error so callers can range safely.
+func unmarshalReminderTimes(raw string) []string {
+	if raw == "" || raw == "[]" {
+		return []string{}
+	}
+	var times []string
+	if err := json.Unmarshal([]byte(raw), &times); err != nil {
+		return []string{}
+	}
+	return times
 }
 
 func toIntake(m model.MedicineIntakes) *medicine.MedicineIntake {
@@ -593,4 +642,79 @@ func toAdjustment(m model.MedicineStockAdjustments) *medicine.MedicineStockAdjus
 		Reason:      m.Reason,
 		CreatedAt:   m.CreatedAt,
 	}
+}
+
+// ── Reminder batch helpers ────────────────────────────────────────────────────
+
+// ScanActiveMedicinesForReminders returns all non-archived medicines across all
+// users that are currently active (within start_date/end_date if set). Used
+// exclusively by the cron reminder job — not scoped to a single user.
+func (r *Repository) ScanActiveMedicinesForReminders(ctx context.Context) ([]*medicine.Medicine, error) {
+	now := time.Now()
+	cond := table.Medicines.ArchivedAt.IS_NULL().
+		AND(
+			table.Medicines.StartDate.IS_NULL().
+				OR(table.Medicines.StartDate.LT_EQ(postgres.DateT(now))),
+		).
+		AND(
+			table.Medicines.EndDate.IS_NULL().
+				OR(table.Medicines.EndDate.GT_EQ(postgres.DateT(now))),
+		)
+
+	stmt := postgres.SELECT(table.Medicines.AllColumns).
+		FROM(table.Medicines).
+		WHERE(cond).
+		ORDER_BY(table.Medicines.UserID.ASC(), table.Medicines.CreatedAt.ASC())
+
+	var dest []model.Medicines
+	if err := stmt.QueryContext(ctx, r.db, &dest); err != nil {
+		return nil, fmt.Errorf("scan active medicines: %w", err)
+	}
+	meds := make([]*medicine.Medicine, len(dest))
+	for i, d := range dest {
+		meds[i] = toMedicine(d)
+	}
+	return meds, nil
+}
+
+// LogReminder inserts a reminder-log entry for the given (medicineID,
+// reminderType, reminderKey) triple. Returns true when the row was newly
+// inserted (i.e. the reminder has not been sent yet), or false when the
+// ON CONFLICT suppressed the insert (already sent).
+func (r *Repository) LogReminder(ctx context.Context, userID, medicineID uuid.UUID, reminderType, reminderKey string) (bool, error) {
+	const q = `
+		INSERT INTO medicine_reminder_log (user_id, medicine_id, reminder_type, reminder_key)
+		VALUES ($1, $2, $3, $4)
+		ON CONFLICT (medicine_id, reminder_type, reminder_key) DO NOTHING`
+
+	res, err := r.db.ExecContext(ctx, q, userID, medicineID, reminderType, reminderKey)
+	if err != nil {
+		return false, fmt.Errorf("log reminder: %w", err)
+	}
+	n, _ := res.RowsAffected()
+	return n > 0, nil
+}
+
+// ListIntakesInRange returns all intakes for a specific medicine whose
+// taken_at falls within [from, to). Used to check whether a dose was taken
+// near a scheduled reminder time (missed-dose detection).
+func (r *Repository) ListIntakesInRange(ctx context.Context, medicineID uuid.UUID, from, to time.Time) ([]*medicine.MedicineIntake, error) {
+	cond := table.MedicineIntakes.MedicineID.EQ(postgres.UUID(medicineID)).
+		AND(table.MedicineIntakes.TakenAt.GT_EQ(postgres.TimestampzT(from))).
+		AND(table.MedicineIntakes.TakenAt.LT(postgres.TimestampzT(to)))
+
+	stmt := postgres.SELECT(table.MedicineIntakes.AllColumns).
+		FROM(table.MedicineIntakes).
+		WHERE(cond).
+		ORDER_BY(table.MedicineIntakes.TakenAt.ASC())
+
+	var dest []model.MedicineIntakes
+	if err := stmt.QueryContext(ctx, r.db, &dest); err != nil {
+		return nil, fmt.Errorf("list intakes in range: %w", err)
+	}
+	intakes := make([]*medicine.MedicineIntake, len(dest))
+	for i, d := range dest {
+		intakes[i] = toIntake(d)
+	}
+	return intakes, nil
 }

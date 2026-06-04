@@ -530,6 +530,8 @@ export type Medicine = {
   created_at: string
   updated_at: string
   archived_at: string | null
+  reminder_enabled: boolean
+  reminder_times: string[] // "HH:MM" clock-time strings (Asia/Bangkok)
 }
 
 export type MedicineIntake = {
@@ -574,6 +576,8 @@ export type CreateMedicineInput = {
   end_date?: string // YYYY-MM-DD, optional
   low_stock_threshold: number
   note: string | null
+  reminder_enabled: boolean
+  reminder_times: string[] // "HH:MM" clock-time strings (Asia/Bangkok)
 }
 
 export type UpdateMedicineInput = CreateMedicineInput

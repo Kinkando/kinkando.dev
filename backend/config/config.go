@@ -24,6 +24,10 @@ type Config struct {
 	LineChannelID          string `env:"LINE_CHANNEL_ID,required"`
 	LineChannelSecret      string `env:"LINE_CHANNEL_SECRET,required"`
 	LineChannelAccessToken string `env:"LINE_CHANNEL_ACCESS_TOKEN,required"`
+
+	// CronSecret is the shared secret for authenticating calls from the
+	// external Cloudflare cron worker. Passed via X-Cron-Secret header.
+	CronSecret string `env:"CRON_SECRET,required"`
 }
 
 func Load() *Config {

@@ -37,6 +37,8 @@ type medicinesTable struct {
 	UpdatedAt         postgres.ColumnTimestampz
 	ArchivedAt        postgres.ColumnTimestampz
 	SourceType        postgres.ColumnString
+	ReminderEnabled   postgres.ColumnBool
+	ReminderTimes     postgres.ColumnString
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -98,9 +100,11 @@ func newMedicinesTableImpl(schemaName, tableName, alias string) medicinesTable {
 		UpdatedAtColumn         = postgres.TimestampzColumn("updated_at")
 		ArchivedAtColumn        = postgres.TimestampzColumn("archived_at")
 		SourceTypeColumn        = postgres.StringColumn("source_type")
-		allColumns              = postgres.ColumnList{IDColumn, UserIDColumn, NameColumn, GenericNameColumn, DescriptionColumn, StockQuantityColumn, StockUnitColumn, DosageAmountColumn, DosageUnitColumn, FrequencyTypeColumn, FrequencyValueColumn, TimingColumn, StartDateColumn, EndDateColumn, LowStockThresholdColumn, NoteColumn, CreatedAtColumn, UpdatedAtColumn, ArchivedAtColumn, SourceTypeColumn}
-		mutableColumns          = postgres.ColumnList{UserIDColumn, NameColumn, GenericNameColumn, DescriptionColumn, StockQuantityColumn, StockUnitColumn, DosageAmountColumn, DosageUnitColumn, FrequencyTypeColumn, FrequencyValueColumn, TimingColumn, StartDateColumn, EndDateColumn, LowStockThresholdColumn, NoteColumn, CreatedAtColumn, UpdatedAtColumn, ArchivedAtColumn, SourceTypeColumn}
-		defaultColumns          = postgres.ColumnList{IDColumn, StockQuantityColumn, LowStockThresholdColumn, CreatedAtColumn, UpdatedAtColumn, SourceTypeColumn}
+		ReminderEnabledColumn   = postgres.BoolColumn("reminder_enabled")
+		ReminderTimesColumn     = postgres.StringColumn("reminder_times")
+		allColumns              = postgres.ColumnList{IDColumn, UserIDColumn, NameColumn, GenericNameColumn, DescriptionColumn, StockQuantityColumn, StockUnitColumn, DosageAmountColumn, DosageUnitColumn, FrequencyTypeColumn, FrequencyValueColumn, TimingColumn, StartDateColumn, EndDateColumn, LowStockThresholdColumn, NoteColumn, CreatedAtColumn, UpdatedAtColumn, ArchivedAtColumn, SourceTypeColumn, ReminderEnabledColumn, ReminderTimesColumn}
+		mutableColumns          = postgres.ColumnList{UserIDColumn, NameColumn, GenericNameColumn, DescriptionColumn, StockQuantityColumn, StockUnitColumn, DosageAmountColumn, DosageUnitColumn, FrequencyTypeColumn, FrequencyValueColumn, TimingColumn, StartDateColumn, EndDateColumn, LowStockThresholdColumn, NoteColumn, CreatedAtColumn, UpdatedAtColumn, ArchivedAtColumn, SourceTypeColumn, ReminderEnabledColumn, ReminderTimesColumn}
+		defaultColumns          = postgres.ColumnList{IDColumn, StockQuantityColumn, LowStockThresholdColumn, CreatedAtColumn, UpdatedAtColumn, SourceTypeColumn, ReminderEnabledColumn, ReminderTimesColumn}
 	)
 
 	return medicinesTable{
@@ -127,6 +131,8 @@ func newMedicinesTableImpl(schemaName, tableName, alias string) medicinesTable {
 		UpdatedAt:         UpdatedAtColumn,
 		ArchivedAt:        ArchivedAtColumn,
 		SourceType:        SourceTypeColumn,
+		ReminderEnabled:   ReminderEnabledColumn,
+		ReminderTimes:     ReminderTimesColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,

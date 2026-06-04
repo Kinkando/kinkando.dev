@@ -34,4 +34,6 @@ type Medicines struct {
 	UpdatedAt         time.Time
 	ArchivedAt        *time.Time
 	SourceType        string
+	ReminderEnabled   bool
+	ReminderTimes     string
 }

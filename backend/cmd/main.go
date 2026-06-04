@@ -31,8 +31,10 @@ import (
 	"github.com/kinkando/personal-dashboard/internal/line"
 	lineHandler "github.com/kinkando/personal-dashboard/internal/line/handler"
 	"github.com/kinkando/personal-dashboard/internal/mcpserver"
+	cronHandler "github.com/kinkando/personal-dashboard/internal/cron/handler"
 	medicineHandler "github.com/kinkando/personal-dashboard/internal/medicine/handler"
 	medicineRepo "github.com/kinkando/personal-dashboard/internal/medicine/repository"
+	reminderSvc "github.com/kinkando/personal-dashboard/internal/medicine/reminder"
 	medicineSvc "github.com/kinkando/personal-dashboard/internal/medicine/service"
 	"github.com/kinkando/personal-dashboard/internal/notification"
 	notificationHandler "github.com/kinkando/personal-dashboard/internal/notification/handler"
@@ -141,6 +143,9 @@ func main() {
 	notiSvc := notificationSvc.New(notiRepo, lineClient, discordClient, fcmClient, usrRepo, logger)
 	notiH := notificationHandler.New(notiSvc, usrRepo)
 
+	remSvc := reminderSvc.New(medRepo, notiSvc, logger)
+	cronH := cronHandler.New(remSvc)
+
 	// Subscribe quest to domain events — main.go is the only place that knows
 	// both producers and subscribers; neither side imports the other.
 	bus.Subscribe(event.MedicineTaken, func(ctx context.Context, e event.Event) {
@@ -192,7 +197,7 @@ func main() {
 	app.Use(middleware.RequestLogger(logger))
 	app.Use(cors.New(cors.Config{
 		AllowOrigins: "http://localhost:3000,https://kinkando-dev.pages.dev,https://kinkando.dev,https://cronjob.kinkandojester.workers.dev",
-		AllowHeaders: "Origin,Content-Type,Accept,Authorization",
+		AllowHeaders: "Origin,Content-Type,Accept,Authorization,X-Cron-Secret",
 		AllowMethods: "GET,POST,PUT,PATCH,DELETE,OPTIONS",
 	}))
 
@@ -228,6 +233,11 @@ func main() {
 
 	portfolioGroup := api.Group("/portfolio")
 	portH.Register(portfolioGroup)
+
+	// Cron endpoints — authenticated by shared secret, not Firebase.
+	// Called by the Cloudflare cron worker at cronjob.kinkandojester.workers.dev.
+	cronGroup := api.Group("/cron", middleware.CronAuth(cfg.CronSecret))
+	cronH.Register(cronGroup)
 
 	// Single shared MCP server — a receiving middleware resolves the caller per
 	// request from either the HTTP header (X-MCP-User, set by mcpFirebaseAuth)

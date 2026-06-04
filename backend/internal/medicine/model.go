@@ -83,6 +83,9 @@ type Medicine struct {
 	CreatedAt         time.Time     `json:"created_at"`
 	UpdatedAt         time.Time     `json:"updated_at"`
 	ArchivedAt        *time.Time    `json:"archived_at"`
+	// Reminder fields — drive the batch cron reminder job.
+	ReminderEnabled bool     `json:"reminder_enabled"`
+	ReminderTimes   []string `json:"reminder_times"` // "HH:MM" clock-time strings (Asia/Bangkok)
 }
 
 type MedicineIntake struct {
@@ -129,6 +132,8 @@ type CreateMedicineInput struct {
 	EndDate           string        `json:"end_date"`            // YYYY-MM-DD, optional
 	LowStockThreshold *float64      `json:"low_stock_threshold" validate:"omitempty,min=0"` // defaults to 7
 	Note              *string       `json:"note"`
+	ReminderEnabled   bool          `json:"reminder_enabled"`
+	ReminderTimes     []string      `json:"reminder_times"` // "HH:MM" clock-time strings (Asia/Bangkok)
 }
 
 type UpdateMedicineInput = CreateMedicineInput

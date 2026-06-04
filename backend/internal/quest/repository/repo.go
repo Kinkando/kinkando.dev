@@ -382,37 +382,42 @@ func (r *Repository) ProgressBySource(ctx context.Context, userID uuid.UUID, sou
 // supplied period. It scans across all users — used exclusively by the cron
 // reminder job, never by the per-user API.
 func (r *Repository) CountIncompleteByUser(ctx context.Context, questType string, periodStart time.Time) (map[uuid.UUID]int, error) {
-	const q = `
-		SELECT d.user_id,
-		       COUNT(*) AS incomplete_count
-		FROM   quest_definitions d
-		WHERE  d.is_active = true
-		  AND  d.type      = $1
-		  AND  (
-		         SELECT COUNT(*)
-		         FROM   quest_completions c
-		         WHERE  c.quest_id     = d.id
-		           AND  c.user_id      = d.user_id
-		           AND  c.period_start = $2
-		       ) < d.target_count
-		GROUP  BY d.user_id`
+	stmt := postgres.SELECT(
+		table.QuestDefinitions.UserID,
+		table.QuestDefinitions.TargetCount,
+		postgres.COUNT(table.QuestCompletions.ID).AS("current_count"),
+	).FROM(
+		table.QuestDefinitions.LEFT_JOIN(
+			table.QuestCompletions,
+			table.QuestCompletions.QuestID.EQ(table.QuestDefinitions.ID).
+				AND(table.QuestCompletions.UserID.EQ(table.QuestDefinitions.UserID)).
+				AND(table.QuestCompletions.PeriodStart.EQ(postgres.DateT(periodStart))),
+		),
+	).WHERE(
+		table.QuestDefinitions.IsActive.IS_TRUE().
+			AND(table.QuestDefinitions.Type.EQ(postgres.String(questType))),
+	).GROUP_BY(
+		table.QuestDefinitions.UserID,
+		table.QuestDefinitions.ID,
+		table.QuestDefinitions.TargetCount,
+	)
 
-	rows, err := r.db.QueryContext(ctx, q, questType, periodStart)
-	if err != nil {
+	var rows []struct {
+		UserID       uuid.UUID `alias:"quest_definitions.user_id"`
+		TargetCount  int32     `alias:"quest_definitions.target_count"`
+		CurrentCount int64     `alias:"current_count"`
+	}
+	if err := stmt.QueryContext(ctx, r.db, &rows); err != nil {
 		return nil, fmt.Errorf("count incomplete quests: %w", err)
 	}
-	defer rows.Close()
 
 	result := make(map[uuid.UUID]int)
-	for rows.Next() {
-		var userID uuid.UUID
-		var count int
-		if err := rows.Scan(&userID, &count); err != nil {
-			return nil, fmt.Errorf("count incomplete quests scan: %w", err)
+	for _, row := range rows {
+		if int(row.CurrentCount) < int(row.TargetCount) {
+			result[row.UserID]++
 		}
-		result[userID] = count
 	}
-	return result, rows.Err()
+	return result, nil
 }
 
 // ── History ───────────────────────────────────────────────────────────────────

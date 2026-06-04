@@ -682,12 +682,23 @@ func (r *Repository) ScanActiveMedicinesForReminders(ctx context.Context) ([]*me
 // inserted (i.e. the reminder has not been sent yet), or false when the
 // ON CONFLICT suppressed the insert (already sent).
 func (r *Repository) LogReminder(ctx context.Context, userID, medicineID uuid.UUID, reminderType, reminderKey string) (bool, error) {
-	const q = `
-		INSERT INTO medicine_reminder_log (user_id, medicine_id, reminder_type, reminder_key)
-		VALUES ($1, $2, $3, $4)
-		ON CONFLICT (medicine_id, reminder_type, reminder_key) DO NOTHING`
+	stmt := table.MedicineReminderLog.INSERT(
+		table.MedicineReminderLog.UserID,
+		table.MedicineReminderLog.MedicineID,
+		table.MedicineReminderLog.ReminderType,
+		table.MedicineReminderLog.ReminderKey,
+	).VALUES(
+		postgres.UUID(userID),
+		postgres.UUID(medicineID),
+		reminderType,
+		reminderKey,
+	).ON_CONFLICT(
+		table.MedicineReminderLog.MedicineID,
+		table.MedicineReminderLog.ReminderType,
+		table.MedicineReminderLog.ReminderKey,
+	).DO_NOTHING()
 
-	res, err := r.db.ExecContext(ctx, q, userID, medicineID, reminderType, reminderKey)
+	res, err := stmt.ExecContext(ctx, r.db)
 	if err != nil {
 		return false, fmt.Errorf("log reminder: %w", err)
 	}

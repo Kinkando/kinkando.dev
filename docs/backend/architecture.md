@@ -46,15 +46,15 @@ The matching frontend types in `src/lib/api/types.ts` must be TypeScript string 
 | Finance | `/api/v1/finance` | PostgreSQL | CRUD records + monthly summaries by category |
 | Kanban | `/api/v1/kanban` | MongoDB | Board auto-created on first access per user |
 | Health | `/api/v1/health` | PostgreSQL | Weight logs, food logs, sleep logs, profiles |
-| AI Chat | `/api/v1/aichat` | — | Powered by Gemini; see `internal/gemini/` |
+| Medicine | `/api/v1/medicines` | PostgreSQL | Stock, intake tracking, dose reminders |
+| Quest | `/api/v1/quest` | PostgreSQL | Daily/weekly quests with XP rewards |
+| Workout | `/api/v1/workout` | PostgreSQL | Sessions, presets, schedule |
+| AI Chat | `/api/v1/ai-chat` | — | Powered by Gemini; see `internal/gemini/` |
 | Notification | `/api/v1/notifications` | PostgreSQL | Per-user settings (LINE/Discord/Web Push) + FCM tokens |
 | LINE | `/api/v1/line` | — | LINE Messaging API webhook |
 | Portfolio | `/api/v1/portfolio` | — | Static data, no auth |
 | User | `/api/v1/users` | PostgreSQL | User provisioning |
-
-## Authentication
-
-Firebase Auth JWT via `internal/auth/middleware.go`. `authMW.Require()` validates `Authorization: Bearer <id_token>`, stores Firebase UID in `c.Locals("user_id")`. Use `auth.GetUserID(c)` in handlers.
+| **Cron** | `/api/v1/cron` | — | Batch reminder jobs; auth via `X-Cron-Secret` (not Firebase) |
 
 Finance handlers parse the UID as `uuid.UUID` (requires a `users` row); Kanban uses the raw Firebase UID string.
 
@@ -65,7 +65,7 @@ Finance handlers parse the UID as `uuid.UUID` (requires a `users` row); Kanban u
 
 ## SQL query builder (go-jet/jet)
 
-Finance (and Health) repositories use [go-jet/jet](https://github.com/go-jet/jet) for type-safe SQL. Generated structs:
+All repositories use [go-jet/jet](https://github.com/go-jet/jet) for type-safe SQL. Generated structs:
 
 ```
 gen/
@@ -75,7 +75,18 @@ gen/
         └── table/   ← Type-safe column and table references
 ```
 
-Do not edit these by hand. Regenerate with `make gen-sql-builder-*` after schema changes.
+**Do not edit these by hand.** Regenerate with `make gen-sql-builder-*` after every schema change (run without asking — see [database.md](database.md)). Raw SQL strings (`db.QueryContext` with a plain string) are forbidden for any table with a generated Jet file — see [rules.md](rules.md#sql-queries--jet-only).
+
+## Authentication
+
+Two auth mechanisms — choose based on the caller:
+
+| Mechanism | Middleware | Caller |
+|---|---|---|
+| Firebase JWT | `authMW.Require()` | Web/mobile app users |
+| Shared secret | `middleware.CronAuth(cfg.CronSecret)` | External cron worker (`X-Cron-Secret` header) |
+
+Firebase handlers use `auth.GetUserID(c)` to resolve the internal UUID from the Firebase UID.
 
 ## MCP server
 

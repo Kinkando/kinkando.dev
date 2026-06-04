@@ -2,16 +2,16 @@
 
 ## Schema Change Rule
 
-**Every time you modify the PostgreSQL schema**, run these two commands before writing any repository code:
+**Every time you modify the PostgreSQL schema**, run these two commands — **without asking for approval** — before writing any repository code:
 
 ```bash
 make run-db-migrations-windows        # apply the migration
-make gen-sql-builder-windows  # regenerate gen/kinkando/public/ (use gen-sql-builder-macos on macOS/Linux)
+make gen-sql-builder-windows          # regenerate gen/kinkando/public/ (use gen-sql-builder-macos on macOS/Linux)
 ```
 
 Skipping codegen causes `undefined: table.XxxYyy` build errors or `column does not exist` runtime errors.
 
-**Never edit `gen/kinkando/public/` files by hand.** The entire directory is overwritten on every `make gen-sql-builder-*` run. If a migration can't be applied automatically (e.g., permission denied for the production DB), stop and ask the user to run both commands, then continue writing repository code only after codegen is done.
+**Never edit `gen/kinkando/public/` files by hand.** The entire directory is overwritten on every `make gen-sql-builder-*` run — any hand-edits will be silently lost on the next codegen run. If a migration can't be applied automatically (e.g., permission denied for the production DB), stop and ask the user to run both commands, then continue writing repository code only after codegen is done.
 
 ### Finding the right env values
 
@@ -44,13 +44,13 @@ Examples: `001_init.sql`, `002_add_currency_to_finance_records.sql`
 ## Checklist — adding/editing a migration
 
 1. Add a new numbered file in `migrations/` with both `migrate:up` and `migrate:down`. Never edit an already-applied migration.
-2. Apply: `make run-db-migrations-windows`
-3. Regenerate jet (**do not skip, do not edit `gen/` by hand**):
+2. Apply immediately (no approval needed): `make run-db-migrations-windows`
+3. Regenerate Jet immediately (no approval needed):
    ```bash
    make gen-sql-builder-macos    # macOS / Linux
    make gen-sql-builder-windows  # Windows
    ```
-4. Update affected `internal/*/repository/repo.go` files.
+4. Update affected `internal/*/repository/repo.go` files using **type-safe Jet queries only** (see [rules.md](rules.md#sql-queries--jet-only)).
 5. Commit all together: migration file, `gen/`, updated repository/service/handler code.
 
 ## Rollback

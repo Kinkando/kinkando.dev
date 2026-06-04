@@ -45,8 +45,35 @@ Keep logic in the handler for rules that struct tags cannot capture:
 - Post-bind transformations (e.g. defaulting an empty field to a sentinel value).
 - Query/path param parsing — those are not body fields and must be checked manually.
 
+## SQL queries — Jet only
+
+**Never write raw SQL** (`db.QueryContext`, `db.ExecContext` with a plain string query) for any table that has generated Jet code in `gen/kinkando/public/`. Use the type-safe Jet builder exclusively.
+
+```go
+// Good — type-safe Jet query
+stmt := postgres.SELECT(table.HealthWeightLogs.UserID).
+    FROM(table.HealthWeightLogs).
+    WHERE(table.HealthWeightLogs.LoggedAt.EQ(postgres.DateT(today)))
+var rows []struct{ UserID uuid.UUID `alias:"health_weight_logs.user_id"` }
+stmt.QueryContext(ctx, r.db, &rows)
+
+// Bad — raw SQL string
+rows, err := r.db.QueryContext(ctx,
+    `SELECT user_id FROM health_weight_logs WHERE logged_at = $1`, today)
+```
+
+Jet covers the full query surface needed in this codebase:
+
+- **INSERT … ON CONFLICT DO NOTHING**: `.ON_CONFLICT(cols...).DO_NOTHING()` — `ExecContext` returns `sql.Result` so you can check `RowsAffected()` for idempotency.
+- **Subqueries in WHERE**: `col.NOT_IN(postgres.SELECT(...).FROM(...).WHERE(...))`.
+- **LEFT JOIN + GROUP BY + custom aliases**: same pattern used in `quest/repository/repo.go::GetQuestStatus` and `CountIncompleteByUser`.
+- **Cross-column JOIN predicates**: `table.A.ForeignKey.EQ(table.B.PrimaryKey)` — column-to-column comparison, not a literal value.
+
+The only acceptable raw SQL is for tables that are outside the `gen/` codegen (e.g. `schema_migrations` managed by dbmate). When in doubt, check `gen/kinkando/public/table/` — if the file exists, use Jet.
+
 ## Date formatting
 
+Use `time.RFC3339` instead of the literal `"2006-01-02T15:04:05Z07:00"` and
 Use `time.DateOnly` instead of the literal `"2006-01-02"` in Go code:
 
 ```go

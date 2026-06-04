@@ -582,29 +582,26 @@ func toSleepLog(m model.HealthSleepLogs) *health.SleepLog {
 // These are the candidates for the morning weight-log nudge. Users who have
 // never logged weight are excluded (they haven't opted into weight tracking).
 func (r *Repository) UsersMissingWeightToday(ctx context.Context, today time.Time) ([]uuid.UUID, error) {
-	const q = `
-		SELECT DISTINCT user_id
-		FROM   health_weight_logs
-		WHERE  user_id NOT IN (
-		           SELECT user_id
-		           FROM   health_weight_logs
-		           WHERE  logged_at = $1
-		       )
-		ORDER  BY user_id`
+	loggedToday := postgres.SELECT(table.HealthWeightLogs.UserID).
+		FROM(table.HealthWeightLogs).
+		WHERE(table.HealthWeightLogs.LoggedAt.EQ(postgres.DateT(today)))
 
-	rows, err := r.db.QueryContext(ctx, q, today)
-	if err != nil {
+	stmt := postgres.SELECT(table.HealthWeightLogs.UserID).
+		FROM(table.HealthWeightLogs).
+		WHERE(table.HealthWeightLogs.UserID.NOT_IN(loggedToday)).
+		GROUP_BY(table.HealthWeightLogs.UserID).
+		ORDER_BY(table.HealthWeightLogs.UserID.ASC())
+
+	var rows []struct {
+		UserID uuid.UUID `alias:"health_weight_logs.user_id"`
+	}
+	if err := stmt.QueryContext(ctx, r.db, &rows); err != nil {
 		return nil, fmt.Errorf("users missing weight today: %w", err)
 	}
-	defer rows.Close()
 
-	var ids []uuid.UUID
-	for rows.Next() {
-		var id uuid.UUID
-		if err := rows.Scan(&id); err != nil {
-			return nil, fmt.Errorf("users missing weight today scan: %w", err)
-		}
-		ids = append(ids, id)
+	ids := make([]uuid.UUID, len(rows))
+	for i, row := range rows {
+		ids[i] = row.UserID
 	}
-	return ids, rows.Err()
+	return ids, nil
 }

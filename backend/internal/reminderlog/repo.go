@@ -8,7 +8,9 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/go-jet/jet/v2/postgres"
 	"github.com/google/uuid"
+	"github.com/kinkando/personal-dashboard/gen/kinkando/public/table"
 )
 
 // Repository wraps the reminder_log table with a single idempotent Log method.
@@ -27,12 +29,21 @@ func New(db *sql.DB) *Repository {
 // domain examples: "quest_daily", "quest_weekly", "weight"
 // key examples:    "2026-06-04" (daily/weight), "2026-06-02" (weekly period start)
 func (r *Repository) Log(ctx context.Context, userID uuid.UUID, domain, key string) (bool, error) {
-	const q = `
-		INSERT INTO reminder_log (user_id, domain, reminder_key)
-		VALUES ($1, $2, $3)
-		ON CONFLICT (user_id, domain, reminder_key) DO NOTHING`
+	stmt := table.ReminderLog.INSERT(
+		table.ReminderLog.UserID,
+		table.ReminderLog.Domain,
+		table.ReminderLog.ReminderKey,
+	).VALUES(
+		postgres.UUID(userID),
+		domain,
+		key,
+	).ON_CONFLICT(
+		table.ReminderLog.UserID,
+		table.ReminderLog.Domain,
+		table.ReminderLog.ReminderKey,
+	).DO_NOTHING()
 
-	res, err := r.db.ExecContext(ctx, q, userID, domain, key)
+	res, err := stmt.ExecContext(ctx, r.db)
 	if err != nil {
 		return false, fmt.Errorf("reminder log: %w", err)
 	}

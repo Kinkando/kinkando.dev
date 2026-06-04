@@ -147,7 +147,7 @@ export default function NavBar() {
 
   // Bottom tab bar: 4 groups as primary tabs; rest go into the More drawer
   const tabGroups = visibleGroups.slice(2, 6)
-  const moreGroups = visibleGroups.slice(4)
+  const moreGroups = visibleGroups.filter((g) => !tabGroups.includes(g))
   const moreIsActive = moreGroups.some(isGroupActive)
 
   const groupLinkClass = (g: NavGroup) =>
@@ -271,7 +271,7 @@ export default function NavBar() {
 
         {/* Sub row — desktop only */}
         {activeGroup?.subItems && (
-          <div className="hidden scrollbar-none overflow-y-auto border-t border-gray-800 px-6 py-2 xl:flex">
+          <div className="scrollbar-none overflow-y-auto border-t border-gray-800 px-6 py-2">
             <div className="flex items-center gap-6 text-sm">
               {activeGroup.subItems.map((sub) => (
                 <Link

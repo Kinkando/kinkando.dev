@@ -1,10 +1,4 @@
-import {
-  useEffect,
-  useRef,
-  useState,
-  type FormEvent,
-  type KeyboardEvent,
-} from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { Mic, SendHorizonal, Square, X } from 'lucide-react'
 import { transcribeAudio } from '../../lib/api/chat'
 
@@ -50,7 +44,7 @@ export default function ChatInput({ onSend, disabled, onError }: Props) {
     }
   }, [])
 
-  function handleSubmit(e: FormEvent) {
+  function handleSubmit(e: React.SubmitEvent) {
     e.preventDefault()
     const text = value.trim()
     if (!text || disabled) return
@@ -61,7 +55,7 @@ export default function ChatInput({ onSend, disabled, onError }: Props) {
   function handleKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
-      handleSubmit(e as unknown as FormEvent)
+      handleSubmit(e as unknown as React.SubmitEvent)
     }
   }
 

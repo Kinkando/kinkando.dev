@@ -31,7 +31,7 @@ export default function MessageBubble({ message, isStreaming }: Props) {
     >
       {!isUser && (
         <img
-          src="/chibi.jpg"
+          src="/images/chibi.jpg"
           alt="AI"
           className="h-8 w-8 shrink-0 rounded-full object-cover"
         />

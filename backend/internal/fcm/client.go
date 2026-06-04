@@ -39,18 +39,12 @@ func NewClient(ctx context.Context, credentials string) (*Client, error) {
 // Returns ErrTokenInvalid when FCM tells us the token is stale so the caller
 // can prune it from the database.
 func (c *Client) Send(ctx context.Context, token, title, body string) error {
+	// Data-only message: no Notification field so the browser never auto-displays
+	// a duplicate notification. The service worker (onBackgroundMessage) and the
+	// foreground onMessage handler both read payload.data and render via SW.showNotification.
 	msg := &messaging.Message{
 		Token: token,
-		Notification: &messaging.Notification{
-			Title: title,
-			Body:  body,
-		},
-		Webpush: &messaging.WebpushConfig{
-			Notification: &messaging.WebpushNotification{
-				Title: title,
-				Body:  body,
-			},
-		},
+		Data:  map[string]string{"title": title, "body": body},
 	}
 	if _, err := c.mc.Send(ctx, msg); err != nil {
 		if messaging.IsUnregistered(err) {

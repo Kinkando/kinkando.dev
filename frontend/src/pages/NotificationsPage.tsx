@@ -33,8 +33,8 @@ export default function NotificationsPage() {
 
   const [saveError, setSaveError] = useState('')
   const [saveSuccess, setSaveSuccess] = useState(false)
-  const [testSuccess, setTestSuccess] = useState(false)
-  const [testError, setTestError] = useState('')
+  const [testMessage, setTestMessage] = useState('')
+  const [testIsError, setTestIsError] = useState(false)
   const [pushError, setPushError] = useState('')
   const [pushSuccess, setPushSuccess] = useState(false)
 
@@ -93,18 +93,30 @@ export default function NotificationsPage() {
   }
 
   async function handleSendTest() {
-    setTestError('')
-    setTestSuccess(false)
+    setTestMessage('')
+    setTestIsError(false)
     try {
-      await sendTest.mutateAsync()
-      setTestSuccess(true)
-      setTimeout(() => setTestSuccess(false), 2500)
+      const result = await sendTest.mutateAsync()
+      if (result && result.delivered > 0) {
+        setTestMessage(
+          `Sent to ${result.delivered} channel${result.delivered !== 1 ? 's' : ''}.`,
+        )
+        setTestIsError(false)
+      } else {
+        const firstError = result?.errors?.[0]
+        setTestMessage(
+          firstError ?? 'No channel delivered the test. Check your settings.',
+        )
+        setTestIsError(true)
+      }
+      setTimeout(() => setTestMessage(''), 4000)
     } catch (err) {
-      setTestError(
+      setTestMessage(
         err instanceof Error
           ? err.message
           : 'Could not send test notification.',
       )
+      setTestIsError(true)
     }
   }
 
@@ -272,14 +284,11 @@ export default function NotificationsPage() {
                 {saveError}
               </p>
             )}
-            {testSuccess && (
-              <p className="mt-3 text-right text-sm text-emerald-400">
-                Test notification sent.
-              </p>
-            )}
-            {testError && (
-              <p className="mt-3 text-right text-sm text-red-400">
-                {testError}
+            {testMessage && (
+              <p
+                className={`mt-3 text-right text-sm ${testIsError ? 'text-red-400' : 'text-emerald-400'}`}
+              >
+                {testMessage}
               </p>
             )}
           </div>

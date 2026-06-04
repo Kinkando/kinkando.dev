@@ -42,14 +42,33 @@ export async function requestPushToken(): Promise<string | null> {
 }
 
 /**
- * Registers a foreground message handler. Returns a cleanup function.
+ * Displays a notification via the active service-worker registration.
+ * This works in the foreground (where the browser won't auto-display)
+ * and produces the same OS-level toast as the background SW handler.
+ */
+export async function showLocalNotification(
+  title: string,
+  body: string,
+): Promise<void> {
+  const reg = await navigator.serviceWorker.ready
+  await reg.showNotification(title, { body, icon: '/logo.png' })
+}
+
+/**
+ * Registers a foreground message handler that fires when a push message
+ * arrives while the tab is in the foreground.
+ *
+ * Reads from payload.data (data-only messages) so it matches the backend
+ * that sends { data: { title, body } } without a Notification field.
+ *
+ * Returns a cleanup function — call it to unsubscribe.
  */
 export function onForegroundMessage(
   cb: (title: string, body: string) => void,
 ): () => void {
   return onMessage(messaging, (payload) => {
-    const title = payload.notification?.title ?? ''
-    const body = payload.notification?.body ?? ''
+    const title = (payload.data?.['title'] as string | undefined) ?? ''
+    const body = (payload.data?.['body'] as string | undefined) ?? ''
     cb(title, body)
   })
 }

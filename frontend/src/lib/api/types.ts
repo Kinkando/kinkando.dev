@@ -26,6 +26,12 @@ export type UpsertNotificationSettingsInput = {
   web_push_enabled: boolean
 }
 
+export type DeliveryResult = {
+  attempted: number
+  delivered: number
+  errors?: string[]
+}
+
 export type LineLinkCode = {
   code: string
   expires_at: string

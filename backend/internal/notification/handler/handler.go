@@ -16,7 +16,7 @@ type Service interface {
 	UpsertSettings(ctx context.Context, userID uuid.UUID, in notification.UpsertSettingsInput) (*notification.Settings, error)
 	RegisterToken(ctx context.Context, userID uuid.UUID, token string) error
 	RemoveToken(ctx context.Context, token string) error
-	SendTest(ctx context.Context, userID uuid.UUID)
+	SendTest(ctx context.Context, userID uuid.UUID) *notification.DeliveryResult
 }
 
 // UserResolver resolves a Firebase UID to the internal UUID.
@@ -115,8 +115,8 @@ func (h *Handler) sendTest(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
 	}
-	h.svc.SendTest(c.Context(), userID)
-	return c.JSON(fiber.Map{"data": "test notification sent"})
+	res := h.svc.SendTest(c.Context(), userID)
+	return c.JSON(fiber.Map{"data": res})
 }
 
 // resolveUserID looks up the internal UUID for the Firebase UID in the request context.

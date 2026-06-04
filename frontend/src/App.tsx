@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import NavBar from './components/NavBar'
 import PortfolioPage from './pages/PortfolioPage'
@@ -17,8 +18,20 @@ import SleepPage from './pages/SleepPage'
 import NewsPage from './pages/NewsPage'
 import QuestPage from './pages/QuestPage'
 import ProtectedRoute from './auth/ProtectedRoute'
+import {
+  isPushSupported,
+  onForegroundMessage,
+  showLocalNotification,
+} from './lib/messaging'
 
 export default function App() {
+  // Wire a single global foreground message listener so push notifications
+  // display on every page when the tab is in the foreground.
+  useEffect(() => {
+    if (!isPushSupported() || Notification.permission !== 'granted') return
+    return onForegroundMessage(showLocalNotification)
+  }, [])
+
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100">
       <NavBar />

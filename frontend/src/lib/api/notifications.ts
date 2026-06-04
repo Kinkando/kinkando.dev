@@ -1,5 +1,6 @@
 import { apiFetch } from './client'
 import type {
+  DeliveryResult,
   NotificationSettings,
   UpsertNotificationSettingsInput,
 } from './types'
@@ -38,8 +39,8 @@ export function removePushToken(token: string): Promise<undefined> {
   }) as Promise<undefined>
 }
 
-export function sendTestNotification(): Promise<{ data: string } | undefined> {
-  return apiFetch<{ data: string }>('/notifications/test', {
+export function sendTestNotification(): Promise<DeliveryResult | undefined> {
+  return apiFetch<DeliveryResult>('/notifications/test', {
     method: 'POST',
     auth: true,
   })

@@ -23,9 +23,11 @@ firebase.initializeApp(firebaseConfig)
 
 const messaging = firebase.messaging()
 
+// Messages are data-only (no Notification field on the server payload), so we
+// render the notification here ourselves to avoid browser auto-display duplicates.
 messaging.onBackgroundMessage((payload) => {
-  const title = payload.notification?.title ?? 'Notification'
-  const body = payload.notification?.body ?? ''
+  const title = payload.data?.title ?? 'Notification'
+  const body = payload.data?.body ?? ''
 
   self.registration.showNotification(title, {
     body,

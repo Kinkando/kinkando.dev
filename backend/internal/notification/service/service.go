@@ -106,16 +106,19 @@ func (s *Service) RemoveToken(ctx context.Context, token string) error {
 
 // ── Notification fan-out ──────────────────────────────────────────────────────
 
-// Notify delivers msg to every enabled channel for userID.
-// Errors per channel are logged and never propagate — delivery is best-effort.
-func (s *Service) Notify(ctx context.Context, userID uuid.UUID, msg notification.Message) {
+// Notify delivers msg to every enabled channel for userID and returns a
+// DeliveryResult so callers can surface real delivery feedback.
+// Per-channel errors are logged and counted, but never fatal — fan-out is best-effort.
+func (s *Service) Notify(ctx context.Context, userID uuid.UUID, msg notification.Message) *notification.DeliveryResult {
+	res := &notification.DeliveryResult{}
+
 	settings, err := s.repo.GetSettings(ctx, userID)
 	if err != nil {
 		s.log.Warn("notify: get settings", zap.String("user_id", userID.String()), zap.Error(err))
-		return
+		return res
 	}
 	if settings == nil {
-		return // user has never configured notifications
+		return res // user has never configured notifications
 	}
 
 	// LINE
@@ -124,18 +127,26 @@ func (s *Service) Notify(ctx context.Context, userID uuid.UUID, msg notification
 		if err != nil {
 			s.log.Warn("notify: get user for line", zap.Error(err))
 		} else if u != nil && u.LineID != nil {
+			res.Attempted++
 			text := fmt.Sprintf("%s\n%s", msg.Title, msg.Body)
 			if err := s.line.Push(ctx, *u.LineID, []line.ReplyMessage{line.TextMessage(text)}); err != nil {
 				s.log.Warn("notify: line push", zap.Error(err))
+				res.Errors = append(res.Errors, "LINE: "+err.Error())
+			} else {
+				res.Delivered++
 			}
 		}
 	}
 
 	// Discord
 	if settings.DiscordEnabled && settings.DiscordWebhookURL != nil && s.discord != nil {
+		res.Attempted++
 		content := fmt.Sprintf("**%s**\n%s", msg.Title, msg.Body)
 		if err := s.discord.PostWebhook(ctx, *settings.DiscordWebhookURL, content); err != nil {
 			s.log.Warn("notify: discord webhook", zap.Error(err))
+			res.Errors = append(res.Errors, "Discord: "+err.Error())
+		} else {
+			res.Delivered++
 		}
 	}
 
@@ -146,23 +157,31 @@ func (s *Service) Notify(ctx context.Context, userID uuid.UUID, msg notification
 			s.log.Warn("notify: list fcm tokens", zap.Error(err))
 		}
 		for _, tok := range tokens {
+			res.Attempted++
 			if err := s.fcm.Send(ctx, tok, msg.Title, msg.Body); err != nil {
 				if errors.Is(err, fcm.ErrTokenInvalid) {
 					// Prune the stale token; log but don't abort.
 					if delErr := s.repo.DeleteToken(ctx, tok); delErr != nil {
 						s.log.Warn("notify: delete stale fcm token", zap.Error(delErr))
 					}
+					res.Errors = append(res.Errors, "Web Push: token invalid, removed")
 				} else {
 					s.log.Warn("notify: fcm send", zap.Error(err))
+					res.Errors = append(res.Errors, "Web Push: "+err.Error())
 				}
+			} else {
+				res.Delivered++
 			}
 		}
 	}
+
+	return res
 }
 
-// SendTest fans out a test notification to all enabled channels for userID.
-func (s *Service) SendTest(ctx context.Context, userID uuid.UUID) {
-	s.Notify(ctx, userID, notification.Message{
+// SendTest fans out a test notification to all enabled channels for userID
+// and returns the delivery result so the caller can show real feedback.
+func (s *Service) SendTest(ctx context.Context, userID uuid.UUID) *notification.DeliveryResult {
+	return s.Notify(ctx, userID, notification.Message{
 		Title: "Test notification",
 		Body:  "Your notifications are working correctly.",
 	})

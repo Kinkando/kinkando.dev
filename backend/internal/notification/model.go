@@ -63,3 +63,11 @@ type Message struct {
 	Title string
 	Body  string
 }
+
+// DeliveryResult summarises a Notify fan-out attempt so callers can surface
+// real delivery feedback rather than silently succeeding.
+type DeliveryResult struct {
+	Attempted int      `json:"attempted"`
+	Delivered int      `json:"delivered"`
+	Errors    []string `json:"errors,omitempty"`
+}

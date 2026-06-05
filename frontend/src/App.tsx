@@ -17,6 +17,7 @@ import FoodPage from './pages/FoodPage'
 import SleepPage from './pages/SleepPage'
 import NewsPage from './pages/NewsPage'
 import QuestPage from './pages/QuestPage'
+import TodayPage from './pages/TodayPage'
 import ProtectedRoute from './auth/ProtectedRoute'
 import {
   getCurrentToken,
@@ -48,6 +49,14 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Navigate to="/portfolio" replace />} />
         <Route path="/portfolio" element={<PortfolioPage />} />
+        <Route
+          path="/today"
+          element={
+            <ProtectedRoute>
+              <TodayPage />
+            </ProtectedRoute>
+          }
+        />
         <Route path="/news" element={<NewsPage />} />
         <Route path="/login" element={<LoginPage />} />
         {/* <Route path="/register" element={<RegisterPage />} /> */}

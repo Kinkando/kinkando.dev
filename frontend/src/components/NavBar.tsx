@@ -5,6 +5,8 @@ import { auth } from '../lib/firebase'
 import { useAuth } from '../auth/AuthContext'
 
 const ICONS = {
+  today:
+    'M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z',
   portfolio:
     'M17.982 18.725A7.488 7.488 0 0012 15.75a7.488 7.488 0 00-5.982 2.975m11.963 0a9 9 0 10-11.963 0m11.963 0A8.966 8.966 0 0112 21a8.966 8.966 0 01-5.982-2.275M15 9.75a3 3 0 11-6 0 3 3 0 016 0z',
   kanban:
@@ -52,6 +54,7 @@ type NavGroup = {
 const GROUPS: NavGroup[] = [
   { label: 'Portfolio', icon: 'portfolio', path: '/portfolio' },
   { label: 'News', icon: 'news', path: '/news' },
+  { label: 'Today', icon: 'today', path: '/today', protected: true },
   {
     label: 'Kanban',
     icon: 'kanban',
@@ -145,8 +148,8 @@ export default function NavBar() {
   const visibleGroups = GROUPS.filter((g) => !g.protected || user)
   const activeGroup = visibleGroups.find(isGroupActive)
 
-  // Bottom tab bar: 4 groups as primary tabs; rest go into the More drawer
-  const tabGroups = visibleGroups.slice(2, 6)
+  // Bottom tab bar: 5 groups as primary tabs; rest go into the More drawer
+  const tabGroups = visibleGroups.slice(2, 7)
   const moreGroups = visibleGroups.filter((g) => !tabGroups.includes(g))
   const moreIsActive = moreGroups.some(isGroupActive)
 

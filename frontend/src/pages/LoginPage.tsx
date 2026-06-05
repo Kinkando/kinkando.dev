@@ -12,7 +12,7 @@ export default function LoginPage() {
     return <LoadingScreen />
   }
 
-  if (user) return <Navigate to="/news" replace />
+  if (user) return <Navigate to="/today" replace />
 
   return <AuthForm mode="login" />
 }

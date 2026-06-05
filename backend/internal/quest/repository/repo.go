@@ -281,6 +281,11 @@ func (r *Repository) Increment(ctx context.Context, userID uuid.UUID, questID uu
 		}
 	}
 
+	// Reconcile all-set bonus for this quest type and period.
+	if err := reconcileBonusTx(ctx, tx, userID, q.Type, periodStart); err != nil {
+		return err
+	}
+
 	return tx.Commit()
 }
 
@@ -334,6 +339,11 @@ func (r *Repository) Decrement(ctx context.Context, userID uuid.UUID, questID uu
 		if err := deleteXPEvent(ctx, tx, questID, periodStart); err != nil {
 			return err
 		}
+	}
+
+	// Reconcile all-set bonus for this quest type and period.
+	if err := reconcileBonusTx(ctx, tx, userID, q.Type, periodStart); err != nil {
+		return err
 	}
 
 	return tx.Commit()
@@ -598,6 +608,127 @@ func deleteXPEvent(ctx context.Context, db qrm.DB, questID uuid.UUID, periodStar
 	)
 	if _, err := stmt.ExecContext(ctx, db); err != nil {
 		return fmt.Errorf("delete xp event: %w", err)
+	}
+	return nil
+}
+
+// ── Bonus XP helpers ──────────────────────────────────────────────────────────
+
+// reconcileBonusTx grants or revokes the all-set bonus XP for questType/periodStart
+// inside an existing transaction. Called at the tail of Increment and Decrement so both
+// the manual and the event-driven paths stay in sync.
+func reconcileBonusTx(ctx context.Context, db qrm.DB, userID uuid.UUID, questType quest.QuestType, periodStart time.Time) error {
+	// Count active quests of this type and how many are still incomplete.
+	stmt := postgres.SELECT(
+		table.QuestDefinitions.ID,
+		table.QuestDefinitions.TargetCount,
+		postgres.COUNT(table.QuestCompletions.ID).AS("current_count"),
+	).FROM(
+		table.QuestDefinitions.LEFT_JOIN(
+			table.QuestCompletions,
+			table.QuestCompletions.QuestID.EQ(table.QuestDefinitions.ID).
+				AND(table.QuestCompletions.UserID.EQ(table.QuestDefinitions.UserID)).
+				AND(table.QuestCompletions.PeriodStart.EQ(postgres.DateT(periodStart))),
+		),
+	).WHERE(
+		table.QuestDefinitions.UserID.EQ(postgres.UUID(userID)).
+			AND(table.QuestDefinitions.Type.EQ(postgres.String(string(questType)))).
+			AND(table.QuestDefinitions.IsActive.IS_TRUE()),
+	).GROUP_BY(
+		table.QuestDefinitions.ID,
+		table.QuestDefinitions.TargetCount,
+	)
+
+	var rows []struct {
+		ID           uuid.UUID `alias:"quest_definitions.id"`
+		TargetCount  int32     `alias:"quest_definitions.target_count"`
+		CurrentCount int64     `alias:"current_count"`
+	}
+	if err := stmt.QueryContext(ctx, db, &rows); err != nil {
+		return fmt.Errorf("reconcile bonus: fetch quest status: %w", err)
+	}
+
+	total := len(rows)
+	incomplete := 0
+	for _, r := range rows {
+		if int(r.CurrentCount) < int(r.TargetCount) {
+			incomplete++
+		}
+	}
+
+	var bonusSource string
+	var bonusXP int
+	var bonusTitle string
+	if questType == quest.QuestTypeDaily {
+		bonusSource = quest.SourceDailyBonus
+		bonusXP = quest.DailyBonusXP
+		bonusTitle = "Daily Bonus"
+	} else {
+		bonusSource = quest.SourceWeeklyBonus
+		bonusXP = quest.WeeklyBonusXP
+		bonusTitle = "Weekly Bonus"
+	}
+
+	if total > 0 && incomplete == 0 {
+		return insertBonusXPEventTx(ctx, db, userID, bonusSource, bonusTitle, periodStart, bonusXP)
+	}
+	return deleteBonusXPEventTx(ctx, db, userID, bonusSource, periodStart)
+}
+
+// insertBonusXPEventTx inserts a bonus XP event with quest_id = NULL (the default).
+// It checks for existence first; the partial unique index uq_xp_bonus_period is the
+// backstop against any concurrent double-insert.
+func insertBonusXPEventTx(ctx context.Context, db qrm.DB, userID uuid.UUID, source, title string, periodStart time.Time, xp int) error {
+	// Skip if the bonus row for this period already exists.
+	checkStmt := postgres.SELECT(postgres.COUNT(table.UserXpEvents.ID).AS("cnt")).
+		FROM(table.UserXpEvents).
+		WHERE(
+			table.UserXpEvents.UserID.EQ(postgres.UUID(userID)).
+				AND(table.UserXpEvents.Source.EQ(postgres.String(source))).
+				AND(table.UserXpEvents.PeriodStart.EQ(postgres.DateT(periodStart))).
+				AND(table.UserXpEvents.QuestID.IS_NULL()),
+		)
+	var check struct {
+		Cnt int64 `alias:"cnt"`
+	}
+	if err := checkStmt.QueryContext(ctx, db, &check); err != nil {
+		return fmt.Errorf("insert bonus xp event: check existence: %w", err)
+	}
+	if check.Cnt > 0 {
+		return nil // already granted — nothing to do
+	}
+
+	// Omit QuestID column so it defaults to NULL.
+	insStmt := table.UserXpEvents.INSERT(
+		table.UserXpEvents.UserID,
+		table.UserXpEvents.QuestTitle,
+		table.UserXpEvents.Source,
+		table.UserXpEvents.PeriodStart,
+		table.UserXpEvents.Xp,
+	).VALUES(
+		postgres.UUID(userID),
+		title,
+		source,
+		postgres.DateT(periodStart),
+		xp,
+	)
+	if _, err := insStmt.ExecContext(ctx, db); err != nil {
+		return fmt.Errorf("insert bonus xp event: %w", err)
+	}
+	return nil
+}
+
+// deleteBonusXPEventTx removes the bonus XP row (quest_id IS NULL) for the given
+// user/source/period. It is a no-op when the row doesn't exist.
+func deleteBonusXPEventTx(ctx context.Context, db qrm.DB, userID uuid.UUID, source string, periodStart time.Time) error {
+	stmt := table.UserXpEvents.DELETE().WHERE(
+		table.UserXpEvents.UserID.EQ(postgres.UUID(userID)).
+			AND(table.UserXpEvents.Source.EQ(postgres.String(source))).
+			AND(table.UserXpEvents.PeriodStart.EQ(postgres.DateT(periodStart))).
+			AND(table.UserXpEvents.QuestID.IS_NULL()),
+	)
+	if _, err := stmt.ExecContext(ctx, db); err != nil {
+		return fmt.Errorf("delete bonus xp event: %w", err)
 	}
 	return nil
 }

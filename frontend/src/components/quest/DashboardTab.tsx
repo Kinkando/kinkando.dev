@@ -60,6 +60,8 @@ export default function DashboardTab({ overview }: Props) {
     weekly_total,
     daily,
     weekly,
+    daily_bonus_xp,
+    weekly_bonus_xp,
   } = overview
 
   return (
@@ -112,6 +114,17 @@ export default function DashboardTab({ overview }: Props) {
             </span>
           </div>
           <XPBar value={daily_done} max={daily_total || 1} />
+          {daily_total > 0 && daily_done === daily_total && (
+            <div className="mt-3 flex items-center gap-2 rounded-lg border border-amber-700/40 bg-amber-950/30 px-3 py-2">
+              <span className="text-base">⭐</span>
+              <span className="text-xs font-semibold text-amber-400">
+                All daily quests complete!
+              </span>
+              <span className="ml-auto shrink-0 rounded-full bg-amber-900/50 px-2 py-0.5 text-xs font-bold text-amber-300">
+                +{daily_bonus_xp} XP
+              </span>
+            </div>
+          )}
           <ul className="mt-4 space-y-2.5">
             {daily.length === 0 && (
               <li className="text-xs text-gray-600">No daily quests yet.</li>
@@ -173,6 +186,17 @@ export default function DashboardTab({ overview }: Props) {
             </span>
           </div>
           <XPBar value={weekly_done} max={weekly_total || 1} />
+          {weekly_total > 0 && weekly_done === weekly_total && (
+            <div className="mt-3 flex items-center gap-2 rounded-lg border border-amber-700/40 bg-amber-950/30 px-3 py-2">
+              <span className="text-base">⭐</span>
+              <span className="text-xs font-semibold text-amber-400">
+                All weekly quests complete!
+              </span>
+              <span className="ml-auto shrink-0 rounded-full bg-amber-900/50 px-2 py-0.5 text-xs font-bold text-amber-300">
+                +{weekly_bonus_xp} XP
+              </span>
+            </div>
+          )}
           <ul className="mt-4 space-y-2.5">
             {weekly.length === 0 && (
               <li className="text-xs text-gray-600">No weekly quests yet.</li>

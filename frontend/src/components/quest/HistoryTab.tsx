@@ -33,6 +33,24 @@ function formatWeek(mondayISO: string) {
   return `${start.toLocaleDateString(undefined, opts)} – ${end.toLocaleDateString(undefined, opts)}`
 }
 
+function sourceBadge(source: string): { label: string; classes: string } {
+  switch (source) {
+    case 'daily':
+      return { label: 'Daily', classes: 'bg-sky-900/50 text-sky-400' }
+    case 'weekly':
+      return { label: 'Weekly', classes: 'bg-violet-900/50 text-violet-400' }
+    case 'daily_bonus':
+      return { label: 'Daily Bonus', classes: 'bg-amber-900/50 text-amber-400' }
+    case 'weekly_bonus':
+      return {
+        label: 'Weekly Bonus',
+        classes: 'bg-amber-900/50 text-amber-400',
+      }
+    default:
+      return { label: source, classes: 'bg-gray-800 text-gray-400' }
+  }
+}
+
 type DayGroup = { dayKey: string; events: XPEvent[] }
 type WeekGroup = { weekKey: string; dayGroups: DayGroup[] }
 
@@ -128,13 +146,9 @@ export default function HistoryTab({ events }: Props) {
                         className="flex items-center gap-3 px-5 py-3"
                       >
                         <span
-                          className={`shrink-0 rounded px-2 py-0.5 text-xs font-semibold ${
-                            ev.source === 'daily'
-                              ? 'bg-sky-900/50 text-sky-400'
-                              : 'bg-violet-900/50 text-violet-400'
-                          }`}
+                          className={`shrink-0 rounded px-2 py-0.5 text-xs font-semibold ${sourceBadge(ev.source).classes}`}
                         >
-                          {ev.source === 'daily' ? 'Daily' : 'Weekly'}
+                          {sourceBadge(ev.source).label}
                         </span>
                         <span className="min-w-0 flex-1 truncate text-sm text-gray-300">
                           {ev.quest_title}

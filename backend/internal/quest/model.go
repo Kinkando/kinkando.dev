@@ -24,6 +24,18 @@ const (
 	SourceTypeSleep      SourceType = "sleep"
 )
 
+// Bonus XP source labels — written into user_xp_events.source for all-set bonuses.
+const (
+	SourceDailyBonus  = "daily_bonus"
+	SourceWeeklyBonus = "weekly_bonus"
+)
+
+// Bonus XP amounts awarded when every active quest of a type is complete for the period.
+const (
+	DailyBonusXP  = 50
+	WeeklyBonusXP = 200
+)
+
 type Quest struct {
 	ID          uuid.UUID  `json:"id"`
 	UserID      uuid.UUID  `json:"user_id"`
@@ -71,15 +83,17 @@ type XPSummary struct {
 }
 
 type Overview struct {
-	Date        string         `json:"date"`
-	WeekStart   string         `json:"week_start"`
-	XP          XPSummary      `json:"xp"`
-	Daily       []*QuestStatus `json:"daily"`
-	Weekly      []*QuestStatus `json:"weekly"`
-	DailyDone   int            `json:"daily_done"`
-	DailyTotal  int            `json:"daily_total"`
-	WeeklyDone  int            `json:"weekly_done"`
-	WeeklyTotal int            `json:"weekly_total"`
+	Date         string         `json:"date"`
+	WeekStart    string         `json:"week_start"`
+	XP           XPSummary      `json:"xp"`
+	Daily        []*QuestStatus `json:"daily"`
+	Weekly       []*QuestStatus `json:"weekly"`
+	DailyDone    int            `json:"daily_done"`
+	DailyTotal   int            `json:"daily_total"`
+	WeeklyDone   int            `json:"weekly_done"`
+	WeeklyTotal  int            `json:"weekly_total"`
+	DailyBonusXP int            `json:"daily_bonus_xp"`
+	WeeklyBonusXP int           `json:"weekly_bonus_xp"`
 }
 
 type XPEvent struct {

@@ -660,6 +660,8 @@ export type QuestOverview = {
   daily_total: number
   weekly_done: number
   weekly_total: number
+  daily_bonus_xp: number
+  weekly_bonus_xp: number
 }
 
 export type XPEvent = {

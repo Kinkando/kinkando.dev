@@ -102,15 +102,17 @@ func (s *Service) GetOverview(ctx context.Context, userID uuid.UUID) (*quest.Ove
 	}
 
 	return &quest.Overview{
-		Date:        today.Format(time.DateOnly),
-		WeekStart:   weekStart.Format(time.DateOnly),
-		XP:          xpSummary(totalXP),
-		Daily:       daily,
-		Weekly:      weekly,
-		DailyDone:   dailyDone,
-		DailyTotal:  len(daily),
-		WeeklyDone:  weeklyDone,
-		WeeklyTotal: len(weekly),
+		Date:          today.Format(time.DateOnly),
+		WeekStart:     weekStart.Format(time.DateOnly),
+		XP:            xpSummary(totalXP),
+		Daily:         daily,
+		Weekly:        weekly,
+		DailyDone:     dailyDone,
+		DailyTotal:    len(daily),
+		WeeklyDone:    weeklyDone,
+		WeeklyTotal:   len(weekly),
+		DailyBonusXP:  quest.DailyBonusXP,
+		WeeklyBonusXP: quest.WeeklyBonusXP,
 	}, nil
 }
 

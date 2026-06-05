@@ -1007,7 +1007,7 @@ func (r *Repository) createSessionFromPreset(
 	date time.Time,
 	nameOverride *string,
 ) (*workout.Session, error) {
-	sessionName := presetRow.Name
+	sessionName := fmt.Sprintf("%s (%s)", presetRow.Name, date.Format("Jan 02"))
 	if nameOverride != nil && *nameOverride != "" {
 		sessionName = *nameOverride
 	}

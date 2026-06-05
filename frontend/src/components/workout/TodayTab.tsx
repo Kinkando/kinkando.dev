@@ -20,6 +20,8 @@ import {
 } from '../../queries/useWorkout'
 import { WORKOUT_TYPE_LABELS, QUICK_START_TYPES } from '../../lib/workout'
 
+const defaultDurationMinutes = 60
+
 const inputClass =
   'w-full rounded-md border border-gray-700 bg-gray-800 px-2 py-1.5 text-xs text-gray-100 placeholder-gray-500 focus:border-indigo-500 focus:outline-none'
 
@@ -487,7 +489,9 @@ function SessionView({
   // Session fields — edited together, saved with one button
   const [nameValue, setNameValue] = useState(session.name)
   const [duration, setDuration] = useState(
-    session.duration_minutes != null ? String(session.duration_minutes) : '',
+    session.duration_minutes != null
+      ? String(session.duration_minutes)
+      : defaultDurationMinutes.toString(),
   )
   const [notes, setNotes] = useState(session.notes ?? '')
   const [saving, setSaving] = useState(false)
@@ -497,7 +501,9 @@ function SessionView({
   useEffect(() => {
     setNameValue(session.name)
     setDuration(
-      session.duration_minutes != null ? String(session.duration_minutes) : '',
+      session.duration_minutes != null
+        ? String(session.duration_minutes)
+        : defaultDurationMinutes.toString(),
     )
     setNotes(session.notes ?? '')
   }, [session.name, session.duration_minutes, session.notes])
@@ -592,7 +598,9 @@ function SessionView({
   function handleResetFields() {
     setNameValue(session.name)
     setDuration(
-      session.duration_minutes != null ? String(session.duration_minutes) : '',
+      session.duration_minutes != null
+        ? String(session.duration_minutes)
+        : defaultDurationMinutes.toString(),
     )
     setNotes(session.notes ?? '')
     setDurationError('')

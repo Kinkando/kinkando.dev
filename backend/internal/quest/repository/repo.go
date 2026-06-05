@@ -420,6 +420,98 @@ func (r *Repository) CountIncompleteByUser(ctx context.Context, questType string
 	return result, nil
 }
 
+// RecordPeriodResults snapshots the final status of every active quest of
+// questType for the given periodStart. It is called by the quest-period-snapshot
+// cron job once per period (daily: yesterday; weekly: Monday for the prior week).
+// Each row is inserted idempotent via ON CONFLICT (quest_id, period_start) DO NOTHING,
+// so repeated invocations within the same period are safe.
+func (r *Repository) RecordPeriodResults(ctx context.Context, questType string, periodStart time.Time) (*quest.PeriodSnapshotResult, error) {
+	// Query every active quest of questType alongside its completion count for the period.
+	stmt := postgres.SELECT(
+		table.QuestDefinitions.UserID,
+		table.QuestDefinitions.ID,
+		table.QuestDefinitions.Title,
+		table.QuestDefinitions.TargetCount,
+		table.QuestDefinitions.XpReward,
+		postgres.COUNT(table.QuestCompletions.ID).AS("current_count"),
+	).FROM(
+		table.QuestDefinitions.LEFT_JOIN(
+			table.QuestCompletions,
+			table.QuestCompletions.QuestID.EQ(table.QuestDefinitions.ID).
+				AND(table.QuestCompletions.UserID.EQ(table.QuestDefinitions.UserID)).
+				AND(table.QuestCompletions.PeriodStart.EQ(postgres.DateT(periodStart))),
+		),
+	).WHERE(
+		table.QuestDefinitions.IsActive.IS_TRUE().
+			AND(table.QuestDefinitions.Type.EQ(postgres.String(questType))),
+	).GROUP_BY(
+		table.QuestDefinitions.UserID,
+		table.QuestDefinitions.ID,
+		table.QuestDefinitions.Title,
+		table.QuestDefinitions.TargetCount,
+		table.QuestDefinitions.XpReward,
+	)
+
+	var rows []struct {
+		UserID       uuid.UUID `alias:"quest_definitions.user_id"`
+		ID           uuid.UUID `alias:"quest_definitions.id"`
+		Title        string    `alias:"quest_definitions.title"`
+		TargetCount  int32     `alias:"quest_definitions.target_count"`
+		XpReward     int32     `alias:"quest_definitions.xp_reward"`
+		CurrentCount int64     `alias:"current_count"`
+	}
+	if err := stmt.QueryContext(ctx, r.db, &rows); err != nil {
+		return nil, fmt.Errorf("record period results: fetch quests: %w", err)
+	}
+
+	res := &quest.PeriodSnapshotResult{Total: len(rows)}
+	if len(rows) == 0 {
+		return res, nil
+	}
+
+	// Build a bulk INSERT with all rows; idempotent via ON CONFLICT DO NOTHING.
+	ins := table.QuestPeriodResults.INSERT(
+		table.QuestPeriodResults.UserID,
+		table.QuestPeriodResults.QuestID,
+		table.QuestPeriodResults.QuestTitle,
+		table.QuestPeriodResults.Type,
+		table.QuestPeriodResults.PeriodStart,
+		table.QuestPeriodResults.TargetCount,
+		table.QuestPeriodResults.CompletedCount,
+		table.QuestPeriodResults.Completed,
+		table.QuestPeriodResults.XpReward,
+	)
+	for _, row := range rows {
+		completed := int(row.CurrentCount) >= int(row.TargetCount)
+		if completed {
+			res.Completed++
+		} else {
+			res.Incomplete++
+		}
+		qid := row.ID // local copy for pointer
+		ins = ins.VALUES(
+			postgres.UUID(row.UserID),
+			postgres.UUID(qid),
+			row.Title,
+			questType,
+			postgres.DateT(periodStart),
+			row.TargetCount,
+			int32(row.CurrentCount),
+			completed,
+			row.XpReward,
+		)
+	}
+	ins = ins.ON_CONFLICT(table.QuestPeriodResults.QuestID, table.QuestPeriodResults.PeriodStart).DO_NOTHING()
+
+	sqlRes, err := ins.ExecContext(ctx, r.db)
+	if err != nil {
+		return nil, fmt.Errorf("record period results: insert: %w", err)
+	}
+	affected, _ := sqlRes.RowsAffected()
+	res.Inserted = int(affected)
+	return res, nil
+}
+
 // ── History ───────────────────────────────────────────────────────────────────
 
 func (r *Repository) ListXPEvents(ctx context.Context, userID uuid.UUID, limit int) ([]*quest.XPEvent, error) {

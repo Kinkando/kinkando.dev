@@ -37,7 +37,8 @@ import (
 	medicineRepo "github.com/kinkando/personal-dashboard/internal/medicine/repository"
 	medReminder "github.com/kinkando/personal-dashboard/internal/medicine/reminder"
 	medicineSvc "github.com/kinkando/personal-dashboard/internal/medicine/service"
-	questReminder "github.com/kinkando/personal-dashboard/internal/quest/reminder"
+	questReminder  "github.com/kinkando/personal-dashboard/internal/quest/reminder"
+	questSnapshot  "github.com/kinkando/personal-dashboard/internal/quest/snapshot"
 	"github.com/kinkando/personal-dashboard/internal/reminderlog"
 	"github.com/kinkando/personal-dashboard/internal/notification"
 	notificationHandler "github.com/kinkando/personal-dashboard/internal/notification/handler"
@@ -150,26 +151,32 @@ func main() {
 
 	medRemSvc := medReminder.New(medRepo, notiSvc, logger)
 	qstRemSvc := questReminder.New(qstRepo, remLogRepo, notiSvc, logger)
+	qstSnapSvc := questSnapshot.New(qstRepo, logger)
 	heaRemSvc := healthReminder.New(heaRepo, remLogRepo, notiSvc, logger)
 
 	// Recommended Cloudflare Worker cron schedules (UTC; Bangkok = UTC+7):
 	//
-	//   medicine-reminders  */30 * * * *      every 30 min all day
-	//                                          dose window = 30 min; supply digest self-gates ≥ 09:00 BKK (02:00 UTC)
+	//   medicine-reminders       */30 * * * *      every 30 min all day
+	//                                               dose window = 30 min; supply digest self-gates ≥ 09:00 BKK (02:00 UTC)
 	//
-	//   quest-reminders     */30 * * * *      every 30 min all day
-	//                                          daily quest nudge self-gates ≥ 20:00 BKK (13:00 UTC)
-	//                                          weekly quest nudge self-gates Sunday ≥ 18:00 BKK (11:00 UTC)
+	//   quest-reminders          */30 * * * *      every 30 min all day
+	//                                               daily quest nudge self-gates ≥ 20:00 BKK (13:00 UTC)
+	//                                               weekly quest nudge self-gates Sunday ≥ 18:00 BKK (11:00 UTC)
 	//
-	//   weight-nudge        0,30 1-3 * * *    08:00–10:30 BKK (01:00–03:30 UTC)
-	//                                          self-gates ≥ 08:00 BKK; once per user per day via dedup
+	//   weight-nudge             0,30 1-3 * * *    08:00–10:30 BKK (01:00–03:30 UTC)
+	//                                               self-gates ≥ 08:00 BKK; once per user per day via dedup
 	//
-	// All three endpoints are idempotent — repeat runs within the same period are
-	// suppressed by medicine_reminder_log / reminder_log unique constraints.
+	//   quest-period-snapshot    0,30 17 * * *     00:00 & 00:30 BKK (17:00 & 17:30 UTC)
+	//                                               daily snapshot every day (records yesterday);
+	//                                               weekly snapshot on Mondays only (records the just-ended week)
+	//                                               idempotent via quest_period_results unique constraint
+	//
+	// All endpoints are idempotent — repeat runs within the same period are safe.
 	cronH := cronHandler.New(map[string]cronHandler.RunFunc{
-		"medicine-reminders": func(ctx context.Context) (any, error) { return medRemSvc.Run(ctx) },
-		"quest-reminders":    func(ctx context.Context) (any, error) { return qstRemSvc.Run(ctx) },
-		"weight-nudge":       func(ctx context.Context) (any, error) { return heaRemSvc.Run(ctx) },
+		"medicine-reminders":    func(ctx context.Context) (any, error) { return medRemSvc.Run(ctx) },
+		"quest-reminders":       func(ctx context.Context) (any, error) { return qstRemSvc.Run(ctx) },
+		"quest-period-snapshot": func(ctx context.Context) (any, error) { return qstSnapSvc.Run(ctx) },
+		"weight-nudge":          func(ctx context.Context) (any, error) { return heaRemSvc.Run(ctx) },
 	})
 
 	// Subscribe quest to domain events — main.go is the only place that knows

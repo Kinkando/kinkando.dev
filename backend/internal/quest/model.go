@@ -91,3 +91,11 @@ type XPEvent struct {
 	XP          int        `json:"xp"`
 	CreatedAt   time.Time  `json:"created_at"`
 }
+
+// PeriodSnapshotResult summarises one execution of RecordPeriodResults.
+type PeriodSnapshotResult struct {
+	Total      int `json:"total"`      // active quests evaluated
+	Completed  int `json:"completed"`  // quests that reached target_count
+	Incomplete int `json:"incomplete"` // quests below target_count
+	Inserted   int `json:"inserted"`   // rows actually written (0 when already idempotent)
+}

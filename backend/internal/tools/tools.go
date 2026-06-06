@@ -633,7 +633,8 @@ var MedicineListStockAdjustments = ToolDef{
 }
 
 type MedicineListIn struct {
-	IncludeArchived bool `json:"include_archived" jsonschema:"Include archived medicines (default: false)"`
+	IncludeArchived bool   `json:"include_archived" jsonschema:"Include archived medicines (default: false)"`
+	SourceType      string `json:"source_type"      jsonschema:"Filter by type: medication or supplement (optional; omit for all)" validate:"omitempty,oneof=medication supplement"`
 }
 
 type MedicineTakeIn struct {
@@ -651,13 +652,15 @@ type MedicineAdjustStockIn struct {
 }
 
 type MedicineListIntakesIn struct {
-	Date  string `json:"date"  jsonschema:"Filter to a specific date YYYY-MM-DD (optional; omit for recent 50)"`
-	Limit int    `json:"limit" jsonschema:"Max number of results (default: 50)"`
+	Date       string `json:"date"        jsonschema:"Filter to a specific date YYYY-MM-DD (optional; omit for recent 50)"`
+	SourceType string `json:"source_type" jsonschema:"Filter by type: medication or supplement (optional; omit for all)" validate:"omitempty,oneof=medication supplement"`
+	Limit      int    `json:"limit"       jsonschema:"Max number of results (default: 50)"`
 }
 
 type MedicineListStockAdjustmentsIn struct {
-	Date  string `json:"date"  jsonschema:"Filter to a specific date YYYY-MM-DD (optional; omit for recent 50)"`
-	Limit int    `json:"limit" jsonschema:"Max number of results (default: 50)"`
+	Date       string `json:"date"        jsonschema:"Filter to a specific date YYYY-MM-DD (optional; omit for recent 50)"`
+	SourceType string `json:"source_type" jsonschema:"Filter by type: medication or supplement (optional; omit for all)" validate:"omitempty,oneof=medication supplement"`
+	Limit      int    `json:"limit"       jsonschema:"Max number of results (default: 50)"`
 }
 
 // ---- Quest ------------------------------------------------------------------

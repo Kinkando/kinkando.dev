@@ -21,6 +21,7 @@ import (
 	"github.com/kinkando/personal-dashboard/internal/workout"
 	workoutSvc "github.com/kinkando/personal-dashboard/internal/workout/service"
 	"github.com/kinkando/personal-dashboard/pkg/middleware"
+	"github.com/kinkando/personal-dashboard/pkg/validate"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
@@ -2069,7 +2070,10 @@ func registerMedicineTools(s *mcp.Server, d Deps) {
 		Name:        tools.MedicineList.Name,
 		Description: tools.MedicineList.Description,
 	}, middleware.MCPRequestLogger(d.Logger, tools.MedicineList.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.MedicineListIn) (*mcp.CallToolResult, listMedicinesOut, error) {
-		meds, err := d.MedSvc.ListMedicines(ctx, ctxUserUUID(ctx), in.IncludeArchived, nil)
+		if err := validate.Struct(in); err != nil {
+			return nil, listMedicinesOut{}, err
+		}
+		meds, err := d.MedSvc.ListMedicines(ctx, ctxUserUUID(ctx), in.IncludeArchived, sourceTypePtr(in.SourceType))
 		if err != nil {
 			return nil, listMedicinesOut{}, fmt.Errorf("list medicines: %w", err)
 		}
@@ -2167,7 +2171,10 @@ func registerMedicineTools(s *mcp.Server, d Deps) {
 		Name:        tools.MedicineListIntakes.Name,
 		Description: tools.MedicineListIntakes.Description,
 	}, middleware.MCPRequestLogger(d.Logger, tools.MedicineListIntakes.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.MedicineListIntakesIn) (*mcp.CallToolResult, listMedicineIntakesOut, error) {
-		opts := medicine.ListIntakeOpts{Limit: in.Limit}
+		if err := validate.Struct(in); err != nil {
+			return nil, listMedicineIntakesOut{}, err
+		}
+		opts := medicine.ListIntakeOpts{Limit: in.Limit, SourceType: sourceTypePtr(in.SourceType)}
 		if in.Date != "" {
 			t, err := time.Parse(time.DateOnly, in.Date)
 			if err != nil {
@@ -2190,7 +2197,10 @@ func registerMedicineTools(s *mcp.Server, d Deps) {
 		Name:        tools.MedicineListStockAdjustments.Name,
 		Description: tools.MedicineListStockAdjustments.Description,
 	}, middleware.MCPRequestLogger(d.Logger, tools.MedicineListStockAdjustments.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.MedicineListStockAdjustmentsIn) (*mcp.CallToolResult, listMedicineStockAdjustmentsOut, error) {
-		opts := medicine.ListAdjustmentOpts{Limit: in.Limit}
+		if err := validate.Struct(in); err != nil {
+			return nil, listMedicineStockAdjustmentsOut{}, err
+		}
+		opts := medicine.ListAdjustmentOpts{Limit: in.Limit, SourceType: sourceTypePtr(in.SourceType)}
 		if in.Date != "" {
 			t, err := time.Parse(time.DateOnly, in.Date)
 			if err != nil {
@@ -2208,6 +2218,16 @@ func registerMedicineTools(s *mcp.Server, d Deps) {
 		}
 		return nil, listMedicineStockAdjustmentsOut{Adjustments: dtos}, nil
 	}))
+}
+
+// sourceTypePtr maps a (validated) source_type string to *medicine.SourceType,
+// returning nil when empty so the filter is skipped.
+func sourceTypePtr(s string) *medicine.SourceType {
+	if s == "" {
+		return nil
+	}
+	st := medicine.SourceType(s)
+	return &st
 }
 
 // nilStr returns nil when s is empty, otherwise a pointer to s.

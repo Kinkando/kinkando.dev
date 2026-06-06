@@ -71,7 +71,7 @@ func (h *Handler) listMedicines(c *fiber.Ctx) error {
 	includeArchived := strings.ToLower(c.Query("include_archived")) == "true"
 	sourceType, err := parseSourceType(c)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+		return err
 	}
 	meds, err := h.svc.ListMedicines(c.Context(), userID, includeArchived, sourceType)
 	if err != nil {
@@ -243,7 +243,7 @@ func (h *Handler) listIntakesHandler(c *fiber.Ctx, medicineID *uuid.UUID) error 
 	opts := medicine.ListIntakeOpts{MedicineID: medicineID}
 	sourceType, err := parseSourceType(c)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+		return err
 	}
 	opts.SourceType = sourceType
 	if dateStr := c.Query("date"); dateStr != "" {
@@ -294,7 +294,7 @@ func (h *Handler) listStockAdjustmentsHandler(c *fiber.Ctx, medicineID *uuid.UUI
 	opts := medicine.ListAdjustmentOpts{MedicineID: medicineID}
 	sourceType, err := parseSourceType(c)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+		return err
 	}
 	opts.SourceType = sourceType
 	if dateStr := c.Query("date"); dateStr != "" {
@@ -324,17 +324,27 @@ func (h *Handler) listStockAdjustmentsHandler(c *fiber.Ctx, medicineID *uuid.UUI
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-// parseSourceType reads the optional ?source_type= query param. Returns nil when
-// absent, or an error when it isn't a valid medicine source type.
+// listQuery binds optional list filters from the query string so they can be
+// validated declaratively via `validate` struct tags (see docs/backend/rules.md),
+// rather than with hand-rolled checks.
+type listQuery struct {
+	SourceType string `query:"source_type" json:"source_type" validate:"omitempty,oneof=medication supplement"`
+}
+
+// parseSourceType binds and validates the optional ?source_type= query param.
+// Returns nil when absent.
 func parseSourceType(c *fiber.Ctx) (*medicine.SourceType, error) {
-	s := c.Query("source_type")
-	if s == "" {
+	var q listQuery
+	if err := c.QueryParser(&q); err != nil {
+		return nil, fiber.NewError(fiber.StatusBadRequest, "invalid query parameters")
+	}
+	if err := validate.Struct(q); err != nil {
+		return nil, err // *fiber.Error 400 with a descriptive field message
+	}
+	if q.SourceType == "" {
 		return nil, nil
 	}
-	st := medicine.SourceType(s)
-	if st != medicine.SourceTypeMedication && st != medicine.SourceTypeSupplement {
-		return nil, errors.New("invalid source_type; use 'medication' or 'supplement'")
-	}
+	st := medicine.SourceType(q.SourceType)
 	return &st, nil
 }
 

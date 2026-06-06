@@ -1,4 +1,15 @@
 import { useState } from 'react'
+import {
+  ComposedChart,
+  Bar,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  ReferenceLine,
+} from 'recharts'
 import type { SleepLog } from '../../lib/api/types'
 import {
   useCreateSleepLog,
@@ -125,6 +136,20 @@ export default function SleepTab() {
 
   const loggedToday =
     sleepLogs?.some((l) => l.logged_at.slice(0, 10) === todayDate()) ?? false
+
+  // Logs come back newest-first; reverse to a copy so the chart reads
+  // oldest→newest left-to-right (without mutating the query cache).
+  const chartData =
+    sleepLogs && sleepLogs.length > 0
+      ? [...sleepLogs].reverse().map((l) => ({
+          date: new Date(l.logged_at).toLocaleDateString(undefined, {
+            month: 'short',
+            day: 'numeric',
+          }),
+          hours: Math.round((l.duration_minutes / 60) * 10) / 10,
+          score: l.score, // number | null — score line bridges nulls
+        }))
+      : []
 
   // The log currently being edited (to determine today-gating)
   const editingLog = editingId
@@ -363,6 +388,96 @@ export default function SleepTab() {
           </form>
         )}
       </div>
+
+      {/* Sleep trend chart */}
+      {chartData.length > 0 ? (
+        <div className="rounded-xl border border-gray-800 bg-gray-900 p-5">
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="text-sm font-medium text-gray-400">Sleep Trend</h3>
+            <div className="flex items-center gap-3 text-xs text-gray-500">
+              <span className="flex items-center gap-1.5">
+                <span className="h-2.5 w-2.5 rounded-sm bg-indigo-500" />
+                Hours
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="h-2.5 w-2.5 rounded-sm bg-amber-500" />
+                Score
+              </span>
+            </div>
+          </div>
+          <ResponsiveContainer width="100%" height={240}>
+            <ComposedChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+              <XAxis
+                dataKey="date"
+                tick={{ fill: '#9ca3af', fontSize: 11 }}
+                tickLine={false}
+                axisLine={false}
+              />
+              <YAxis
+                yAxisId="left"
+                domain={[0, 'auto']}
+                tick={{ fill: '#9ca3af', fontSize: 11 }}
+                tickLine={false}
+                axisLine={false}
+                width={28}
+              />
+              <YAxis
+                yAxisId="right"
+                orientation="right"
+                domain={[0, 100]}
+                tick={{ fill: '#9ca3af', fontSize: 11 }}
+                tickLine={false}
+                axisLine={false}
+                width={28}
+              />
+              <Tooltip
+                contentStyle={{
+                  background: '#1f2937',
+                  border: '1px solid #374151',
+                  borderRadius: '8px',
+                  color: '#f3f4f6',
+                  fontSize: 12,
+                }}
+                formatter={(value, name) =>
+                  name === 'hours'
+                    ? [`${value} h`, 'Hours']
+                    : [`${value}`, 'Score']
+                }
+              />
+              <ReferenceLine
+                yAxisId="left"
+                y={8}
+                stroke="#6366f1"
+                strokeDasharray="4 2"
+                label={{ value: '8h', fill: '#818cf8', fontSize: 11 }}
+              />
+              <Bar
+                yAxisId="left"
+                dataKey="hours"
+                fill="#6366f1"
+                radius={[3, 3, 0, 0]}
+              />
+              <Line
+                yAxisId="right"
+                type="monotone"
+                dataKey="score"
+                stroke="#f59e0b"
+                strokeWidth={2}
+                dot={{ fill: '#f59e0b', r: 3 }}
+                activeDot={{ r: 5 }}
+                connectNulls
+              />
+            </ComposedChart>
+          </ResponsiveContainer>
+        </div>
+      ) : (
+        <div className="rounded-xl border border-gray-800 bg-gray-900 px-5 py-10 text-center">
+          <p className="text-sm text-gray-500">
+            No sleep logged in this range.
+          </p>
+        </div>
+      )}
 
       {/* Sleep log list */}
       <div className="rounded-xl border border-gray-800 bg-gray-900">

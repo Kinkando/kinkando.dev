@@ -55,6 +55,7 @@ const GROUPS: NavGroup[] = [
   { label: 'Portfolio', icon: 'portfolio', path: '/portfolio' },
   { label: 'News', icon: 'news', path: '/news' },
   { label: 'Today', icon: 'today', path: '/today', protected: true },
+  { label: 'Quest', icon: 'quest', path: '/quest', protected: true },
   {
     label: 'Kanban',
     icon: 'kanban',
@@ -79,7 +80,6 @@ const GROUPS: NavGroup[] = [
       { label: 'Sleep', path: '/health/sleep' },
     ],
   },
-  { label: 'Quest', icon: 'quest', path: '/quest', protected: true },
   { label: 'Chat', icon: 'chat', path: '/chat', protected: true },
 ]
 

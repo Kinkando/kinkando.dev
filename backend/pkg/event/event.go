@@ -16,6 +16,7 @@ const (
 	WorkoutSessionFinished Type = "workout.session.finished"
 	WeightLogged           Type = "weight.logged"
 	SleepLogged            Type = "sleep.logged"
+	QuestCompleted         Type = "quest.completed"
 )
 
 // Event carries the event type and the user it belongs to.

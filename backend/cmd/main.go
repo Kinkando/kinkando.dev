@@ -17,6 +17,9 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/kinkando/personal-dashboard/config"
 	aichatHandler "github.com/kinkando/personal-dashboard/internal/aichat/handler"
+	achievementHandler "github.com/kinkando/personal-dashboard/internal/achievement/handler"
+	achievementRepo "github.com/kinkando/personal-dashboard/internal/achievement/repository"
+	achievementSvc "github.com/kinkando/personal-dashboard/internal/achievement/service"
 	"github.com/kinkando/personal-dashboard/internal/auth"
 	"github.com/kinkando/personal-dashboard/internal/fcm"
 	financeHandler "github.com/kinkando/personal-dashboard/internal/finance/handler"
@@ -131,7 +134,7 @@ func main() {
 	medH := medicineHandler.New(medSvc, usrRepo)
 
 	qstRepo := questRepo.New(pgDB.SQL())
-	qstSvc := questSvc.New(qstRepo)
+	qstSvc := questSvc.New(qstRepo, bus)
 	qstH := questHandler.New(qstSvc, usrRepo)
 
 	// LINE client — constructed early so it can be shared with the notification module.
@@ -146,6 +149,12 @@ func main() {
 	notiRepo := notificationRepo.New(pgDB.SQL())
 	notiSvc := notificationSvc.New(notiRepo, lineClient, discordClient, fcmClient, usrRepo, logger)
 	notiH := notificationHandler.New(notiSvc, usrRepo)
+
+	// Achievements/badges — reads quest stats (level/XP/streaks) + counts, and
+	// notifies on unlock. Evaluated on domain events (see subscriptions below).
+	achRepo := achievementRepo.New(pgDB.SQL())
+	achSvc := achievementSvc.New(achRepo, qstSvc, notiSvc)
+	achH := achievementHandler.New(achSvc, usrRepo)
 
 	remLogRepo := reminderlog.New(pgDB.SQL())
 
@@ -214,6 +223,18 @@ func main() {
 		notiSvc.Notify(ctx, e.UserID, notification.Message{Title: "Workout complete", Body: "Great job! Your workout session has been recorded."})
 	})
 
+	// Evaluate achievements on every unlock-relevant event (idempotent; pushes a
+	// notification the moment a badge unlocks). QuestCompleted covers level/XP/
+	// quest-count + streak badges; the source events cover the count badges.
+	for _, t := range []event.Type{
+		event.MedicineTaken, event.SupplementTaken, event.WorkoutSessionFinished,
+		event.WeightLogged, event.SleepLogged, event.QuestCompleted,
+	} {
+		bus.Subscribe(t, func(ctx context.Context, e event.Event) {
+			_ = achSvc.EvaluateAndNotify(ctx, e.UserID)
+		})
+	}
+
 	portH := portfolioHandler.New()
 
 	app := fiber.New(fiber.Config{
@@ -260,6 +281,9 @@ func main() {
 
 	questGroup := api.Group("/quest", authMW.Require())
 	qstH.Register(questGroup)
+
+	achievementGroup := api.Group("/achievements", authMW.Require())
+	achH.Register(achievementGroup)
 
 	notificationGroup := api.Group("/notifications", authMW.Require())
 	notiH.Register(notificationGroup)

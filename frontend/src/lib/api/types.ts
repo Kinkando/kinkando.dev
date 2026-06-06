@@ -684,6 +684,25 @@ export type HeatmapDay = {
   completed: number
 }
 
+export type Achievement = {
+  code: string
+  title: string
+  description: string
+  icon: string
+  category: string
+  unlocked: boolean
+  unlocked_at: string | null
+  progress: number
+  target: number
+}
+
+export type AchievementsSummary = {
+  achievements: Achievement[]
+  unlocked_count: number
+  total: number
+  newly_unlocked: string[]
+}
+
 export type QuestStreaks = {
   days: HeatmapDay[]
   current_streak: number

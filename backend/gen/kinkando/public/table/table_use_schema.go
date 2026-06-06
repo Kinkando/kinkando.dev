@@ -28,6 +28,7 @@ func UseSchema(schema string) {
 	QuestPeriodResults = QuestPeriodResults.FromSchema(schema)
 	ReminderLog = ReminderLog.FromSchema(schema)
 	SchemaMigrations = SchemaMigrations.FromSchema(schema)
+	UserAchievements = UserAchievements.FromSchema(schema)
 	UserXpEvents = UserXpEvents.FromSchema(schema)
 	Users = Users.FromSchema(schema)
 	WorkoutPresetExercises = WorkoutPresetExercises.FromSchema(schema)

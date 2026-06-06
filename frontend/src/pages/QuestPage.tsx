@@ -5,15 +5,17 @@ import type { QuestType } from '../lib/api/types'
 import DashboardTab from '../components/quest/DashboardTab'
 import QuestTab from '../components/quest/QuestTab'
 import HistoryTab from '../components/quest/HistoryTab'
+import AchievementsTab from '../components/quest/AchievementsTab'
 import QuestFormDialog from '../components/quest/QuestFormDialog'
 import QuestActionsMenu from '../components/quest/QuestActionsMenu'
 
-type Tab = 'dashboard' | 'daily' | 'weekly' | 'history'
+type Tab = 'dashboard' | 'daily' | 'weekly' | 'badges' | 'history'
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'dashboard', label: 'Dashboard' },
   { key: 'daily', label: 'Daily' },
   { key: 'weekly', label: 'Weekly' },
+  { key: 'badges', label: 'Badges' },
   { key: 'history', label: 'History' },
 ]
 
@@ -111,6 +113,7 @@ export default function QuestPage() {
       {tab === 'weekly' && (
         <QuestTab type="weekly" quests={overviewQuery.data?.weekly ?? []} />
       )}
+      {tab === 'badges' && <AchievementsTab />}
       {tab === 'history' && <HistoryTab events={historyQuery.data ?? []} />}
 
       {createType !== null && (

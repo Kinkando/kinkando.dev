@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   fetchQuestOverview,
   fetchQuestStreaks,
+  fetchAchievements,
   fetchQuests,
   createQuest,
   updateQuest,
@@ -21,6 +22,10 @@ export function useQuestOverview() {
 
 export function useQuestStreaks() {
   return useQuery({ queryKey: keys.questStreaks, queryFn: fetchQuestStreaks })
+}
+
+export function useAchievements() {
+  return useQuery({ queryKey: keys.achievements, queryFn: fetchAchievements })
 }
 
 export function useQuests(type: string) {

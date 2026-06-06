@@ -6,8 +6,15 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/kinkando/personal-dashboard/internal/quest"
+	"github.com/kinkando/personal-dashboard/pkg/event"
 	"github.com/kinkando/personal-dashboard/pkg/helper"
 )
+
+// EventPublisher is the narrow interface quest depends on for emitting domain
+// events. *event.Bus satisfies it; quest never imports subscriber packages.
+type EventPublisher interface {
+	Publish(ctx context.Context, e event.Event)
+}
 
 type Repository interface {
 	CreateQuest(ctx context.Context, userID uuid.UUID, in quest.CreateQuestInput) (*quest.Quest, error)
@@ -30,11 +37,20 @@ type Repository interface {
 }
 
 type Service struct {
-	repo Repository
+	repo   Repository
+	events EventPublisher // nil-safe; set via New
 }
 
-func New(repo Repository) *Service {
-	return &Service{repo: repo}
+func New(repo Repository, events EventPublisher) *Service {
+	return &Service{repo: repo, events: events}
+}
+
+// publishCompleted emits QuestCompleted so cross-module subscribers (e.g.
+// achievements) can re-evaluate level/XP/quest-count milestones. nil-safe.
+func (s *Service) publishCompleted(ctx context.Context, userID uuid.UUID) {
+	if s.events != nil {
+		s.events.Publish(ctx, event.Event{Type: event.QuestCompleted, UserID: userID})
+	}
 }
 
 // ── Quest CRUD ────────────────────────────────────────────────────────────────
@@ -227,7 +243,11 @@ func (s *Service) IncrementQuest(ctx context.Context, userID uuid.UUID, questID 
 		return questError("this quest is auto-managed and cannot be manually incremented")
 	}
 	periodStart, source := s.periodFor(q.Type)
-	return s.repo.Increment(ctx, userID, questID, periodStart, source)
+	if err := s.repo.Increment(ctx, userID, questID, periodStart, source); err != nil {
+		return err
+	}
+	s.publishCompleted(ctx, userID)
+	return nil
 }
 
 // DecrementQuest removes the most recent completion for the quest's current period.
@@ -247,7 +267,11 @@ func (s *Service) DecrementQuest(ctx context.Context, userID uuid.UUID, questID 
 // HandleSourceEvent advances all active quests linked to the given sourceType
 // for the user. Called by the event bus — never by the user directly.
 func (s *Service) HandleSourceEvent(ctx context.Context, userID uuid.UUID, sourceType string) error {
-	return s.repo.ProgressBySource(ctx, userID, sourceType, helper.Today(), s.weekStart())
+	if err := s.repo.ProgressBySource(ctx, userID, sourceType, helper.Today(), s.weekStart()); err != nil {
+		return err
+	}
+	s.publishCompleted(ctx, userID)
+	return nil
 }
 
 // periodFor returns the period start time and XP source label for the given quest type.

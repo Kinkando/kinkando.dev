@@ -28,6 +28,7 @@ export const keys = {
     ['medicine', 'adjustments', date] as const,
   questOverview: ['quest', 'overview'] as const,
   questStreaks: ['quest', 'streaks'] as const,
+  achievements: ['achievements'] as const,
   questList: (type: string) => ['quest', 'list', type] as const,
   questHistory: ['quest', 'history'] as const,
   notificationSettings: ['notifications', 'settings'] as const,

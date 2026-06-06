@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { signOut } from 'firebase/auth'
 import { auth } from '../lib/firebase'
 import { useAuth } from '../auth/AuthContext'
+import InstallButton from './InstallButton'
 
 const ICONS = {
   today:
@@ -255,6 +256,7 @@ export default function NavBar() {
                       <NavIcon name="notifications" />
                       Notifications
                     </Link>
+                    <InstallButton onAction={() => setAvatarOpen(false)} />
                     <button
                       onClick={() => {
                         setAvatarOpen(false)
@@ -455,6 +457,11 @@ export default function NavBar() {
                 <NavIcon name="notifications" />
                 Notifications
               </Link>
+              <InstallButton
+                className="flex w-full cursor-pointer items-center gap-2 py-2 text-left text-gray-400 transition-colors hover:text-gray-100"
+                hintClassName="pb-2 text-xs text-gray-500"
+                onAction={closeDrawer}
+              />
               <button
                 onClick={() => {
                   closeDrawer()

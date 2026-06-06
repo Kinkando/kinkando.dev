@@ -106,7 +106,7 @@ export default function ProgressTab({ profile }: Props) {
   const loggedToday =
     weightLogs?.some((w) => w.logged_at.slice(0, 10) === todayDate()) ?? false
 
-  function handleEdit(w: (typeof weightLogs)[number]) {
+  function handleEdit(w: NonNullable<typeof weightLogs>[number]) {
     setEditingId(w.id)
     setForm({
       weight: String(w.weight),

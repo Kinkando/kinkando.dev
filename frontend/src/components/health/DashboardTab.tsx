@@ -9,25 +9,13 @@ import {
 } from 'recharts'
 import type { HealthProfile, WeightLog } from '../../lib/api/types'
 import { computeBmi, bmiCategory, bmiColor } from './bmi'
-import { calculateAge } from '../../lib/date'
+import { calculateAge, formatDate } from '../../lib/date'
+import { GOAL_LABELS } from '../../lib/health'
 
 type Props = {
   profile: HealthProfile | null | undefined
   weightLogs: WeightLog[] | undefined
   onGoToSettings: () => void
-}
-
-const GOAL_LABELS: Record<string, string> = {
-  lose_weight: 'Lose Weight',
-  maintain: 'Maintain',
-  gain_muscle: 'Gain Muscle',
-}
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString(undefined, {
-    month: 'short',
-    day: 'numeric',
-  })
 }
 
 export default function DashboardTab({
@@ -49,7 +37,10 @@ export default function DashboardTab({
   const sparkData =
     weightLogs
       ?.slice(-20)
-      .map((w) => ({ date: formatDate(w.logged_at), weight: w.weight })) ?? []
+      .map((w) => ({
+        date: formatDate(w.logged_at, { month: 'short', day: 'numeric' }),
+        weight: w.weight,
+      })) ?? []
 
   if (!profile && !latestWeight) {
     return (

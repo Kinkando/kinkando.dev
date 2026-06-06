@@ -3,26 +3,15 @@ import { useEffect, useRef, useState } from 'react'
 import type { FinanceRecord } from '../../lib/api/types'
 import { useDeleteRecord } from '../../queries/useFinance'
 import { getIcon } from '../../lib/icons'
-
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'THB',
-  }).format(amount)
-}
+import { formatCurrency } from '../../lib/format'
+import { formatDate, formatTime } from '../../lib/date'
+import { RECORD_TYPE_META } from '../../lib/finance'
 
 function formatGroupDate(date: string): string {
-  return new Date(date + 'T00:00:00').toLocaleDateString('en-US', {
+  return formatDate(date + 'T00:00:00', {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
-  })
-}
-
-function formatTime(ts: string): string {
-  return new Date(ts).toLocaleTimeString('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
   })
 }
 
@@ -87,14 +76,11 @@ export default function RecordList({
                   const catColor = record.category?.color
                   const Icon = catIcon ? getIcon(catIcon) : null
 
+                  const meta = RECORD_TYPE_META[record.type]
                   return (
                     <li
                       key={record.id}
-                      className={`relative rounded-xl border px-3 pt-2 pb-3 ${
-                        record.type === 'income'
-                          ? 'border-green-900/40 bg-green-950/30'
-                          : 'border-red-900/40 bg-red-950/30'
-                      }`}
+                      className={`relative rounded-xl border px-3 pt-2 pb-3 ${meta.cardClass}`}
                     >
                       {/* Delete — top right */}
                       <button
@@ -110,15 +96,8 @@ export default function RecordList({
                         <span
                           className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl"
                           style={{
-                            backgroundColor:
-                              record.type === 'income'
-                                ? '#16a34a26'
-                                : '#dc262626',
-                            color:
-                              catColor ??
-                              (record.type === 'income'
-                                ? '#4ade80'
-                                : '#f87171'),
+                            backgroundColor: meta.bgColor,
+                            color: catColor ?? meta.iconColor,
                           }}
                         >
                           {Icon ? (
@@ -139,19 +118,18 @@ export default function RecordList({
                             </p>
                           )}
                           <p className="mt-0.5 text-xs text-gray-600">
-                            {formatTime(record.created_at)}
+                            {formatTime(record.created_at, {
+                              hour: 'numeric',
+                              minute: '2-digit',
+                            })}
                           </p>
                         </div>
 
                         {/* Amount */}
                         <span
-                          className={`shrink-0 text-sm font-semibold whitespace-nowrap ${
-                            record.type === 'income'
-                              ? 'text-green-400'
-                              : 'text-red-400'
-                          }`}
+                          className={`shrink-0 text-sm font-semibold whitespace-nowrap ${meta.textClass}`}
                         >
-                          {record.type === 'income' ? '+' : '-'}
+                          {meta.sign}
                           {formatCurrency(record.amount)}
                         </span>
                       </div>
@@ -220,12 +198,8 @@ function ConfirmDeleteDialog({
         <p className="mb-5 text-sm text-gray-400">
           <b className="underline">{catName}</b>{' '}
           {record.note && <>{record.note} </>}
-          <span
-            className={
-              record.type === 'income' ? 'text-green-400' : 'text-red-400'
-            }
-          >
-            {record.type === 'income' ? '+' : '-'}
+          <span className={RECORD_TYPE_META[record.type].textClass}>
+            {RECORD_TYPE_META[record.type].sign}
             {amount}
           </span>
         </p>

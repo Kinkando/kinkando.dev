@@ -6,25 +6,11 @@ import type {
   ExerciseSection,
 } from '../../lib/api/types'
 import { useSession } from '../../queries/useWorkout'
-import { WORKOUT_TYPE_LABELS } from '../../lib/workout'
-
-const SECTION_LABELS: Record<ExerciseSection, string> = {
-  warmup: '🔥 Warm-up',
-  main: '🏋️ Main',
-  cooldown: '❄️ Cool-down',
-}
+import { WORKOUT_TYPE_LABELS, SECTION_LABELS_EMOJI } from '../../lib/workout'
+import { formatDate } from '../../lib/date'
 
 type Props = {
   sessions: WorkoutSession[] | undefined
-}
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString(undefined, {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  })
 }
 
 function ExerciseSummaryRow({ ex }: { ex: WorkoutSessionExercise }) {
@@ -97,7 +83,7 @@ function SessionDetail({ sessionId }: { sessionId: string }) {
         return (
           <div key={section}>
             <p className="mb-1 text-xs font-semibold tracking-wide text-gray-600 uppercase">
-              {SECTION_LABELS[section]}
+              {SECTION_LABELS_EMOJI[section]}
             </p>
             <div className="space-y-0.5">
               {exs.map((ex) => (
@@ -165,7 +151,14 @@ export default function HistoryTab({ sessions }: Props) {
                   </span>
                 </div>
                 <div className="mt-0.5 flex flex-wrap gap-2 text-xs text-gray-500">
-                  <span>{formatDate(session.performed_at)}</span>
+                  <span>
+                    {formatDate(session.performed_at, {
+                      weekday: 'short',
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric',
+                    })}
+                  </span>
                   {session.duration_minutes != null && (
                     <span>⏱ {session.duration_minutes} min</span>
                   )}

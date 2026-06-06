@@ -8,6 +8,8 @@ import {
   useDeleteCategory,
 } from '../../queries/useFinance'
 import { getIcon, ICON_NAMES } from '../../lib/icons'
+import { RECORD_TYPES, RECORD_TYPE_META } from '../../lib/finance'
+import { cn } from '../../lib/cn'
 import { ChevronDown } from 'lucide-react'
 
 const DEFAULT_COLORS = [
@@ -209,15 +211,18 @@ export default function CategoryManager() {
           {isLoading ? (
             <p className="text-sm text-gray-500">Loading categories…</p>
           ) : (
-            (['income', 'expense'] as RecordType[]).map((t) => {
+            RECORD_TYPES.map((t) => {
               const list = t === 'income' ? income : expense
               return (
                 <div key={t} className="flex flex-col gap-2">
                   <div className="flex items-center justify-between">
                     <span
-                      className={`text-xs font-medium ${t === 'income' ? 'text-green-400' : 'text-red-400'}`}
+                      className={cn(
+                        'text-xs font-medium',
+                        RECORD_TYPE_META[t].textClass,
+                      )}
                     >
-                      {t.charAt(0).toUpperCase() + t.slice(1)}
+                      {RECORD_TYPE_META[t].label}
                     </span>
                     {adding !== t && editing?.type !== t && (
                       <button

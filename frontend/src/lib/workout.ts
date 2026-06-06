@@ -1,4 +1,4 @@
-import type { WorkoutType } from './api/types'
+import type { ExerciseSection, WorkoutType } from './api/types'
 
 // Labels for all 7 workout types — use this instead of a closed literal record so
 // TypeScript catches any missing keys when WorkoutType is widened.
@@ -21,6 +21,23 @@ export const PRESET_TYPES: WorkoutType[] = [
   'cardio',
   'mobility',
 ]
+
+// Ordered list of exercise sections.
+export const SECTIONS: ExerciseSection[] = ['warmup', 'main', 'cooldown']
+
+// Plain section labels (for forms and compact displays).
+export const SECTION_LABELS: Record<ExerciseSection, string> = {
+  warmup: 'Warm-up',
+  main: 'Main',
+  cooldown: 'Cool-down',
+}
+
+// Emoji section labels (for session views and history).
+export const SECTION_LABELS_EMOJI: Record<ExerciseSection, string> = {
+  warmup: '🔥 Warm-up',
+  main: '🏋️ Main',
+  cooldown: '❄️ Cool-down',
+}
 
 // Quick-start buttons shown on the Today tab (excludes 'walking').
 export const QUICK_START_TYPES: { type: WorkoutType; label: string }[] = [

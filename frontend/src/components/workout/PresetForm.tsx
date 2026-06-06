@@ -6,7 +6,12 @@ import type {
   WorkoutPresetExerciseInput,
   CreatePresetInput,
 } from '../../lib/api/types'
-import { PRESET_TYPES, WORKOUT_TYPE_LABELS } from '../../lib/workout'
+import {
+  PRESET_TYPES,
+  WORKOUT_TYPE_LABELS,
+  SECTIONS,
+  SECTION_LABELS,
+} from '../../lib/workout'
 
 type Props = {
   preset?: WorkoutPreset
@@ -20,13 +25,6 @@ const inputClass =
 const labelClass = 'mb-1 block text-xs font-medium text-gray-400'
 const smallInputClass =
   'w-full rounded-md border border-gray-700 bg-gray-800 px-2 py-1.5 text-xs text-gray-100 placeholder-gray-500 focus:border-indigo-500 focus:outline-none'
-
-const SECTIONS: ExerciseSection[] = ['warmup', 'main', 'cooldown']
-const SECTION_LABELS: Record<ExerciseSection, string> = {
-  warmup: 'Warm-up',
-  main: 'Main',
-  cooldown: 'Cool-down',
-}
 
 type ExerciseRow = {
   section: ExerciseSection

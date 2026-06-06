@@ -1,12 +1,6 @@
 import type { MonthlySummary } from '../../lib/api/types'
 import { getIcon } from '../../lib/icons'
-
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'THB',
-  }).format(amount)
-}
+import { formatCurrency } from '../../lib/format'
 
 export default function SummaryPanel({ summary }: { summary: MonthlySummary }) {
   return (

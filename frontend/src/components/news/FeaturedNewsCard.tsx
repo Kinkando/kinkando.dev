@@ -1,13 +1,6 @@
 import { CATEGORY_STYLE } from '../../lib/news'
 import type { NewsItem } from '../../lib/news'
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('en-GB', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  })
-}
+import { formatDate } from '../../lib/date'
 
 interface Props {
   item: NewsItem

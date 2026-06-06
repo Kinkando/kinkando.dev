@@ -8,6 +8,13 @@ import type {
   MedicineTiming,
 } from '../../lib/api/types'
 import { useCreateMedicine, useUpdateMedicine } from '../../queries/useMedicine'
+import {
+  FREQUENCY_TYPES,
+  FREQUENCY_LABELS,
+  SOURCE_TYPES,
+  SOURCE_LABELS,
+  TIMINGS,
+} from '../../lib/medicine'
 
 type Props = {
   initial?: Medicine
@@ -19,39 +26,6 @@ type Props = {
 const inputClass =
   'w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:border-indigo-500 focus:outline-none'
 const labelClass = 'mb-1 block text-xs font-medium text-gray-400'
-
-const FREQUENCY_TYPES: FrequencyType[] = [
-  'daily',
-  'weekly',
-  'as_needed',
-  'custom',
-]
-const FREQUENCY_LABELS: Record<FrequencyType, string> = {
-  daily: 'Daily',
-  weekly: 'Weekly',
-  as_needed: 'As needed',
-  custom: 'Custom',
-}
-
-const SOURCE_TYPES: MedicineSourceType[] = ['medication', 'supplement']
-const SOURCE_LABELS: Record<MedicineSourceType, string> = {
-  medication: 'Medication',
-  supplement: 'Supplement',
-}
-
-const TIMINGS: Array<{ value: MedicineTiming | ''; label: string }> = [
-  { value: '', label: 'Not specified' },
-  { value: 'anytime', label: 'Anytime' },
-  { value: 'before_meal', label: 'Before meal' },
-  { value: 'after_meal', label: 'After meal' },
-  { value: 'before_breakfast', label: 'Before breakfast' },
-  { value: 'after_breakfast', label: 'After breakfast' },
-  { value: 'before_lunch', label: 'Before lunch' },
-  { value: 'after_lunch', label: 'After lunch' },
-  { value: 'before_dinner', label: 'Before dinner' },
-  { value: 'after_dinner', label: 'After dinner' },
-  { value: 'before_bed', label: 'Before bed' },
-]
 
 type FormState = {
   name: string

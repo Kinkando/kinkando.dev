@@ -16,7 +16,7 @@ import {
   useUpdateWeightLog,
   useDeleteWeightLog,
 } from '../../queries/useHealth'
-import { todayDate, addDays } from '../../lib/date'
+import { todayDate, addDays, formatDate } from '../../lib/date'
 
 type Props = {
   profile: HealthProfile | null | undefined
@@ -29,14 +29,6 @@ const inputDisabledClass =
   'w-full rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-500 cursor-not-allowed'
 
 const labelClass = 'mb-1 block text-xs font-medium text-gray-400'
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  })
-}
 
 type FormState = {
   weight: string

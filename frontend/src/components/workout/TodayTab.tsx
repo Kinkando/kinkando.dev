@@ -19,20 +19,17 @@ import {
   useAddSessionExercise,
   useDeleteSessionExercise,
 } from '../../queries/useWorkout'
-import { WORKOUT_TYPE_LABELS, QUICK_START_TYPES } from '../../lib/workout'
+import {
+  WORKOUT_TYPE_LABELS,
+  QUICK_START_TYPES,
+  SECTIONS,
+  SECTION_LABELS_EMOJI,
+} from '../../lib/workout'
 
 const defaultDurationMinutes = 60
 
 const inputClass =
   'w-full rounded-md border border-gray-700 bg-gray-800 px-2 py-1.5 text-xs text-gray-100 placeholder-gray-500 focus:border-indigo-500 focus:outline-none'
-
-const SECTION_LABELS: Record<ExerciseSection, string> = {
-  warmup: '🔥 Warm-up',
-  main: '🏋️ Main',
-  cooldown: '❄️ Cool-down',
-}
-
-const SECTIONS: ExerciseSection[] = ['warmup', 'main', 'cooldown']
 
 const DAY_NAMES = [
   'Sunday',
@@ -397,7 +394,7 @@ function AddExerciseForm({
           >
             {SECTIONS.map((s) => (
               <option key={s} value={s}>
-                {SECTION_LABELS[s]}
+                {SECTION_LABELS_EMOJI[s]}
               </option>
             ))}
           </select>
@@ -850,7 +847,7 @@ function SessionView({
             return (
               <div key={section} className="space-y-2">
                 <h4 className="text-xs font-semibold tracking-wide text-gray-500 uppercase">
-                  {SECTION_LABELS[section]}
+                  {SECTION_LABELS_EMOJI[section]}
                 </h4>
                 {exs.map((ex) => (
                   <ExerciseLogRow

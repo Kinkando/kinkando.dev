@@ -11,47 +11,16 @@ import {
   useMedicineIntakes,
   useStockAdjustments,
 } from '../../queries/useMedicine'
+import {
+  STATUS_LABELS,
+  STATUS_COLORS,
+  ADJ_LABELS,
+  ADJ_COLORS,
+} from '../../lib/medicine'
+import { formatDate, formatTime } from '../../lib/date'
 
 const inputClass =
   'rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 focus:border-indigo-500 focus:outline-none'
-
-const STATUS_LABELS: Record<IntakeStatus, string> = {
-  taken: 'Taken',
-  skipped: 'Skipped',
-  missed: 'Missed',
-}
-
-const STATUS_COLORS: Record<IntakeStatus, string> = {
-  taken: 'text-emerald-400 bg-emerald-900/30',
-  skipped: 'text-yellow-400 bg-yellow-900/30',
-  missed: 'text-red-400 bg-red-900/30',
-}
-
-const ADJ_LABELS: Record<AdjustmentType, string> = {
-  add: '+ Add',
-  remove: '- Remove',
-  correction: '= Set',
-}
-
-const ADJ_COLORS: Record<AdjustmentType, string> = {
-  add: 'text-emerald-400 bg-emerald-900/30',
-  remove: 'text-red-400 bg-red-900/30',
-  correction: 'text-blue-400 bg-blue-900/30',
-}
-
-function formatTime(iso: string) {
-  return new Date(iso).toLocaleTimeString(undefined, {
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString(undefined, {
-    month: 'short',
-    day: 'numeric',
-  })
-}
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10)
@@ -183,7 +152,10 @@ function IntakeList({
           <li key={intake.id} className="flex items-center gap-3 px-5 py-3">
             <span className="w-12 shrink-0 text-xs text-gray-500">
               {showDate
-                ? formatDate(intake.taken_at)
+                ? formatDate(intake.taken_at, {
+                    month: 'short',
+                    day: 'numeric',
+                  })
                 : formatTime(intake.taken_at)}
             </span>
             <span
@@ -225,7 +197,7 @@ function AdjustmentList({
         {adjustments.map((adj) => (
           <li key={adj.id} className="flex items-center gap-3 px-5 py-3">
             <span className="w-12 shrink-0 text-xs text-gray-500">
-              {formatDate(adj.created_at)}
+              {formatDate(adj.created_at, { month: 'short', day: 'numeric' })}
             </span>
             <span
               className={`shrink-0 rounded px-1.5 py-0.5 text-xs ${ADJ_COLORS[adj.type]}`}

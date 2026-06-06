@@ -2,6 +2,12 @@ import { useEffect, useState } from 'react'
 import type { HealthProfile, Gender, HealthGoal } from '../../lib/api/types'
 import { useUpsertProfile, useCreateWeightLog } from '../../queries/useHealth'
 import { todayDate } from '../../lib/date'
+import {
+  GENDERS,
+  GENDER_LABELS,
+  HEALTH_GOALS,
+  GOAL_LABELS,
+} from '../../lib/health'
 
 type Props = {
   profile: HealthProfile | null | undefined
@@ -129,9 +135,11 @@ export default function SettingsTab({ profile }: Props) {
                 onChange={(e) => setGender(e.target.value as Gender | '')}
               >
                 <option value="">— Select —</option>
-                <option value="male">Male</option>
-                <option value="female">Female</option>
-                <option value="other">Other</option>
+                {GENDERS.map((g) => (
+                  <option key={g} value={g}>
+                    {GENDER_LABELS[g]}
+                  </option>
+                ))}
               </select>
             </div>
             <div>
@@ -142,9 +150,11 @@ export default function SettingsTab({ profile }: Props) {
                 onChange={(e) => setGoal(e.target.value as HealthGoal | '')}
               >
                 <option value="">— Select —</option>
-                <option value="lose_weight">Lose Weight</option>
-                <option value="maintain">Maintain</option>
-                <option value="gain_muscle">Gain Muscle</option>
+                {HEALTH_GOALS.map((g) => (
+                  <option key={g} value={g}>
+                    {GOAL_LABELS[g]}
+                  </option>
+                ))}
               </select>
             </div>
           </div>

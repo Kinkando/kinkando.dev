@@ -3,6 +3,8 @@ import type { FormEvent } from 'react'
 import type { CreateRecordInput, RecordType } from '../../lib/api/types'
 import { useCreateRecord, useCategories } from '../../queries/useFinance'
 import { getIcon } from '../../lib/icons'
+import { RECORD_TYPES, RECORD_TYPE_META } from '../../lib/finance'
+import { cn } from '../../lib/cn'
 import { ChevronDown } from 'lucide-react'
 import { todayDate } from '../../lib/date'
 
@@ -62,20 +64,19 @@ export default function RecordForm({ month }: { month: string }) {
       className="flex flex-col gap-3 rounded-xl border border-gray-800 bg-gray-900 p-5"
     >
       <div className="flex gap-2">
-        {(['income', 'expense'] as RecordType[]).map((t) => (
+        {RECORD_TYPES.map((t) => (
           <button
             key={t}
             type="button"
             onClick={() => handleTypeChange(t)}
-            className={`flex-1 cursor-pointer rounded-lg py-1.5 text-sm font-medium ${
+            className={cn(
+              'flex-1 cursor-pointer rounded-lg py-1.5 text-sm font-medium',
               type === t
-                ? t === 'income'
-                  ? 'bg-green-700 text-white'
-                  : 'bg-red-700 text-white'
-                : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
-            }`}
+                ? RECORD_TYPE_META[t].activeClass
+                : 'bg-gray-800 text-gray-400 hover:bg-gray-700',
+            )}
           >
-            {t.charAt(0).toUpperCase() + t.slice(1)}
+            {RECORD_TYPE_META[t].label}
           </button>
         ))}
       </div>

@@ -9,7 +9,12 @@ import {
   isLowStock,
   estimatedDaysRemaining,
   requiredDailyDoses,
+  SOURCE_LABELS,
+  SOURCE_BADGE,
+  TIMING_LABELS,
+  FREQUENCY_LABELS,
 } from '../../lib/medicine'
+import { cn } from '../../lib/cn'
 import TakeDialog from './TakeDialog'
 import AdjustStockDialog from './AdjustStockDialog'
 import MedicineFormDialog from './MedicineFormDialog'
@@ -17,36 +22,6 @@ import MedicineFormDialog from './MedicineFormDialog'
 type Props = {
   medicine: Medicine
   takenToday: number
-}
-
-const SOURCE_BADGE: Record<string, string> = {
-  medication: 'bg-indigo-900/50 text-indigo-300',
-  supplement: 'bg-emerald-900/50 text-emerald-300',
-}
-
-const SOURCE_LABELS: Record<string, string> = {
-  medication: 'Medication',
-  supplement: 'Supplement',
-}
-
-const TIMING_LABELS: Record<string, string> = {
-  before_meal: 'Before meal',
-  after_meal: 'After meal',
-  before_breakfast: 'Before breakfast',
-  after_breakfast: 'After breakfast',
-  before_lunch: 'Before lunch',
-  after_lunch: 'After lunch',
-  before_dinner: 'Before dinner',
-  after_dinner: 'After dinner',
-  before_bed: 'Before bed',
-  anytime: 'Anytime',
-}
-
-const FREQUENCY_LABELS: Record<string, string> = {
-  daily: 'Daily',
-  weekly: 'Weekly',
-  as_needed: 'As needed',
-  custom: 'Custom',
 }
 
 export default function MedicineCard({ medicine: med, takenToday }: Props) {
@@ -79,7 +54,10 @@ export default function MedicineCard({ medicine: med, takenToday }: Props) {
   return (
     <>
       <div
-        className={`rounded-xl border bg-gray-900 p-4 ${isArchived ? 'border-gray-700 opacity-60' : 'border-gray-800'}`}
+        className={cn(
+          'rounded-xl border bg-gray-900 p-4',
+          isArchived ? 'border-gray-700 opacity-60' : 'border-gray-800',
+        )}
       >
         {/* Header */}
         <div className="mb-2 flex items-start justify-between gap-2">

@@ -1,22 +1,15 @@
 import { useState } from 'react'
-import type { FoodLog, MealType } from '../../lib/api/types'
+import type { FoodLog } from '../../lib/api/types'
 import {
   useCreateFoodLog,
   useUpdateFoodLog,
   useDeleteFoodLog,
 } from '../../queries/useHealth'
+import { MEAL_TYPES, MEAL_LABELS } from '../../lib/health'
+import { formatDate } from '../../lib/date'
 
 type Props = {
   foodLogs: FoodLog[] | undefined
-}
-
-const MEAL_TYPES: MealType[] = ['breakfast', 'lunch', 'dinner', 'snack']
-
-const MEAL_LABELS: Record<MealType, string> = {
-  breakfast: 'Breakfast',
-  lunch: 'Lunch',
-  dinner: 'Dinner',
-  snack: 'Snack',
 }
 
 const inputClass =
@@ -26,14 +19,6 @@ const labelClass = 'mb-1 block text-xs font-medium text-gray-400'
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10)
-}
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  })
 }
 
 type FormState = {

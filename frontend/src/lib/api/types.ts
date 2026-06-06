@@ -232,6 +232,28 @@ export type ChatUsage = {
 
 export type ChatResponseMode = 'text' | 'voice'
 
+export type PortfolioProfile = {
+  name: string
+  title: string
+  summary: string
+  email: string
+  github: string
+}
+
+export type PortfolioExperience = {
+  role: string
+  company: string
+  period: string
+  highlights: string[]
+}
+
+export type PortfolioEducation = {
+  school: string
+  degree: string
+  detail: string
+  period: string
+}
+
 export type PortfolioProject = {
   name: string
   description: string

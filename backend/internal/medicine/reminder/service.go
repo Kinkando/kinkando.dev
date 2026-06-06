@@ -155,46 +155,59 @@ func (s *Service) Run(ctx context.Context) (*RunResult, error) {
 
 				slotKey := fmt.Sprintf("%s#%s", todayKey, timeStr)
 
+				// hasTakenNearSlot reports whether a `taken` intake exists within the
+				// window [slot-30m, slot+90m). Shared by the dose and missed branches.
+				hasTakenNearSlot := func(medID uuid.UUID, slot time.Time) (bool, error) {
+					intakes, err := s.medRepo.ListIntakesInRange(
+						ctx, medID,
+						slot.Add(-30*time.Minute),
+						slot.Add(90*time.Minute),
+					)
+					if err != nil {
+						return false, err
+					}
+					for _, intake := range intakes {
+						if intake.Status == medicine.IntakeStatusTaken {
+							return true, nil
+						}
+					}
+					return false, nil
+				}
+
 				// Dose due: slot falls in (now - cronInterval, now]
 				windowStart := now.Add(-cronInterval)
 				if !slotTime.Before(windowStart) && !slotTime.After(now) {
-					logged, logErr := s.medRepo.LogReminder(ctx, userID, m.ID, "dose", slotKey)
-					if logErr != nil {
-						s.log.Warn("reminder: log dose", zap.String("medicine_id", m.ID.String()), zap.Error(logErr))
+					taken, takenErr := hasTakenNearSlot(m.ID, slotTime)
+					if takenErr != nil {
+						s.log.Warn("reminder: taken check for dose",
+							zap.String("medicine_id", m.ID.String()), zap.Error(takenErr))
 					}
-					if logged {
-						unit := ""
-						if m.DosageUnit != nil {
-							unit = " " + *m.DosageUnit
+					if !taken {
+						logged, logErr := s.medRepo.LogReminder(ctx, userID, m.ID, "dose", slotKey)
+						if logErr != nil {
+							s.log.Warn("reminder: log dose", zap.String("medicine_id", m.ID.String()), zap.Error(logErr))
 						}
-						doseLines = append(doseLines, fmt.Sprintf("%s (%.4g%s)", m.Name, m.DosageAmount, unit))
-						result.ItemsByType["dose"]++
+						if logged {
+							unit := ""
+							if m.DosageUnit != nil {
+								unit = " " + *m.DosageUnit
+							}
+							doseLines = append(doseLines, fmt.Sprintf("%s (%.4g%s)", m.Name, m.DosageAmount, unit))
+							result.ItemsByType["dose"]++
+						}
 					}
 				}
 
 				// Missed: slot passed more than missedGrace ago AND no taken intake near that slot
 				if now.Sub(slotTime) > missedGrace && slotTime.Before(now) {
 					missedKey := "missed#" + slotKey
-					// Check first whether we already logged a missed reminder for this slot
-					// to avoid the intake scan on repeat runs.
-					intakes, intakeErr := s.medRepo.ListIntakesInRange(
-						ctx, m.ID,
-						slotTime.Add(-30*time.Minute),
-						slotTime.Add(90*time.Minute),
-					)
-					if intakeErr != nil {
+					taken, takenErr := hasTakenNearSlot(m.ID, slotTime)
+					if takenErr != nil {
 						s.log.Warn("reminder: list intakes for missed check",
-							zap.String("medicine_id", m.ID.String()), zap.Error(intakeErr))
+							zap.String("medicine_id", m.ID.String()), zap.Error(takenErr))
 						continue
 					}
-					hasTaken := false
-					for _, intake := range intakes {
-						if intake.Status == medicine.IntakeStatusTaken {
-							hasTaken = true
-							break
-						}
-					}
-					if !hasTaken {
+					if !taken {
 						logged, logErr := s.medRepo.LogReminder(ctx, userID, m.ID, "missed", missedKey)
 						if logErr != nil {
 							s.log.Warn("reminder: log missed", zap.String("medicine_id", m.ID.String()), zap.Error(logErr))

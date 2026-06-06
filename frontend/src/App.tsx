@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import NavBar from './components/NavBar'
+import TopLoader from './components/TopLoader'
 import PortfolioPage from './pages/PortfolioPage'
 import LoginPage from './pages/LoginPage'
 // import RegisterPage from './pages/RegisterPage'
@@ -46,6 +47,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gray-950 pb-16 text-gray-100 xl:pb-0">
+      <TopLoader />
       <NavBar />
       <Routes>
         <Route path="/" element={<Navigate to="/portfolio" replace />} />

@@ -42,6 +42,8 @@ import (
 	medicineSvc "github.com/kinkando/personal-dashboard/internal/medicine/service"
 	questReminder  "github.com/kinkando/personal-dashboard/internal/quest/reminder"
 	questSnapshot  "github.com/kinkando/personal-dashboard/internal/quest/snapshot"
+	newsHandler "github.com/kinkando/personal-dashboard/internal/news/handler"
+	newsSvc "github.com/kinkando/personal-dashboard/internal/news/service"
 	"github.com/kinkando/personal-dashboard/internal/reminderlog"
 	"github.com/kinkando/personal-dashboard/internal/notification"
 	notificationHandler "github.com/kinkando/personal-dashboard/internal/notification/handler"
@@ -237,6 +239,9 @@ func main() {
 
 	portH := portfolioHandler.New()
 
+	newsService := newsSvc.New(logger)
+	newsH := newsHandler.New(newsService)
+
 	app := fiber.New(fiber.Config{
 		ErrorHandler: func(c *fiber.Ctx, err error) error {
 			code := fiber.StatusInternalServerError
@@ -290,6 +295,10 @@ func main() {
 
 	portfolioGroup := api.Group("/portfolio")
 	portH.Register(portfolioGroup)
+
+	// News — public (the /news page is unauthenticated); RSS-backed, server-cached.
+	newsGroup := api.Group("/news")
+	newsH.Register(newsGroup)
 
 	// Cron endpoints — authenticated by shared secret, not Firebase.
 	// Called by the Cloudflare cron worker at cronjob.kinkandojester.workers.dev.

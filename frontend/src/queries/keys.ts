@@ -2,6 +2,7 @@ import type { ArchiveFilter } from '../lib/api/types'
 
 export const keys = {
   userMe: ['user', 'me'] as const,
+  news: ['news'] as const,
   portfolioProjects: ['portfolio', 'projects'] as const,
   portfolioSkills: ['portfolio', 'skills'] as const,
   financeRecords: (month: string) => ['finance', 'records', month] as const,

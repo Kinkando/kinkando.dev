@@ -19,6 +19,7 @@ type Repository interface {
 
 	GetQuestStatus(ctx context.Context, userID uuid.UUID, questType quest.QuestType, today time.Time) ([]*quest.QuestStatus, error)
 	TotalXP(ctx context.Context, userID uuid.UUID) (int, error)
+	ListDailyResults(ctx context.Context, userID uuid.UUID, from, to time.Time) ([]quest.PeriodResultRow, error)
 
 	Increment(ctx context.Context, userID uuid.UUID, questID uuid.UUID, periodStart time.Time, source string) error
 	Decrement(ctx context.Context, userID uuid.UUID, questID uuid.UUID, periodStart time.Time) error
@@ -113,6 +114,103 @@ func (s *Service) GetOverview(ctx context.Context, userID uuid.UUID) (*quest.Ove
 		WeeklyTotal:   len(weekly),
 		DailyBonusXP:  quest.DailyBonusXP,
 		WeeklyBonusXP: quest.WeeklyBonusXP,
+	}, nil
+}
+
+// ── Streaks ───────────────────────────────────────────────────────────────────
+
+// GetStreaks builds the daily-quest consistency heatmap and streak counters for
+// the trailing 365 days. The quest_period_results snapshot only holds finalized
+// (past) days, so today's live status is merged on top via GetQuestStatus. A
+// "perfect day" is one where every active daily quest reached its target; a day
+// with no active daily quests is a gap that breaks a streak.
+func (s *Service) GetStreaks(ctx context.Context, userID uuid.UUID) (*quest.StreakSummary, error) {
+	today := helper.Today()
+	from := today.AddDate(0, 0, -364)
+
+	rows, err := s.repo.ListDailyResults(ctx, userID, from, today)
+	if err != nil {
+		return nil, err
+	}
+
+	// Aggregate snapshot rows by day → {total, completed}.
+	type agg struct{ total, completed int }
+	byDay := map[string]*agg{}
+	for _, r := range rows {
+		k := r.PeriodStart.Format(time.DateOnly)
+		a := byDay[k]
+		if a == nil {
+			a = &agg{}
+			byDay[k] = a
+		}
+		a.total++
+		if r.Completed {
+			a.completed++
+		}
+	}
+
+	// Merge today's live status (the snapshot table has no today row).
+	liveDaily, err := s.repo.GetQuestStatus(ctx, userID, quest.QuestTypeDaily, today)
+	if err != nil {
+		return nil, err
+	}
+	if len(liveDaily) > 0 {
+		a := &agg{total: len(liveDaily)}
+		for _, q := range liveDaily {
+			if q.Completed {
+				a.completed++
+			}
+		}
+		byDay[today.Format(time.DateOnly)] = a // override or insert
+	}
+
+	perfect := func(a *agg) bool { return a != nil && a.total > 0 && a.completed >= a.total }
+
+	// Build cells (only days with active quests) and count perfect days.
+	var days []quest.HeatmapDay
+	perfectDays := 0
+	for d := from; !d.After(today); d = d.AddDate(0, 0, 1) {
+		if a := byDay[d.Format(time.DateOnly)]; a != nil && a.total > 0 {
+			days = append(days, quest.HeatmapDay{Date: d.Format(time.DateOnly), Total: a.total, Completed: a.completed})
+			if perfect(a) {
+				perfectDays++
+			}
+		}
+	}
+
+	// Current streak: walk back from today; if today isn't yet perfect, start at
+	// yesterday so the in-progress day doesn't break the chain.
+	current := 0
+	start := today
+	if !perfect(byDay[today.Format(time.DateOnly)]) {
+		start = today.AddDate(0, 0, -1)
+	}
+	for d := start; !d.Before(from); d = d.AddDate(0, 0, -1) {
+		if perfect(byDay[d.Format(time.DateOnly)]) {
+			current++
+		} else {
+			break
+		}
+	}
+
+	// Longest streak across the window (a gap / zero-total day breaks the run).
+	longest, run := 0, 0
+	for d := from; !d.After(today); d = d.AddDate(0, 0, 1) {
+		if perfect(byDay[d.Format(time.DateOnly)]) {
+			run++
+			if run > longest {
+				longest = run
+			}
+		} else {
+			run = 0
+		}
+	}
+
+	return &quest.StreakSummary{
+		Days:          days,
+		CurrentStreak: current,
+		LongestStreak: longest,
+		PerfectDays:   perfectDays,
 	}, nil
 }
 

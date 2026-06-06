@@ -113,3 +113,26 @@ type PeriodSnapshotResult struct {
 	Incomplete int `json:"incomplete"` // quests below target_count
 	Inserted   int `json:"inserted"`   // rows actually written (0 when already idempotent)
 }
+
+// PeriodResultRow is a slim read row from quest_period_results — one quest's
+// finalized status for a single period.
+type PeriodResultRow struct {
+	PeriodStart time.Time
+	Completed   bool
+}
+
+// HeatmapDay is one calendar day's daily-quest completion summary.
+type HeatmapDay struct {
+	Date      string `json:"date"`      // "YYYY-MM-DD" (Bangkok)
+	Total     int    `json:"total"`     // active daily quests that day
+	Completed int    `json:"completed"` // how many reached target_count
+}
+
+// StreakSummary is the payload for GET /quest/streaks: the daily-quest heatmap
+// plus the derived streak counters.
+type StreakSummary struct {
+	Days          []HeatmapDay `json:"days"`           // only days with total > 0, ascending
+	CurrentStreak int          `json:"current_streak"` // consecutive perfect days ending today
+	LongestStreak int          `json:"longest_streak"` // longest run of perfect days in the window
+	PerfectDays   int          `json:"perfect_days"`   // total perfect days in the window
+}

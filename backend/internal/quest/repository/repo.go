@@ -522,6 +522,32 @@ func (r *Repository) RecordPeriodResults(ctx context.Context, questType string, 
 	return res, nil
 }
 
+// ListDailyResults returns the finalized status of every daily quest snapshot in
+// [from, to] for the user — one row per quest per day. The streaks service
+// aggregates these by day. Uses idx_quest_period_results_user_period.
+func (r *Repository) ListDailyResults(ctx context.Context, userID uuid.UUID, from, to time.Time) ([]quest.PeriodResultRow, error) {
+	stmt := postgres.SELECT(
+		table.QuestPeriodResults.PeriodStart,
+		table.QuestPeriodResults.Completed,
+	).FROM(table.QuestPeriodResults).
+		WHERE(
+			table.QuestPeriodResults.UserID.EQ(postgres.UUID(userID)).
+				AND(table.QuestPeriodResults.Type.EQ(postgres.String(string(quest.QuestTypeDaily)))).
+				AND(table.QuestPeriodResults.PeriodStart.GT_EQ(postgres.DateT(from))).
+				AND(table.QuestPeriodResults.PeriodStart.LT_EQ(postgres.DateT(to))),
+		).ORDER_BY(table.QuestPeriodResults.PeriodStart.ASC())
+
+	var dest []model.QuestPeriodResults
+	if err := stmt.QueryContext(ctx, r.db, &dest); err != nil {
+		return nil, fmt.Errorf("list daily results: %w", err)
+	}
+	rows := make([]quest.PeriodResultRow, len(dest))
+	for i, d := range dest {
+		rows[i] = quest.PeriodResultRow{PeriodStart: d.PeriodStart, Completed: d.Completed}
+	}
+	return rows, nil
+}
+
 // ── History ───────────────────────────────────────────────────────────────────
 
 func (r *Repository) ListXPEvents(ctx context.Context, userID uuid.UUID, limit int) ([]*quest.XPEvent, error) {

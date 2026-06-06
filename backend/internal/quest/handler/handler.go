@@ -21,6 +21,7 @@ type Service interface {
 	SetActive(ctx context.Context, id uuid.UUID, userID uuid.UUID, active bool) (*quest.Quest, error)
 
 	GetOverview(ctx context.Context, userID uuid.UUID) (*quest.Overview, error)
+	GetStreaks(ctx context.Context, userID uuid.UUID) (*quest.StreakSummary, error)
 	IncrementQuest(ctx context.Context, userID uuid.UUID, questID uuid.UUID) error
 	DecrementQuest(ctx context.Context, userID uuid.UUID, questID uuid.UUID) error
 
@@ -50,6 +51,7 @@ func (h *Handler) Register(router fiber.Router) {
 	router.Post("/quests/:id/deactivate", h.deactivateQuest)
 
 	router.Get("/overview", h.getOverview)
+	router.Get("/streaks", h.getStreaks)
 
 	router.Post("/quests/:id/increment", h.incrementQuest)
 	router.Post("/quests/:id/decrement", h.decrementQuest)
@@ -177,6 +179,20 @@ func (h *Handler) getOverview(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
 	return c.JSON(fiber.Map{"data": overview})
+}
+
+// ── Streaks ───────────────────────────────────────────────────────────────────
+
+func (h *Handler) getStreaks(c *fiber.Ctx) error {
+	userID, err := h.resolveUserID(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
+	}
+	streaks, err := h.svc.GetStreaks(c.Context(), userID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+	return c.JSON(fiber.Map{"data": streaks})
 }
 
 // ── Actions ───────────────────────────────────────────────────────────────────

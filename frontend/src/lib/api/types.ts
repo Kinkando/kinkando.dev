@@ -674,6 +674,19 @@ export type XPEvent = {
   created_at: string
 }
 
+export type HeatmapDay = {
+  date: string
+  total: number
+  completed: number
+}
+
+export type QuestStreaks = {
+  days: HeatmapDay[]
+  current_streak: number
+  longest_streak: number
+  perfect_days: number
+}
+
 export type CreateQuestInput = {
   type: QuestType
   source_type?: SourceType

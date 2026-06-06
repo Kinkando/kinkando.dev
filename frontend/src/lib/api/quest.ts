@@ -4,11 +4,16 @@ import type {
   CreateQuestInput,
   UpdateQuestInput,
   QuestOverview,
+  QuestStreaks,
   XPEvent,
 } from './types'
 
 export function fetchQuestOverview(): Promise<QuestOverview | undefined> {
   return apiFetch<QuestOverview>('/quest/overview', { auth: true })
+}
+
+export function fetchQuestStreaks(): Promise<QuestStreaks | undefined> {
+  return apiFetch<QuestStreaks>('/quest/streaks', { auth: true })
 }
 
 export function fetchQuests(type: string): Promise<Quest[] | undefined> {

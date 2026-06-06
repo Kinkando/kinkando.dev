@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import type { QuestOverview, SourceType } from '../../lib/api/types'
 import { questSourceRoute } from './questConfig'
+import StreaksSection from './StreaksSection'
 
 type Props = {
   overview: QuestOverview | undefined
@@ -244,6 +245,9 @@ export default function DashboardTab({ overview }: Props) {
           </ul>
         </div>
       </div>
+
+      {/* Consistency heatmap + streaks */}
+      <StreaksSection />
     </div>
   )
 }

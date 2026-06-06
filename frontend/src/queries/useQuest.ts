@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   fetchQuestOverview,
+  fetchQuestStreaks,
   fetchQuests,
   createQuest,
   updateQuest,
@@ -16,6 +17,10 @@ import { keys } from './keys'
 
 export function useQuestOverview() {
   return useQuery({ queryKey: keys.questOverview, queryFn: fetchQuestOverview })
+}
+
+export function useQuestStreaks() {
+  return useQuery({ queryKey: keys.questStreaks, queryFn: fetchQuestStreaks })
 }
 
 export function useQuests(type: string) {

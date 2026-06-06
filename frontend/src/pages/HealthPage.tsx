@@ -60,12 +60,7 @@ export default function HealthPage() {
           onGoToSettings={() => setTab('settings')}
         />
       )}
-      {tab === 'progress' && (
-        <ProgressTab
-          weightLogs={weightQuery.data}
-          profile={profileQuery.data}
-        />
-      )}
+      {tab === 'progress' && <ProgressTab profile={profileQuery.data} />}
       {tab === 'settings' && <SettingsTab profile={profileQuery.data} />}
     </main>
   )

@@ -95,10 +95,18 @@ func (r *Repository) UpsertProfile(ctx context.Context, userID uuid.UUID, in hea
 
 // ── Weight logs ───────────────────────────────────────────────────────────────
 
-func (r *Repository) ListWeightLogs(ctx context.Context, userID uuid.UUID) ([]*health.WeightLog, error) {
+func (r *Repository) ListWeightLogs(ctx context.Context, userID uuid.UUID, from, to time.Time) ([]*health.WeightLog, error) {
+	cond := table.HealthWeightLogs.UserID.EQ(postgres.UUID(userID))
+	if !from.IsZero() {
+		cond = cond.AND(table.HealthWeightLogs.LoggedAt.GT_EQ(postgres.DateT(from)))
+	}
+	if !to.IsZero() {
+		cond = cond.AND(table.HealthWeightLogs.LoggedAt.LT_EQ(postgres.DateT(to)))
+	}
+
 	stmt := postgres.SELECT(table.HealthWeightLogs.AllColumns).
 		FROM(table.HealthWeightLogs).
-		WHERE(table.HealthWeightLogs.UserID.EQ(postgres.UUID(userID))).
+		WHERE(cond).
 		ORDER_BY(table.HealthWeightLogs.LoggedAt.ASC(), table.HealthWeightLogs.CreatedAt.ASC())
 
 	var dest []model.HealthWeightLogs
@@ -125,14 +133,17 @@ func (r *Repository) CreateWeightLog(ctx context.Context, userID uuid.UUID, in h
 	stmt := table.HealthWeightLogs.INSERT(
 		table.HealthWeightLogs.UserID,
 		table.HealthWeightLogs.Weight,
+		table.HealthWeightLogs.Note,
 		table.HealthWeightLogs.LoggedAt,
 	).VALUES(
 		postgres.UUID(userID),
 		decimal.NewFromFloat(in.Weight),
+		in.Note,
 		postgres.DateT(loggedAt),
 	).ON_CONFLICT(table.HealthWeightLogs.UserID, table.HealthWeightLogs.LoggedAt).
 		DO_UPDATE(postgres.SET(
 			table.HealthWeightLogs.Weight.SET(table.HealthWeightLogs.EXCLUDED.Weight),
+			table.HealthWeightLogs.Note.SET(table.HealthWeightLogs.EXCLUDED.Note),
 		)).RETURNING(table.HealthWeightLogs.AllColumns)
 
 	var dest model.HealthWeightLogs
@@ -154,9 +165,11 @@ func (r *Repository) UpdateWeightLog(ctx context.Context, id uuid.UUID, userID u
 
 	stmt := table.HealthWeightLogs.UPDATE(
 		table.HealthWeightLogs.Weight,
+		table.HealthWeightLogs.Note,
 		table.HealthWeightLogs.LoggedAt,
 	).SET(
 		decimal.NewFromFloat(in.Weight),
+		in.Note,
 		postgres.DateT(loggedAt),
 	).WHERE(
 		table.HealthWeightLogs.ID.EQ(postgres.UUID(id)).
@@ -346,10 +359,18 @@ func (r *Repository) DeleteFoodLog(ctx context.Context, id uuid.UUID, userID uui
 
 // ── Sleep logs ────────────────────────────────────────────────────────────────
 
-func (r *Repository) ListSleepLogs(ctx context.Context, userID uuid.UUID) ([]*health.SleepLog, error) {
+func (r *Repository) ListSleepLogs(ctx context.Context, userID uuid.UUID, from, to time.Time) ([]*health.SleepLog, error) {
+	cond := table.HealthSleepLogs.UserID.EQ(postgres.UUID(userID))
+	if !from.IsZero() {
+		cond = cond.AND(table.HealthSleepLogs.LoggedAt.GT_EQ(postgres.DateT(from)))
+	}
+	if !to.IsZero() {
+		cond = cond.AND(table.HealthSleepLogs.LoggedAt.LT_EQ(postgres.DateT(to)))
+	}
+
 	stmt := postgres.SELECT(table.HealthSleepLogs.AllColumns).
 		FROM(table.HealthSleepLogs).
-		WHERE(table.HealthSleepLogs.UserID.EQ(postgres.UUID(userID))).
+		WHERE(cond).
 		ORDER_BY(table.HealthSleepLogs.LoggedAt.DESC(), table.HealthSleepLogs.CreatedAt.DESC())
 
 	var dest []model.HealthSleepLogs
@@ -524,6 +545,7 @@ func toWeightLog(m model.HealthWeightLogs) *health.WeightLog {
 	return &health.WeightLog{
 		ID:       m.ID,
 		Weight:   w,
+		Note:     m.Note,
 		LoggedAt: m.LoggedAt,
 	}
 }

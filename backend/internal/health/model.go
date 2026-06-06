@@ -43,11 +43,13 @@ type UpsertProfileInput struct {
 type WeightLog struct {
 	ID       uuid.UUID `json:"id"`
 	Weight   float64   `json:"weight"` // kg
+	Note     *string   `json:"note"`
 	LoggedAt time.Time `json:"logged_at"`
 }
 
 type CreateWeightInput struct {
 	Weight   float64 `json:"weight"    validate:"gt=0"`
+	Note     *string `json:"note"`
 	LoggedAt string  `json:"logged_at"` // YYYY-MM-DD, optional
 }
 

@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"strings"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
@@ -15,8 +16,9 @@ type Service interface {
 	GetProfile(ctx context.Context, userID uuid.UUID) (*health.Profile, error)
 	UpsertProfile(ctx context.Context, userID uuid.UUID, in health.UpsertProfileInput) (*health.Profile, error)
 
-	ListWeightLogs(ctx context.Context, userID uuid.UUID) ([]*health.WeightLog, error)
+	ListWeightLogs(ctx context.Context, userID uuid.UUID, from, to time.Time) ([]*health.WeightLog, error)
 	CreateWeightLog(ctx context.Context, userID uuid.UUID, in health.CreateWeightInput) (*health.WeightLog, error)
+	UpdateWeightLog(ctx context.Context, id uuid.UUID, userID uuid.UUID, in health.UpdateWeightInput) (*health.WeightLog, error)
 	DeleteWeightLog(ctx context.Context, id uuid.UUID, userID uuid.UUID) error
 
 	ListFoodLogs(ctx context.Context, userID uuid.UUID) ([]*health.FoodLog, error)
@@ -24,7 +26,7 @@ type Service interface {
 	UpdateFoodLog(ctx context.Context, id uuid.UUID, userID uuid.UUID, in health.UpdateFoodInput) (*health.FoodLog, error)
 	DeleteFoodLog(ctx context.Context, id uuid.UUID, userID uuid.UUID) error
 
-	ListSleepLogs(ctx context.Context, userID uuid.UUID) ([]*health.SleepLog, error)
+	ListSleepLogs(ctx context.Context, userID uuid.UUID, from, to time.Time) ([]*health.SleepLog, error)
 	CreateSleepLog(ctx context.Context, userID uuid.UUID, in health.CreateSleepInput) (*health.SleepLog, error)
 	UpdateSleepLog(ctx context.Context, id uuid.UUID, userID uuid.UUID, in health.UpdateSleepInput) (*health.SleepLog, error)
 	DeleteSleepLog(ctx context.Context, id uuid.UUID, userID uuid.UUID) error
@@ -50,6 +52,7 @@ func (h *Handler) Register(router fiber.Router) {
 
 	router.Get("/weight", h.listWeightLogs)
 	router.Post("/weight", h.createWeightLog)
+	router.Patch("/weight/:id", h.updateWeightLog)
 	router.Delete("/weight/:id", h.deleteWeightLog)
 
 	router.Get("/food", h.listFoodLogs)
@@ -105,7 +108,22 @@ func (h *Handler) listWeightLogs(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
 	}
-	logs, err := h.svc.ListWeightLogs(c.Context(), userID)
+	var from, to time.Time
+	if s := c.Query("from"); s != "" {
+		t, err := time.Parse(time.DateOnly, s)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid from date"})
+		}
+		from = t
+	}
+	if s := c.Query("to"); s != "" {
+		t, err := time.Parse(time.DateOnly, s)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid to date"})
+		}
+		to = t
+	}
+	logs, err := h.svc.ListWeightLogs(c.Context(), userID, from, to)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
@@ -132,6 +150,32 @@ func (h *Handler) createWeightLog(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"data": log})
+}
+
+func (h *Handler) updateWeightLog(c *fiber.Ctx) error {
+	userID, err := h.resolveUserID(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
+	}
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid weight log id"})
+	}
+	var in health.UpdateWeightInput
+	if err := c.BodyParser(&in); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
+	}
+	if err := validate.Struct(in); err != nil {
+		return err
+	}
+	log, err := h.svc.UpdateWeightLog(c.Context(), id, userID, in)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "weight log not found"})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+	return c.JSON(fiber.Map{"data": log})
 }
 
 func (h *Handler) deleteWeightLog(c *fiber.Ctx) error {
@@ -239,7 +283,22 @@ func (h *Handler) listSleepLogs(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
 	}
-	logs, err := h.svc.ListSleepLogs(c.Context(), userID)
+	var from, to time.Time
+	if s := c.Query("from"); s != "" {
+		t, err := time.Parse(time.DateOnly, s)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid from date"})
+		}
+		from = t
+	}
+	if s := c.Query("to"); s != "" {
+		t, err := time.Parse(time.DateOnly, s)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid to date"})
+		}
+		to = t
+	}
+	logs, err := h.svc.ListSleepLogs(c.Context(), userID, from, to)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}

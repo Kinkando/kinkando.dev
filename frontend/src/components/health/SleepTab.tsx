@@ -4,15 +4,15 @@ import {
   useCreateSleepLog,
   useUpdateSleepLog,
   useDeleteSleepLog,
+  useSleepLogs,
 } from '../../queries/useHealth'
-import { todayDate } from '../../lib/date'
-
-type Props = {
-  sleepLogs: SleepLog[] | undefined
-}
+import { todayDate, addDays } from '../../lib/date'
 
 const inputClass =
   'w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:border-indigo-500 focus:outline-none'
+
+const inputDisabledClass =
+  'w-full rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-500 cursor-not-allowed'
 
 const labelClass = 'mb-1 block text-xs font-medium text-gray-400'
 
@@ -102,7 +102,15 @@ function scoreColor(score: number): string {
   return 'text-red-400'
 }
 
-export default function SleepTab({ sleepLogs }: Props) {
+export default function SleepTab() {
+  const defaultFrom = addDays(todayDate(), -29)
+  const defaultTo = todayDate()
+
+  const [from, setFrom] = useState(defaultFrom)
+  const [to, setTo] = useState(defaultTo)
+
+  const { data: sleepLogs } = useSleepLogs({ from, to })
+
   const [form, setForm] = useState<FormState>(defaultForm)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [error, setError] = useState('')
@@ -114,8 +122,15 @@ export default function SleepTab({ sleepLogs }: Props) {
 
   const isEditing = editingId !== null
   const loading = createSleepLog.isPending || updateSleepLog.isPending
+
   const loggedToday =
     sleepLogs?.some((l) => l.logged_at.slice(0, 10) === todayDate()) ?? false
+
+  // The log currently being edited (to determine today-gating)
+  const editingLog = editingId
+    ? sleepLogs?.find((l) => l.id === editingId)
+    : null
+  const editingIsToday = editingLog?.logged_at.slice(0, 10) === todayDate()
 
   function handleEdit(log: SleepLog) {
     setEditingId(log.id)
@@ -129,7 +144,7 @@ export default function SleepTab({ sleepLogs }: Props) {
     setError('')
   }
 
-  async function handleSubmit(e: React.SubmitEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
 
@@ -184,10 +199,39 @@ export default function SleepTab({ sleepLogs }: Props) {
 
   return (
     <div className="space-y-6">
+      {/* Date range filter */}
+      <div className="flex flex-wrap items-end gap-3 rounded-xl border border-gray-800 bg-gray-900 p-5">
+        <div>
+          <label className={labelClass}>From</label>
+          <input
+            className={inputClass}
+            type="date"
+            value={from}
+            max={to}
+            onChange={(e) => setFrom(e.target.value)}
+          />
+        </div>
+        <div>
+          <label className={labelClass}>To</label>
+          <input
+            className={inputClass}
+            type="date"
+            value={to}
+            min={from}
+            max={todayDate()}
+            onChange={(e) => setTo(e.target.value)}
+          />
+        </div>
+      </div>
+
       {/* Create / edit form */}
       <div className="rounded-xl border border-gray-800 bg-gray-900 p-5">
         <h3 className="mb-4 text-sm font-medium text-gray-300">
-          {isEditing ? 'Edit Sleep Entry' : 'Log Sleep'}
+          {isEditing
+            ? editingIsToday
+              ? 'Edit Sleep Entry'
+              : 'Edit Note'
+            : 'Log Sleep'}
         </h3>
         {loggedToday && !isEditing ? (
           <p className="text-sm text-indigo-400">
@@ -198,50 +242,92 @@ export default function SleepTab({ sleepLogs }: Props) {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label className={labelClass}>Bedtime</label>
-                <input
-                  className={inputClass}
-                  type="datetime-local"
-                  value={form.started_at}
-                  onChange={(e) =>
-                    setForm({ ...form, started_at: e.target.value })
-                  }
-                />
+                {isEditing && !editingIsToday ? (
+                  <input
+                    className={inputDisabledClass}
+                    type="datetime-local"
+                    value={form.started_at}
+                    disabled
+                    readOnly
+                  />
+                ) : (
+                  <input
+                    className={inputClass}
+                    type="datetime-local"
+                    value={form.started_at}
+                    onChange={(e) =>
+                      setForm({ ...form, started_at: e.target.value })
+                    }
+                  />
+                )}
               </div>
               <div>
                 <label className={labelClass}>Wake time</label>
-                <input
-                  className={inputClass}
-                  type="datetime-local"
-                  value={form.ended_at}
-                  onChange={(e) =>
-                    setForm({ ...form, ended_at: e.target.value })
-                  }
-                />
+                {isEditing && !editingIsToday ? (
+                  <input
+                    className={inputDisabledClass}
+                    type="datetime-local"
+                    value={form.ended_at}
+                    disabled
+                    readOnly
+                  />
+                ) : (
+                  <input
+                    className={inputClass}
+                    type="datetime-local"
+                    value={form.ended_at}
+                    onChange={(e) =>
+                      setForm({ ...form, ended_at: e.target.value })
+                    }
+                  />
+                )}
               </div>
               <div>
                 <label className={labelClass}>
                   Sleep score (0–100, Samsung Health)
                 </label>
-                <input
-                  className={inputClass}
-                  type="number"
-                  min="0"
-                  max="100"
-                  placeholder="Optional"
-                  value={form.score}
-                  onChange={(e) => setForm({ ...form, score: e.target.value })}
-                />
+                {isEditing && !editingIsToday ? (
+                  <input
+                    className={inputDisabledClass}
+                    type="number"
+                    value={form.score}
+                    disabled
+                    readOnly
+                  />
+                ) : (
+                  <input
+                    className={inputClass}
+                    type="number"
+                    min="0"
+                    max="100"
+                    placeholder="Optional"
+                    value={form.score}
+                    onChange={(e) =>
+                      setForm({ ...form, score: e.target.value })
+                    }
+                  />
+                )}
               </div>
               <div>
                 <label className={labelClass}>Night-of date</label>
-                <input
-                  className={inputClass}
-                  type="date"
-                  value={form.logged_at}
-                  onChange={(e) =>
-                    setForm({ ...form, logged_at: e.target.value })
-                  }
-                />
+                {isEditing && !editingIsToday ? (
+                  <input
+                    className={inputDisabledClass}
+                    type="date"
+                    value={form.logged_at}
+                    disabled
+                    readOnly
+                  />
+                ) : (
+                  <input
+                    className={inputClass}
+                    type="date"
+                    value={form.logged_at}
+                    onChange={(e) =>
+                      setForm({ ...form, logged_at: e.target.value })
+                    }
+                  />
+                )}
               </div>
               <div className="sm:col-span-2">
                 <label className={labelClass}>Notes</label>
@@ -282,59 +368,67 @@ export default function SleepTab({ sleepLogs }: Props) {
       <div className="rounded-xl border border-gray-800 bg-gray-900">
         {!sleepLogs || sleepLogs.length === 0 ? (
           <p className="px-5 py-8 text-center text-sm text-gray-500">
-            No sleep logged yet.
+            No sleep logged in this range.
           </p>
         ) : (
           <ul className="divide-y divide-gray-800">
-            {sleepLogs.map((log) => (
-              <li key={log.id} className="flex items-center gap-3 px-5 py-3.5">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-gray-100">
-                      {formatDuration(log.duration_minutes)}
-                    </span>
-                    {log.score != null && (
-                      <span
-                        className={`rounded bg-gray-800 px-2 py-0.5 text-xs font-medium ${scoreColor(log.score)}`}
-                      >
-                        {log.score}
+            {sleepLogs.map((log) => {
+              const isToday = log.logged_at.slice(0, 10) === todayDate()
+              return (
+                <li
+                  key={log.id}
+                  className="flex items-center gap-3 px-5 py-3.5"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-gray-100">
+                        {formatDuration(log.duration_minutes)}
                       </span>
-                    )}
-                  </div>
-                  <p className="text-xs text-gray-500">
-                    {[
-                      new Date(log.started_at).toLocaleTimeString(undefined, {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      }) +
-                        ' → ' +
-                        new Date(log.ended_at).toLocaleTimeString(undefined, {
+                      {log.score != null && (
+                        <span
+                          className={`rounded bg-gray-800 px-2 py-0.5 text-xs font-medium ${scoreColor(log.score)}`}
+                        >
+                          {log.score}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      {[
+                        new Date(log.started_at).toLocaleTimeString(undefined, {
                           hour: '2-digit',
                           minute: '2-digit',
-                        }),
-                      log.notes,
-                    ]
-                      .filter(Boolean)
-                      .join(' · ')}
-                  </p>
-                </div>
-                <span className="shrink-0 text-xs text-gray-600">
-                  {formatDate(log.logged_at)}
-                </span>
-                <button
-                  onClick={() => handleEdit(log)}
-                  className="shrink-0 cursor-pointer text-xs text-gray-400 hover:text-gray-100"
-                >
-                  Edit
-                </button>
-                <button
-                  onClick={() => setDeleteConfirm(log.id)}
-                  className="shrink-0 cursor-pointer text-xs text-red-500 hover:text-red-400"
-                >
-                  Delete
-                </button>
-              </li>
-            ))}
+                        }) +
+                          ' → ' +
+                          new Date(log.ended_at).toLocaleTimeString(undefined, {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          }),
+                        log.notes,
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </p>
+                  </div>
+                  <span className="shrink-0 text-xs text-gray-600">
+                    {formatDate(log.logged_at)}
+                  </span>
+                  <button
+                    onClick={() => handleEdit(log)}
+                    className="shrink-0 cursor-pointer text-xs text-gray-400 hover:text-gray-100"
+                  >
+                    Edit
+                  </button>
+                  {isToday && (
+                    <button
+                      onClick={() => setDeleteConfirm(log.id)}
+                      className="shrink-0 cursor-pointer text-xs text-red-500 hover:text-red-400"
+                    >
+                      Delete
+                    </button>
+                  )}
+                </li>
+              )
+            })}
           </ul>
         )}
       </div>

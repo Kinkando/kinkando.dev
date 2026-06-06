@@ -271,13 +271,17 @@ export type UpsertProfileInput = {
 export type WeightLog = {
   id: string
   weight: number // kg
+  note: string | null
   logged_at: string // ISO date
 }
 
 export type CreateWeightInput = {
   weight: number
+  note?: string | null
   logged_at?: string // YYYY-MM-DD, optional
 }
+
+export type UpdateWeightInput = CreateWeightInput
 
 // ---- Food
 

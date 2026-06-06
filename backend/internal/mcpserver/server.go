@@ -466,6 +466,7 @@ type deleteSleepOut struct {
 type weightLogDTO struct {
 	ID       string  `json:"id"`
 	Weight   float64 `json:"weight"`
+	Note     *string `json:"note"`
 	LoggedAt string  `json:"logged_at"`
 }
 
@@ -481,6 +482,7 @@ func toWeightLogDTO(w *health.WeightLog) weightLogDTO {
 	return weightLogDTO{
 		ID:       w.ID.String(),
 		Weight:   w.Weight,
+		Note:     w.Note,
 		LoggedAt: w.LoggedAt.Format(time.DateOnly),
 	}
 }
@@ -1798,7 +1800,7 @@ func registerTools(s *mcp.Server, d Deps) {
 		Name:        tools.WeightListLogs.Name,
 		Description: tools.WeightListLogs.Description,
 	}, middleware.MCPRequestLogger(d.Logger, tools.WeightListLogs.Name, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, listWeightLogsOut, error) {
-		logs, err := d.HeaSvc.ListWeightLogs(ctx, ctxUserUUID(ctx))
+		logs, err := d.HeaSvc.ListWeightLogs(ctx, ctxUserUUID(ctx), time.Time{}, time.Time{})
 		if err != nil {
 			return nil, listWeightLogsOut{}, fmt.Errorf("list weight logs: %w", err)
 		}
@@ -1858,7 +1860,7 @@ func registerTools(s *mcp.Server, d Deps) {
 		Name:        tools.SleepListLogs.Name,
 		Description: tools.SleepListLogs.Description,
 	}, middleware.MCPRequestLogger(d.Logger, tools.SleepListLogs.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.SleepListLogsIn) (*mcp.CallToolResult, listSleepLogsOut, error) {
-		logs, err := d.HeaSvc.ListSleepLogs(ctx, ctxUserUUID(ctx))
+		logs, err := d.HeaSvc.ListSleepLogs(ctx, ctxUserUUID(ctx), time.Time{}, time.Time{})
 		if err != nil {
 			return nil, listSleepLogsOut{}, fmt.Errorf("list sleep logs: %w", err)
 		}

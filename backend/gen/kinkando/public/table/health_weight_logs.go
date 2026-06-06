@@ -22,6 +22,7 @@ type healthWeightLogsTable struct {
 	Weight    postgres.ColumnFloat
 	LoggedAt  postgres.ColumnDate
 	CreatedAt postgres.ColumnTimestampz
+	Note      postgres.ColumnString
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -68,8 +69,9 @@ func newHealthWeightLogsTableImpl(schemaName, tableName, alias string) healthWei
 		WeightColumn    = postgres.FloatColumn("weight")
 		LoggedAtColumn  = postgres.DateColumn("logged_at")
 		CreatedAtColumn = postgres.TimestampzColumn("created_at")
-		allColumns      = postgres.ColumnList{IDColumn, UserIDColumn, WeightColumn, LoggedAtColumn, CreatedAtColumn}
-		mutableColumns  = postgres.ColumnList{UserIDColumn, WeightColumn, LoggedAtColumn, CreatedAtColumn}
+		NoteColumn      = postgres.StringColumn("note")
+		allColumns      = postgres.ColumnList{IDColumn, UserIDColumn, WeightColumn, LoggedAtColumn, CreatedAtColumn, NoteColumn}
+		mutableColumns  = postgres.ColumnList{UserIDColumn, WeightColumn, LoggedAtColumn, CreatedAtColumn, NoteColumn}
 		defaultColumns  = postgres.ColumnList{IDColumn, LoggedAtColumn, CreatedAtColumn}
 	)
 
@@ -82,6 +84,7 @@ func newHealthWeightLogsTableImpl(schemaName, tableName, alias string) healthWei
 		Weight:    WeightColumn,
 		LoggedAt:  LoggedAtColumn,
 		CreatedAt: CreatedAtColumn,
+		Note:      NoteColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,

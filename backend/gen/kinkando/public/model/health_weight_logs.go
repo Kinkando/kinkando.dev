@@ -19,4 +19,5 @@ type HealthWeightLogs struct {
 	Weight    decimal.Decimal
 	LoggedAt  time.Time
 	CreatedAt time.Time
+	Note      *string
 }

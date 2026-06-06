@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/kinkando/personal-dashboard/internal/health"
@@ -19,7 +20,7 @@ type Repository interface {
 	GetProfile(ctx context.Context, userID uuid.UUID) (*health.Profile, error)
 	UpsertProfile(ctx context.Context, userID uuid.UUID, in health.UpsertProfileInput) (*health.Profile, error)
 
-	ListWeightLogs(ctx context.Context, userID uuid.UUID) ([]*health.WeightLog, error)
+	ListWeightLogs(ctx context.Context, userID uuid.UUID, from, to time.Time) ([]*health.WeightLog, error)
 	CreateWeightLog(ctx context.Context, userID uuid.UUID, in health.CreateWeightInput) (*health.WeightLog, error)
 	UpdateWeightLog(ctx context.Context, id uuid.UUID, userID uuid.UUID, in health.UpdateWeightInput) (*health.WeightLog, error)
 	DeleteWeightLog(ctx context.Context, id uuid.UUID, userID uuid.UUID) error
@@ -29,7 +30,7 @@ type Repository interface {
 	UpdateFoodLog(ctx context.Context, id uuid.UUID, userID uuid.UUID, in health.UpdateFoodInput) (*health.FoodLog, error)
 	DeleteFoodLog(ctx context.Context, id uuid.UUID, userID uuid.UUID) error
 
-	ListSleepLogs(ctx context.Context, userID uuid.UUID) ([]*health.SleepLog, error)
+	ListSleepLogs(ctx context.Context, userID uuid.UUID, from, to time.Time) ([]*health.SleepLog, error)
 	CreateSleepLog(ctx context.Context, userID uuid.UUID, in health.CreateSleepInput) (*health.SleepLog, error)
 	UpdateSleepLog(ctx context.Context, id uuid.UUID, userID uuid.UUID, in health.UpdateSleepInput) (*health.SleepLog, error)
 	DeleteSleepLog(ctx context.Context, id uuid.UUID, userID uuid.UUID) error
@@ -52,8 +53,8 @@ func (s *Service) UpsertProfile(ctx context.Context, userID uuid.UUID, in health
 	return s.repo.UpsertProfile(ctx, userID, in)
 }
 
-func (s *Service) ListWeightLogs(ctx context.Context, userID uuid.UUID) ([]*health.WeightLog, error) {
-	return s.repo.ListWeightLogs(ctx, userID)
+func (s *Service) ListWeightLogs(ctx context.Context, userID uuid.UUID, from, to time.Time) ([]*health.WeightLog, error) {
+	return s.repo.ListWeightLogs(ctx, userID, from, to)
 }
 
 func (s *Service) CreateWeightLog(ctx context.Context, userID uuid.UUID, in health.CreateWeightInput) (*health.WeightLog, error) {
@@ -93,8 +94,8 @@ func (s *Service) DeleteFoodLog(ctx context.Context, id uuid.UUID, userID uuid.U
 	return s.repo.DeleteFoodLog(ctx, id, userID)
 }
 
-func (s *Service) ListSleepLogs(ctx context.Context, userID uuid.UUID) ([]*health.SleepLog, error) {
-	return s.repo.ListSleepLogs(ctx, userID)
+func (s *Service) ListSleepLogs(ctx context.Context, userID uuid.UUID, from, to time.Time) ([]*health.SleepLog, error) {
+	return s.repo.ListSleepLogs(ctx, userID, from, to)
 }
 
 func (s *Service) CreateSleepLog(ctx context.Context, userID uuid.UUID, in health.CreateSleepInput) (*health.SleepLog, error) {

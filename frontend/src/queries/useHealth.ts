@@ -4,6 +4,7 @@ import {
   upsertProfile,
   fetchWeightLogs,
   createWeightLog,
+  updateWeightLog,
   deleteWeightLog,
   fetchFoodLogs,
   createFoodLog,
@@ -17,12 +18,17 @@ import {
 import type {
   UpsertProfileInput,
   CreateWeightInput,
+  UpdateWeightInput,
   CreateFoodInput,
   UpdateFoodInput,
   CreateSleepInput,
   UpdateSleepInput,
 } from '../lib/api/types'
 import { keys } from './keys'
+
+function rangeKey(params?: { from?: string; to?: string }) {
+  return `${params?.from ?? ''}_${params?.to ?? ''}`
+}
 
 export function useHealthProfile() {
   return useQuery({
@@ -41,10 +47,10 @@ export function useUpsertProfile() {
   })
 }
 
-export function useWeightLogs() {
+export function useWeightLogs(params?: { from?: string; to?: string }) {
   return useQuery({
-    queryKey: keys.healthWeight,
-    queryFn: fetchWeightLogs,
+    queryKey: keys.healthWeight(rangeKey(params)),
+    queryFn: () => fetchWeightLogs(params),
   })
 }
 
@@ -53,7 +59,18 @@ export function useCreateWeightLog() {
   return useMutation({
     mutationFn: (input: CreateWeightInput) => createWeightLog(input),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: keys.healthWeight })
+      queryClient.invalidateQueries({ queryKey: ['health', 'weight'] })
+    },
+  })
+}
+
+export function useUpdateWeightLog() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: UpdateWeightInput }) =>
+      updateWeightLog(id, input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['health', 'weight'] })
     },
   })
 }
@@ -63,7 +80,7 @@ export function useDeleteWeightLog() {
   return useMutation({
     mutationFn: (id: string) => deleteWeightLog(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: keys.healthWeight })
+      queryClient.invalidateQueries({ queryKey: ['health', 'weight'] })
     },
   })
 }
@@ -110,10 +127,10 @@ export function useDeleteFoodLog() {
 
 // ── Sleep ─────────────────────────────────────────────────────────────────────
 
-export function useSleepLogs() {
+export function useSleepLogs(params?: { from?: string; to?: string }) {
   return useQuery({
-    queryKey: keys.healthSleep,
-    queryFn: fetchSleepLogs,
+    queryKey: keys.healthSleep(rangeKey(params)),
+    queryFn: () => fetchSleepLogs(params),
   })
 }
 
@@ -122,7 +139,7 @@ export function useCreateSleepLog() {
   return useMutation({
     mutationFn: (input: CreateSleepInput) => createSleepLog(input),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: keys.healthSleep })
+      queryClient.invalidateQueries({ queryKey: ['health', 'sleep'] })
     },
   })
 }
@@ -133,7 +150,7 @@ export function useUpdateSleepLog() {
     mutationFn: ({ id, input }: { id: string; input: UpdateSleepInput }) =>
       updateSleepLog(id, input),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: keys.healthSleep })
+      queryClient.invalidateQueries({ queryKey: ['health', 'sleep'] })
     },
   })
 }
@@ -143,7 +160,7 @@ export function useDeleteSleepLog() {
   return useMutation({
     mutationFn: (id: string) => deleteSleepLog(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: keys.healthSleep })
+      queryClient.invalidateQueries({ queryKey: ['health', 'sleep'] })
     },
   })
 }

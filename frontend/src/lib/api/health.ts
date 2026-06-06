@@ -4,6 +4,7 @@ import type {
   UpsertProfileInput,
   WeightLog,
   CreateWeightInput,
+  UpdateWeightInput,
   FoodLog,
   CreateFoodInput,
   UpdateFoodInput,
@@ -26,8 +27,14 @@ export function upsertProfile(
   })
 }
 
-export function fetchWeightLogs(): Promise<WeightLog[] | undefined> {
-  return apiFetch<WeightLog[]>('/health/weight', { auth: true })
+export function fetchWeightLogs(params?: {
+  from?: string
+  to?: string
+}): Promise<WeightLog[] | undefined> {
+  const query: Record<string, string> = {}
+  if (params?.from) query.from = params.from
+  if (params?.to) query.to = params.to
+  return apiFetch<WeightLog[]>('/health/weight', { auth: true, query })
 }
 
 export function createWeightLog(
@@ -35,6 +42,17 @@ export function createWeightLog(
 ): Promise<WeightLog | undefined> {
   return apiFetch<WeightLog>('/health/weight', {
     method: 'POST',
+    body: input,
+    auth: true,
+  })
+}
+
+export function updateWeightLog(
+  id: string,
+  input: UpdateWeightInput,
+): Promise<WeightLog | undefined> {
+  return apiFetch<WeightLog>(`/health/weight/${id}`, {
+    method: 'PATCH',
     body: input,
     auth: true,
   })
@@ -83,8 +101,14 @@ export function deleteFoodLog(id: string): Promise<undefined> {
 
 // ── Sleep ─────────────────────────────────────────────────────────────────────
 
-export function fetchSleepLogs(): Promise<SleepLog[] | undefined> {
-  return apiFetch<SleepLog[]>('/health/sleep', { auth: true })
+export function fetchSleepLogs(params?: {
+  from?: string
+  to?: string
+}): Promise<SleepLog[] | undefined> {
+  const query: Record<string, string> = {}
+  if (params?.from) query.from = params.from
+  if (params?.to) query.to = params.to
+  return apiFetch<SleepLog[]>('/health/sleep', { auth: true, query })
 }
 
 export function createSleepLog(

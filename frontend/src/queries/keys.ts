@@ -13,9 +13,9 @@ export const keys = {
   kanbanArchive: (id: string, filter?: ArchiveFilter) =>
     ['kanban', 'archive', id, filter] as const,
   healthProfile: ['health', 'profile'] as const,
-  healthWeight: ['health', 'weight'] as const,
+  healthWeight: (range: string) => ['health', 'weight', range] as const,
   healthFood: ['health', 'food'] as const,
-  healthSleep: ['health', 'sleep'] as const,
+  healthSleep: (range: string) => ['health', 'sleep', range] as const,
   workoutPresets: ['workout', 'presets'] as const,
   workoutPreset: (id: string) => ['workout', 'preset', id] as const,
   workoutSchedule: ['workout', 'schedule'] as const,

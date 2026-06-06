@@ -28,10 +28,12 @@ function yesterday(today: string): string {
 export default function SleepCard({ sleepLogs, today }: Props) {
   const navigate = useNavigate()
 
-  // Logs returned oldest-first; latest is the last element.
-  const latest = sleepLogs?.[sleepLogs.length - 1]
+  // Logs returned latest-first; latest is the first element.
+  const latest = sleepLogs?.[0]
   const logDate = latest?.logged_at.slice(0, 10)
   const isRecent = logDate === today || logDate === yesterday(today)
+
+  console.log(logDate, today, yesterday(today))
 
   return (
     <div
@@ -57,7 +59,7 @@ export default function SleepCard({ sleepLogs, today }: Props) {
             )}
           </div>
           {isRecent ? (
-            <p className="mt-2 text-xs text-gray-500">✓ Last night</p>
+            <p className="mt-2 text-xs text-green-500">✓ Last night</p>
           ) : (
             <p className="mt-2 text-xs text-amber-500">
               No recent sleep logged — tap to update.

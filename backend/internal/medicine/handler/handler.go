@@ -15,7 +15,7 @@ import (
 )
 
 type Service interface {
-	ListMedicines(ctx context.Context, userID uuid.UUID, includeArchived bool) ([]*medicine.Medicine, error)
+	ListMedicines(ctx context.Context, userID uuid.UUID, includeArchived bool, sourceType *medicine.SourceType) ([]*medicine.Medicine, error)
 	CreateMedicine(ctx context.Context, userID uuid.UUID, in medicine.CreateMedicineInput) (*medicine.Medicine, error)
 	UpdateMedicine(ctx context.Context, id uuid.UUID, userID uuid.UUID, in medicine.UpdateMedicineInput) (*medicine.Medicine, error)
 	SetArchived(ctx context.Context, id uuid.UUID, userID uuid.UUID, archived bool) (*medicine.Medicine, error)
@@ -69,7 +69,11 @@ func (h *Handler) listMedicines(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
 	}
 	includeArchived := strings.ToLower(c.Query("include_archived")) == "true"
-	meds, err := h.svc.ListMedicines(c.Context(), userID, includeArchived)
+	sourceType, err := parseSourceType(c)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+	}
+	meds, err := h.svc.ListMedicines(c.Context(), userID, includeArchived, sourceType)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
@@ -237,6 +241,11 @@ func (h *Handler) listIntakesHandler(c *fiber.Ctx, medicineID *uuid.UUID) error 
 	}
 
 	opts := medicine.ListIntakeOpts{MedicineID: medicineID}
+	sourceType, err := parseSourceType(c)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+	}
+	opts.SourceType = sourceType
 	if dateStr := c.Query("date"); dateStr != "" {
 		t, err := time.Parse(time.DateOnly, dateStr)
 		if err != nil {
@@ -283,6 +292,11 @@ func (h *Handler) listStockAdjustmentsHandler(c *fiber.Ctx, medicineID *uuid.UUI
 	}
 
 	opts := medicine.ListAdjustmentOpts{MedicineID: medicineID}
+	sourceType, err := parseSourceType(c)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+	}
+	opts.SourceType = sourceType
 	if dateStr := c.Query("date"); dateStr != "" {
 		t, err := time.Parse(time.DateOnly, dateStr)
 		if err != nil {
@@ -309,6 +323,20 @@ func (h *Handler) listStockAdjustmentsHandler(c *fiber.Ctx, medicineID *uuid.UUI
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+// parseSourceType reads the optional ?source_type= query param. Returns nil when
+// absent, or an error when it isn't a valid medicine source type.
+func parseSourceType(c *fiber.Ctx) (*medicine.SourceType, error) {
+	s := c.Query("source_type")
+	if s == "" {
+		return nil, nil
+	}
+	st := medicine.SourceType(s)
+	if st != medicine.SourceTypeMedication && st != medicine.SourceTypeSupplement {
+		return nil, errors.New("invalid source_type; use 'medication' or 'supplement'")
+	}
+	return &st, nil
+}
 
 func (h *Handler) resolveUserID(c *fiber.Ctx) (uuid.UUID, error) {
 	firebaseUID := auth.GetUserID(c)

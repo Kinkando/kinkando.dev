@@ -26,10 +26,13 @@ func New(db *sql.DB) *Repository {
 
 // ── Medicines ─────────────────────────────────────────────────────────────────
 
-func (r *Repository) ListMedicines(ctx context.Context, userID uuid.UUID, includeArchived bool) ([]*medicine.Medicine, error) {
+func (r *Repository) ListMedicines(ctx context.Context, userID uuid.UUID, includeArchived bool, sourceType *medicine.SourceType) ([]*medicine.Medicine, error) {
 	cond := table.Medicines.UserID.EQ(postgres.UUID(userID))
 	if !includeArchived {
 		cond = cond.AND(table.Medicines.ArchivedAt.IS_NULL())
+	}
+	if sourceType != nil {
+		cond = cond.AND(table.Medicines.SourceType.EQ(postgres.String(string(*sourceType))))
 	}
 
 	stmt := postgres.SELECT(table.Medicines.AllColumns).
@@ -469,8 +472,19 @@ func (r *Repository) ListIntakes(ctx context.Context, userID uuid.UUID, opts med
 		)
 	}
 
+	// Filtering by source_type joins the parent medicine, whose source_type the
+	// intake itself doesn't carry.
+	var from postgres.ReadableTable = table.MedicineIntakes
+	if opts.SourceType != nil {
+		from = table.MedicineIntakes.INNER_JOIN(
+			table.Medicines,
+			table.Medicines.ID.EQ(table.MedicineIntakes.MedicineID),
+		)
+		cond = cond.AND(table.Medicines.SourceType.EQ(postgres.String(string(*opts.SourceType))))
+	}
+
 	stmt := postgres.SELECT(table.MedicineIntakes.AllColumns).
-		FROM(table.MedicineIntakes).
+		FROM(from).
 		WHERE(cond).
 		ORDER_BY(table.MedicineIntakes.TakenAt.DESC()).
 		LIMIT(int64(limit))
@@ -507,8 +521,19 @@ func (r *Repository) ListStockAdjustments(ctx context.Context, userID uuid.UUID,
 		)
 	}
 
+	// Filtering by source_type joins the parent medicine, whose source_type the
+	// adjustment itself doesn't carry.
+	var from postgres.ReadableTable = table.MedicineStockAdjustments
+	if opts.SourceType != nil {
+		from = table.MedicineStockAdjustments.INNER_JOIN(
+			table.Medicines,
+			table.Medicines.ID.EQ(table.MedicineStockAdjustments.MedicineID),
+		)
+		cond = cond.AND(table.Medicines.SourceType.EQ(postgres.String(string(*opts.SourceType))))
+	}
+
 	stmt := postgres.SELECT(table.MedicineStockAdjustments.AllColumns).
-		FROM(table.MedicineStockAdjustments).
+		FROM(from).
 		WHERE(cond).
 		ORDER_BY(table.MedicineStockAdjustments.CreatedAt.DESC()).
 		LIMIT(int64(limit))

@@ -156,12 +156,14 @@ type AdjustStockInput struct {
 
 type ListIntakeOpts struct {
 	MedicineID *uuid.UUID
-	Date       *time.Time // filter to a single calendar day (UTC)
-	Limit      int        // 0 → default (50)
+	SourceType *SourceType // filter to medicines of this type (joins medicines)
+	Date       *time.Time  // filter to a single calendar day (UTC)
+	Limit      int         // 0 → default (50)
 }
 
 type ListAdjustmentOpts struct {
 	MedicineID *uuid.UUID
+	SourceType *SourceType // filter to medicines of this type (joins medicines)
 	Date       *time.Time
 	Limit      int
 }

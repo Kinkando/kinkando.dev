@@ -15,7 +15,7 @@ type EventPublisher interface {
 }
 
 type Repository interface {
-	ListMedicines(ctx context.Context, userID uuid.UUID, includeArchived bool) ([]*medicine.Medicine, error)
+	ListMedicines(ctx context.Context, userID uuid.UUID, includeArchived bool, sourceType *medicine.SourceType) ([]*medicine.Medicine, error)
 	CreateMedicine(ctx context.Context, userID uuid.UUID, in medicine.CreateMedicineInput) (*medicine.Medicine, error)
 	UpdateMedicine(ctx context.Context, id uuid.UUID, userID uuid.UUID, in medicine.UpdateMedicineInput) (*medicine.Medicine, error)
 	SetArchived(ctx context.Context, id uuid.UUID, userID uuid.UUID, archived bool) (*medicine.Medicine, error)
@@ -38,8 +38,8 @@ func New(repo Repository, events EventPublisher) *Service {
 	return &Service{repo: repo, events: events}
 }
 
-func (s *Service) ListMedicines(ctx context.Context, userID uuid.UUID, includeArchived bool) ([]*medicine.Medicine, error) {
-	return s.repo.ListMedicines(ctx, userID, includeArchived)
+func (s *Service) ListMedicines(ctx context.Context, userID uuid.UUID, includeArchived bool, sourceType *medicine.SourceType) ([]*medicine.Medicine, error) {
+	return s.repo.ListMedicines(ctx, userID, includeArchived, sourceType)
 }
 
 func (s *Service) CreateMedicine(ctx context.Context, userID uuid.UUID, in medicine.CreateMedicineInput) (*medicine.Medicine, error) {

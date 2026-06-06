@@ -2069,7 +2069,7 @@ func registerMedicineTools(s *mcp.Server, d Deps) {
 		Name:        tools.MedicineList.Name,
 		Description: tools.MedicineList.Description,
 	}, middleware.MCPRequestLogger(d.Logger, tools.MedicineList.Name, func(ctx context.Context, _ *mcp.CallToolRequest, in tools.MedicineListIn) (*mcp.CallToolResult, listMedicinesOut, error) {
-		meds, err := d.MedSvc.ListMedicines(ctx, ctxUserUUID(ctx), in.IncludeArchived)
+		meds, err := d.MedSvc.ListMedicines(ctx, ctxUserUUID(ctx), in.IncludeArchived, nil)
 		if err != nil {
 			return nil, listMedicinesOut{}, fmt.Errorf("list medicines: %w", err)
 		}
@@ -2087,7 +2087,7 @@ func registerMedicineTools(s *mcp.Server, d Deps) {
 		if strings.TrimSpace(in.MedicineName) == "" {
 			return nil, medicineTakeOut{}, fmt.Errorf("medicine_name is required")
 		}
-		meds, err := d.MedSvc.ListMedicines(ctx, ctxUserUUID(ctx), false)
+		meds, err := d.MedSvc.ListMedicines(ctx, ctxUserUUID(ctx), false, nil)
 		if err != nil {
 			return nil, medicineTakeOut{}, fmt.Errorf("list medicines: %w", err)
 		}
@@ -2135,7 +2135,7 @@ func registerMedicineTools(s *mcp.Server, d Deps) {
 		if in.Quantity <= 0 {
 			return nil, medicineAdjustStockOut{}, fmt.Errorf("quantity must be greater than 0")
 		}
-		meds, err := d.MedSvc.ListMedicines(ctx, ctxUserUUID(ctx), false)
+		meds, err := d.MedSvc.ListMedicines(ctx, ctxUserUUID(ctx), false, nil)
 		if err != nil {
 			return nil, medicineAdjustStockOut{}, fmt.Errorf("list medicines: %w", err)
 		}

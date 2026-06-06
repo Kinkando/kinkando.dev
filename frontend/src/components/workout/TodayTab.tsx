@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { ChevronDown } from 'lucide-react'
 import type {
   WorkoutSession,
   WorkoutScheduleEntry,
@@ -734,20 +735,10 @@ function SessionView({
               className="cursor-pointer text-gray-600 hover:text-gray-400"
               aria-label={bodyExpanded ? 'Collapse' : 'Expand'}
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
+              <ChevronDown
                 className={`h-4 w-4 transition-transform ${bodyExpanded ? 'rotate-180' : ''}`}
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
                 strokeWidth={2}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M19 9l-7 7-7-7"
-                />
-              </svg>
+              />
             </button>
           </div>
         </div>

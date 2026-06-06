@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { ChevronDown, Menu, X } from 'lucide-react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { signOut } from 'firebase/auth'
 import { auth } from '../lib/firebase'
@@ -224,20 +225,10 @@ export default function NavBar() {
                   <span className="max-w-[120px] truncate text-sm">
                     {user.displayName ?? user.email}
                   </span>
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
+                  <ChevronDown
                     className={`h-3.5 w-3.5 transition-transform ${avatarOpen ? 'rotate-180' : ''}`}
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
                     strokeWidth={2}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M19 9l-7 7-7-7"
-                    />
-                  </svg>
+                  />
                 </button>
                 {avatarOpen && (
                   <div className="absolute top-full right-0 mt-1 w-44 rounded-md border border-gray-700 bg-gray-800 py-1 shadow-lg">
@@ -317,20 +308,7 @@ export default function NavBar() {
             onClick={closeDrawer}
             aria-label="Close menu"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
+            <X className="h-5 w-5" strokeWidth={2} />
           </button>
         </div>
 
@@ -359,20 +337,10 @@ export default function NavBar() {
                     }
                     aria-label={`Toggle ${g.label} sub-menu`}
                   >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
+                    <ChevronDown
                       className={`h-3.5 w-3.5 transition-transform ${expanded === g.path ? 'rotate-180' : ''}`}
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
                       strokeWidth={2}
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M19 9l-7 7-7-7"
-                      />
-                    </svg>
+                    />
                   </button>
                 </div>
                 {expanded === g.path && (
@@ -502,21 +470,7 @@ export default function NavBar() {
           onClick={() => setOpen(true)}
           aria-label="More menu"
         >
-          {/* Hamburger / ellipsis icon */}
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="h-4 w-4 shrink-0"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={1.5}
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"
-            />
-          </svg>
+          <Menu className="h-4 w-4 shrink-0" strokeWidth={1.5} />
           More
         </button>
       </nav>

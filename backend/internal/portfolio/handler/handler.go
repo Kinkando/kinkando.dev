@@ -65,7 +65,7 @@ func (h *Handler) projects(c *fiber.Ctx) error {
 		{
 			"name":        "Personal Dashboard",
 			"description": "A self-hosted personal productivity dashboard with finance tracking, health logging, quest system, and more.",
-			"url":         "https://github.com/kinkando/personal-dashboard",
+			"url":         "https://github.com/kinkando/kinkando.dev",
 			"tags":        []string{"Go", "React", "PostgreSQL", "MongoDB"},
 		},
 	}

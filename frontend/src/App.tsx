@@ -13,6 +13,7 @@ import ChatPage from './pages/ChatPage'
 import HealthPage from './pages/HealthPage'
 import WorkoutPage from './pages/WorkoutPage'
 import MedicinePage from './pages/MedicinePage'
+import SupplementPage from './pages/SupplementPage'
 import FoodPage from './pages/FoodPage'
 import SleepPage from './pages/SleepPage'
 import NewsPage from './pages/NewsPage'
@@ -130,6 +131,14 @@ export default function App() {
           element={
             <ProtectedRoute>
               <MedicinePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/health/supplements"
+          element={
+            <ProtectedRoute>
+              <SupplementPage />
             </ProtectedRoute>
           }
         />

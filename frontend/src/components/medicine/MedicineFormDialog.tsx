@@ -11,6 +11,8 @@ import { useCreateMedicine, useUpdateMedicine } from '../../queries/useMedicine'
 
 type Props = {
   initial?: Medicine
+  /** When set (creating from a type-specific view), preset and hide the Type field. */
+  defaultSourceType?: MedicineSourceType
   onClose: () => void
 }
 
@@ -113,13 +115,23 @@ function medicineToForm(m: Medicine): FormState {
   }
 }
 
-export default function MedicineFormDialog({ initial, onClose }: Props) {
+export default function MedicineFormDialog({
+  initial,
+  defaultSourceType,
+  onClose,
+}: Props) {
   const isEdit = !!initial
   const [form, setForm] = useState<FormState>(
-    initial ? medicineToForm(initial) : defaultForm,
+    initial
+      ? medicineToForm(initial)
+      : { ...defaultForm, source_type: defaultSourceType ?? 'medication' },
   )
   const [error, setError] = useState('')
   const [newTime, setNewTime] = useState('')
+
+  // When a type-specific view fixes the category, hide the Type selector.
+  const showTypeField = !defaultSourceType
+  const noun = form.source_type === 'supplement' ? 'Supplement' : 'Medicine'
 
   const createMedicine = useCreateMedicine()
   const updateMedicine = useUpdateMedicine()
@@ -208,7 +220,7 @@ export default function MedicineFormDialog({ initial, onClose }: Props) {
     >
       <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl border border-gray-700 bg-gray-900 p-6 shadow-2xl">
         <h2 className="mb-4 text-base font-semibold text-gray-100">
-          {isEdit ? 'Edit Medicine' : 'Add Medicine'}
+          {isEdit ? `Edit ${noun}` : `Add ${noun}`}
         </h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -224,25 +236,27 @@ export default function MedicineFormDialog({ initial, onClose }: Props) {
             </div>
 
             {/* Type */}
-            <div>
-              <label className={labelClass}>Type *</label>
-              <select
-                className={inputClass}
-                value={form.source_type}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    source_type: e.target.value as MedicineSourceType,
-                  })
-                }
-              >
-                {SOURCE_TYPES.map((s) => (
-                  <option key={s} value={s}>
-                    {SOURCE_LABELS[s]}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {showTypeField && (
+              <div>
+                <label className={labelClass}>Type *</label>
+                <select
+                  className={inputClass}
+                  value={form.source_type}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      source_type: e.target.value as MedicineSourceType,
+                    })
+                  }
+                >
+                  {SOURCE_TYPES.map((s) => (
+                    <option key={s} value={s}>
+                      {SOURCE_LABELS[s]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             {/* Generic name */}
             <div>
@@ -537,7 +551,7 @@ export default function MedicineFormDialog({ initial, onClose }: Props) {
               disabled={isPending}
               className="cursor-pointer rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
             >
-              {isPending ? 'Saving…' : isEdit ? 'Save Changes' : 'Add Medicine'}
+              {isPending ? 'Saving…' : isEdit ? 'Save Changes' : `Add ${noun}`}
             </button>
             <button
               type="button"

@@ -2,10 +2,12 @@ import { useState } from 'react'
 import type {
   MedicineIntake,
   MedicineStockAdjustment,
+  MedicineSourceType,
   IntakeStatus,
   AdjustmentType,
 } from '../../lib/api/types'
 import {
+  useMedicines,
   useMedicineIntakes,
   useStockAdjustments,
 } from '../../queries/useMedicine'
@@ -55,7 +57,12 @@ function todayStr() {
   return new Date().toISOString().slice(0, 10)
 }
 
-export default function HistoryTab() {
+type Props = {
+  /** When set, scope history to medicines of this source type. */
+  sourceType?: MedicineSourceType
+}
+
+export default function HistoryTab({ sourceType }: Props) {
   const [filterDate, setFilterDate] = useState('')
 
   // Today's intakes always shown separately
@@ -65,13 +72,30 @@ export default function HistoryTab() {
   // Adjustments
   const adjustmentsQuery = useStockAdjustments(filterDate || undefined)
 
-  const todayIntakes = todayIntakesQuery.data ?? []
+  // Map of medicine IDs belonging to the scoped source type (null = no scoping).
+  const { data: medicines } = useMedicines(true)
+  const idSet = sourceType
+    ? new Set(
+        (medicines ?? [])
+          .filter((m) => m.source_type === sourceType)
+          .map((m) => m.id),
+      )
+    : null
+  const matches = (medicineID: string) => !idSet || idSet.has(medicineID)
+
+  const todayIntakes = (todayIntakesQuery.data ?? []).filter((i) =>
+    matches(i.medicine_id),
+  )
+  const recentIntakesAll = (recentIntakesQuery.data ?? []).filter((i) =>
+    matches(i.medicine_id),
+  )
   const recentIntakes = filterDate
-    ? (recentIntakesQuery.data ?? [])
-    : (recentIntakesQuery.data ?? []).slice(0, 20)
-  const adjustments = filterDate
-    ? (adjustmentsQuery.data ?? [])
-    : (adjustmentsQuery.data ?? []).slice(0, 20)
+    ? recentIntakesAll
+    : recentIntakesAll.slice(0, 20)
+  const adjustmentsAll = (adjustmentsQuery.data ?? []).filter((a) =>
+    matches(a.medicine_id),
+  )
+  const adjustments = filterDate ? adjustmentsAll : adjustmentsAll.slice(0, 20)
 
   return (
     <div className="space-y-6">

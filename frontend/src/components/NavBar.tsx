@@ -77,6 +77,7 @@ const GROUPS: NavGroup[] = [
       { label: 'Dashboard', path: '/health' },
       { label: 'Workout', path: '/health/workout' },
       { label: 'Medicine', path: '/health/medicine' },
+      { label: 'Supplements', path: '/health/supplements' },
       { label: 'Food', path: '/health/food' },
       { label: 'Sleep', path: '/health/sleep' },
     ],

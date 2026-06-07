@@ -144,6 +144,42 @@ func (s *Service) Run(ctx context.Context) (*RunResult, error) {
 				continue
 			}
 
+			// Fetch all of today's intakes for this medicine in one query and
+			// reuse the results for both the day-total check and per-slot checks.
+			startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+			todayIntakes, intakeErr := s.medRepo.ListIntakesInRange(ctx, m.ID, startOfDay, startOfDay.Add(24*time.Hour))
+			if intakeErr != nil {
+				s.log.Warn("reminder: list today intakes",
+					zap.String("medicine_id", m.ID.String()), zap.Error(intakeErr))
+			}
+
+			// Skip dose/missed reminders when the total quantity_taken for the day
+			// already meets or exceeds frequency_value (all doses done).
+			if m.FrequencyValue != nil && intakeErr == nil {
+				var totalTaken float64
+				for _, intake := range todayIntakes {
+					if intake.Status == medicine.IntakeStatusTaken {
+						totalTaken += intake.QuantityTaken
+					}
+				}
+				if totalTaken >= float64(*m.FrequencyValue) {
+					continue
+				}
+			}
+
+			// hasTakenNearSlot filters the cached todayIntakes for a taken entry
+			// within [slot-30m, slot+90m) — no extra DB round-trip.
+			hasTakenNearSlot := func(slot time.Time) bool {
+				lo, hi := slot.Add(-30*time.Minute), slot.Add(90*time.Minute)
+				for _, intake := range todayIntakes {
+					if intake.Status == medicine.IntakeStatusTaken &&
+						!intake.TakenAt.Before(lo) && intake.TakenAt.Before(hi) {
+						return true
+					}
+				}
+				return false
+			}
+
 			for _, timeStr := range m.ReminderTimes {
 				slotTime, ok := parseSlotTime(now, timeStr)
 				if !ok {
@@ -154,34 +190,11 @@ func (s *Service) Run(ctx context.Context) (*RunResult, error) {
 				}
 
 				slotKey := fmt.Sprintf("%s#%s", todayKey, timeStr)
-
-				// hasTakenNearSlot reports whether a `taken` intake exists within the
-				// window [slot-30m, slot+90m). Shared by the dose and missed branches.
-				hasTakenNearSlot := func(medID uuid.UUID, slot time.Time) (bool, error) {
-					intakes, err := s.medRepo.ListIntakesInRange(
-						ctx, medID,
-						slot.Add(-30*time.Minute),
-						slot.Add(90*time.Minute),
-					)
-					if err != nil {
-						return false, err
-					}
-					for _, intake := range intakes {
-						if intake.Status == medicine.IntakeStatusTaken {
-							return true, nil
-						}
-					}
-					return false, nil
-				}
+				taken := hasTakenNearSlot(slotTime)
 
 				// Dose due: slot falls in (now - cronInterval, now]
 				windowStart := now.Add(-cronInterval)
 				if !slotTime.Before(windowStart) && !slotTime.After(now) {
-					taken, takenErr := hasTakenNearSlot(m.ID, slotTime)
-					if takenErr != nil {
-						s.log.Warn("reminder: taken check for dose",
-							zap.String("medicine_id", m.ID.String()), zap.Error(takenErr))
-					}
 					if !taken {
 						logged, logErr := s.medRepo.LogReminder(ctx, userID, m.ID, "dose", slotKey)
 						if logErr != nil {
@@ -201,12 +214,6 @@ func (s *Service) Run(ctx context.Context) (*RunResult, error) {
 				// Missed: slot passed more than missedGrace ago AND no taken intake near that slot
 				if now.Sub(slotTime) > missedGrace && slotTime.Before(now) {
 					missedKey := "missed#" + slotKey
-					taken, takenErr := hasTakenNearSlot(m.ID, slotTime)
-					if takenErr != nil {
-						s.log.Warn("reminder: list intakes for missed check",
-							zap.String("medicine_id", m.ID.String()), zap.Error(takenErr))
-						continue
-					}
 					if !taken {
 						logged, logErr := s.medRepo.LogReminder(ctx, userID, m.ID, "missed", missedKey)
 						if logErr != nil {

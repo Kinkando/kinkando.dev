@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { FoodLog } from '../../lib/api/types'
+import type { FoodLog, MealType } from '../../lib/api/types'
 import {
   useCreateFoodLog,
   useUpdateFoodLog,

@@ -35,7 +35,7 @@ export const QUEST_SOURCE_ROUTES: Record<SourceType, string | null> = {
   manual: null,
   medicine: '/health/medicine',
   workout: '/health/workout',
-  supplement: '/health/medicine',
+  supplement: '/health/supplements',
   weight: '/health?tab=progress',
   sleep: '/health/sleep',
 }

@@ -1,4 +1,4 @@
-import type { ArchiveFilter } from '../lib/api/types'
+import type { ArchiveFilter, MedicineSourceType } from '../lib/api/types'
 
 export const keys = {
   userMe: ['user', 'me'] as const,
@@ -25,11 +25,12 @@ export const keys = {
   workoutSchedule: ['workout', 'schedule'] as const,
   workoutSessions: (range: string) => ['workout', 'sessions', range] as const,
   workoutSession: (id: string) => ['workout', 'session', id] as const,
-  medicines: (includeArchived: boolean) =>
-    ['medicine', 'list', includeArchived] as const,
-  medicineIntakes: (date?: string) => ['medicine', 'intakes', date] as const,
-  medicineAdjustments: (date?: string) =>
-    ['medicine', 'adjustments', date] as const,
+  medicines: (sourceType: MedicineSourceType, includeArchived: boolean) =>
+    ['medicine', 'list', sourceType, includeArchived] as const,
+  medicineIntakes: (sourceType: MedicineSourceType, date?: string) =>
+    ['medicine', 'intakes', sourceType, date] as const,
+  medicineAdjustments: (sourceType: MedicineSourceType, date?: string) =>
+    ['medicine', 'adjustments', sourceType, date] as const,
   questOverview: ['quest', 'overview'] as const,
   questStreaks: ['quest', 'streaks'] as const,
   achievements: ['achievements'] as const,

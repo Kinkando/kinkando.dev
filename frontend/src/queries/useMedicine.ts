@@ -15,13 +15,17 @@ import type {
   UpdateMedicineInput,
   TakeMedicineInput,
   AdjustStockInput,
+  MedicineSourceType,
 } from '../lib/api/types'
 import { keys } from './keys'
 
-export function useMedicines(includeArchived = false) {
+export function useMedicines(
+  sourceType: MedicineSourceType,
+  includeArchived = false,
+) {
   return useQuery({
-    queryKey: keys.medicines(includeArchived),
-    queryFn: () => fetchMedicines(includeArchived),
+    queryKey: keys.medicines(sourceType, includeArchived),
+    queryFn: () => fetchMedicines(sourceType, includeArchived),
   })
 }
 
@@ -93,16 +97,22 @@ export function useAdjustStock() {
   })
 }
 
-export function useMedicineIntakes(date?: string) {
+export function useMedicineIntakes(
+  sourceType: MedicineSourceType,
+  date?: string,
+) {
   return useQuery({
-    queryKey: keys.medicineIntakes(date),
-    queryFn: () => fetchIntakes({ date }),
+    queryKey: keys.medicineIntakes(sourceType, date),
+    queryFn: () => fetchIntakes(sourceType, { date }),
   })
 }
 
-export function useStockAdjustments(date?: string) {
+export function useStockAdjustments(
+  sourceType: MedicineSourceType,
+  date?: string,
+) {
   return useQuery({
-    queryKey: keys.medicineAdjustments(date),
-    queryFn: () => fetchStockAdjustments({ date }),
+    queryKey: keys.medicineAdjustments(sourceType, date),
+    queryFn: () => fetchStockAdjustments(sourceType, { date }),
   })
 }

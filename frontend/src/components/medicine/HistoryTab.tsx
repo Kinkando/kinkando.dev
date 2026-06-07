@@ -3,8 +3,6 @@ import type {
   MedicineIntake,
   MedicineStockAdjustment,
   MedicineSourceType,
-  IntakeStatus,
-  AdjustmentType,
 } from '../../lib/api/types'
 import {
   useMedicines,
@@ -27,22 +25,27 @@ function todayStr() {
 }
 
 type Props = {
-  /** When set, scope history to medicines of this source type. */
-  sourceType?: MedicineSourceType
+  sourceType: MedicineSourceType
 }
 
 export default function HistoryTab({ sourceType }: Props) {
   const [filterDate, setFilterDate] = useState('')
 
   // Today's intakes always shown separately
-  const todayIntakesQuery = useMedicineIntakes(todayStr())
+  const todayIntakesQuery = useMedicineIntakes(sourceType, todayStr())
   // Filtered or recent intakes
-  const recentIntakesQuery = useMedicineIntakes(filterDate || undefined)
+  const recentIntakesQuery = useMedicineIntakes(
+    sourceType,
+    filterDate || undefined,
+  )
   // Adjustments
-  const adjustmentsQuery = useStockAdjustments(filterDate || undefined)
+  const adjustmentsQuery = useStockAdjustments(
+    sourceType,
+    filterDate || undefined,
+  )
 
   // Map of medicine IDs belonging to the scoped source type (null = no scoping).
-  const { data: medicines } = useMedicines(true)
+  const { data: medicines } = useMedicines(sourceType, true)
   const idSet = sourceType
     ? new Set(
         (medicines ?? [])

@@ -19,10 +19,13 @@ export default function MedicinesTab({ sourceType }: Props) {
 
   const noun = sourceType === 'supplement' ? 'Supplement' : 'Medicine'
 
-  const { data: medicines, isLoading } = useMedicines(includeArchived)
+  const { data: medicines, isLoading } = useMedicines(
+    sourceType,
+    includeArchived,
+  )
   // Fetch recent intakes (no date filter = up to 50 most recent, DESC by taken_at).
   // Today's logs are always at the front, so today's count is never truncated.
-  const { data: intakes } = useMedicineIntakes()
+  const { data: intakes } = useMedicineIntakes(sourceType)
 
   // Build a per-medicine count of "taken" intakes logged today (local timezone).
   const takenTodayByMedicine: Record<string, number> = {}

@@ -29,11 +29,6 @@ export default function ChatInput({ onSend, disabled, onError }: Props) {
     el.style.height = `${Math.min(el.scrollHeight, MAX_HEIGHT)}px`
   }, [value])
 
-  // Restore focus when the AI finishes responding.
-  useEffect(() => {
-    if (!disabled) textareaRef.current?.focus()
-  }, [disabled])
-
   // Stop recording and cancel any in-flight transcription on unmount.
   useEffect(() => {
     return () => {
@@ -146,7 +141,6 @@ export default function ChatInput({ onSend, disabled, onError }: Props) {
         value={value}
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={handleKeyDown}
-        disabled={disabled}
       />
       <div className="flex items-center justify-between px-2 pb-2">
         {/* Mic button */}
@@ -154,7 +148,6 @@ export default function ChatInput({ onSend, disabled, onError }: Props) {
           <button
             type="button"
             onClick={handleMicClick}
-            disabled={disabled}
             className={`flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg transition ${
               recording
                 ? 'bg-red-600 text-white hover:bg-red-500'
@@ -185,7 +178,6 @@ export default function ChatInput({ onSend, disabled, onError }: Props) {
               <button
                 type="button"
                 onClick={handleCancelRecording}
-                disabled={disabled}
                 className="flex h-5 w-5 cursor-pointer items-center justify-center rounded hover:bg-red-950 disabled:opacity-40"
                 aria-label="Cancel recording"
               >

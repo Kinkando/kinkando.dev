@@ -20,7 +20,7 @@ import type {
 import { keys } from './keys'
 
 export function useMedicines(
-  sourceType: MedicineSourceType,
+  sourceType?: MedicineSourceType,
   includeArchived = false,
 ) {
   return useQuery({
@@ -98,21 +98,21 @@ export function useAdjustStock() {
 }
 
 export function useMedicineIntakes(
-  sourceType: MedicineSourceType,
+  sourceType?: MedicineSourceType,
   date?: string,
 ) {
   return useQuery({
     queryKey: keys.medicineIntakes(sourceType, date),
-    queryFn: () => fetchIntakes(sourceType, { date }),
+    queryFn: () => fetchIntakes({ sourceType, date }),
   })
 }
 
 export function useStockAdjustments(
-  sourceType: MedicineSourceType,
+  sourceType?: MedicineSourceType,
   date?: string,
 ) {
   return useQuery({
     queryKey: keys.medicineAdjustments(sourceType, date),
-    queryFn: () => fetchStockAdjustments(sourceType, { date }),
+    queryFn: () => fetchStockAdjustments({ sourceType, date }),
   })
 }

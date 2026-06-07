@@ -13,13 +13,13 @@ import type {
 } from './types'
 
 export function fetchMedicines(
-  sourceType: MedicineSourceType,
+  sourceType?: MedicineSourceType,
   includeArchived = false,
 ): Promise<Medicine[] | undefined> {
   return apiFetch<Medicine[]>('/medicines', {
     auth: true,
     query: {
-      source_type: sourceType,
+      ...(sourceType && { source_type: sourceType }),
       include_archived: includeArchived ? 'true' : 'false',
     },
   })
@@ -82,14 +82,13 @@ export function adjustStock(
   })
 }
 
-export function fetchIntakes(
-  sourceType: MedicineSourceType,
-  opts?: {
-    date?: string
-    limit?: number
-  },
-): Promise<MedicineIntake[] | undefined> {
-  const query: Record<string, string> = { source_type: sourceType }
+export function fetchIntakes(opts?: {
+  sourceType?: MedicineSourceType
+  date?: string
+  limit?: number
+}): Promise<MedicineIntake[] | undefined> {
+  const query: Record<string, string> = {}
+  if (opts?.sourceType) query.source_type = opts.sourceType
   if (opts?.date) query.date = opts.date
   if (opts?.limit) query.limit = String(opts.limit)
   return apiFetch<MedicineIntake[]>('/medicines/intakes', {
@@ -98,14 +97,13 @@ export function fetchIntakes(
   })
 }
 
-export function fetchStockAdjustments(
-  sourceType: MedicineSourceType,
-  opts?: {
-    date?: string
-    limit?: number
-  },
-): Promise<MedicineStockAdjustment[] | undefined> {
-  const query: Record<string, string> = { source_type: sourceType }
+export function fetchStockAdjustments(opts?: {
+  sourceType?: MedicineSourceType
+  date?: string
+  limit?: number
+}): Promise<MedicineStockAdjustment[] | undefined> {
+  const query: Record<string, string> = {}
+  if (opts?.sourceType) query.source_type = opts.sourceType
   if (opts?.date) query.date = opts.date
   if (opts?.limit) query.limit = String(opts.limit)
   return apiFetch<MedicineStockAdjustment[]>('/medicines/stock-adjustments', {

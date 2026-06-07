@@ -25,11 +25,11 @@ export const keys = {
   workoutSchedule: ['workout', 'schedule'] as const,
   workoutSessions: (range: string) => ['workout', 'sessions', range] as const,
   workoutSession: (id: string) => ['workout', 'session', id] as const,
-  medicines: (sourceType: MedicineSourceType, includeArchived: boolean) =>
+  medicines: (sourceType?: MedicineSourceType, includeArchived = false) =>
     ['medicine', 'list', sourceType, includeArchived] as const,
-  medicineIntakes: (sourceType: MedicineSourceType, date?: string) =>
+  medicineIntakes: (sourceType?: MedicineSourceType, date?: string) =>
     ['medicine', 'intakes', sourceType, date] as const,
-  medicineAdjustments: (sourceType: MedicineSourceType, date?: string) =>
+  medicineAdjustments: (sourceType?: MedicineSourceType, date?: string) =>
     ['medicine', 'adjustments', sourceType, date] as const,
   questOverview: ['quest', 'overview'] as const,
   questStreaks: ['quest', 'streaks'] as const,

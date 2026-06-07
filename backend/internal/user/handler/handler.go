@@ -8,13 +8,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/kinkando/personal-dashboard/internal/auth"
 	"github.com/kinkando/personal-dashboard/internal/user"
+	"github.com/kinkando/personal-dashboard/pkg/respond"
 )
-
-// UserResolver looks up the internal UUID for a Firebase UID.  Matches the
-// interface already used by other domain handlers (e.g. finance).
-type UserResolver interface {
-	GetIDByFirebaseUID(ctx context.Context, firebaseUID string) (uuid.UUID, error)
-}
 
 type Service interface {
 	GetOrCreate(ctx context.Context, firebaseUID, email string) (*user.User, error)
@@ -25,10 +20,10 @@ type Service interface {
 
 type Handler struct {
 	svc      Service
-	resolver UserResolver
+	resolver auth.UserResolver
 }
 
-func New(svc Service, resolver UserResolver) *Handler {
+func New(svc Service, resolver auth.UserResolver) *Handler {
 	return &Handler{svc: svc, resolver: resolver}
 }
 
@@ -45,65 +40,53 @@ func (h *Handler) ensureUser(c *fiber.Ctx) error {
 	firebaseUID := auth.GetUserID(c)
 	email := auth.GetEmail(c)
 	if firebaseUID == "" {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
+		return respond.Unauthorized(c, "invalid user")
 	}
-
 	u, err := h.svc.GetOrCreate(c.Context(), firebaseUID, email)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
-	return c.JSON(fiber.Map{"data": u})
+	return respond.Data(c, u)
 }
 
 // getMe returns the full user row (including line_id) for the authenticated user.
 func (h *Handler) getMe(c *fiber.Ctx) error {
 	firebaseUID := auth.GetUserID(c)
 	if firebaseUID == "" {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
+		return respond.Unauthorized(c, "invalid user")
 	}
-
 	u, err := h.svc.GetByFirebaseUID(c.Context(), firebaseUID)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
 	if u == nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "user not found"})
+		return respond.NotFound(c, "user not found")
 	}
-	return c.JSON(fiber.Map{"data": u})
+	return respond.Data(c, u)
 }
 
 // createLineLinkCode generates a one-time verification code the user can send
 // to the LINE bot to link their account.
 func (h *Handler) createLineLinkCode(c *fiber.Ctx) error {
-	userID, err := h.resolveUserID(c)
+	userID, err := auth.ResolveUserID(c, h.resolver)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
+		return respond.Unauthorized(c, "invalid user")
 	}
-
 	code, expiresAt, err := h.svc.CreateLinkCode(c.Context(), userID)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
-	return c.JSON(fiber.Map{"data": fiber.Map{"code": code, "expires_at": expiresAt}})
+	return respond.Data(c, fiber.Map{"code": code, "expires_at": expiresAt})
 }
 
 // unlinkLine removes the LINE account association for the authenticated user.
 func (h *Handler) unlinkLine(c *fiber.Ctx) error {
-	userID, err := h.resolveUserID(c)
+	userID, err := auth.ResolveUserID(c, h.resolver)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
+		return respond.Unauthorized(c, "invalid user")
 	}
-
 	if err := h.svc.Unlink(c.Context(), userID); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
 	return c.SendStatus(fiber.StatusNoContent)
-}
-
-func (h *Handler) resolveUserID(c *fiber.Ctx) (uuid.UUID, error) {
-	firebaseUID := auth.GetUserID(c)
-	if firebaseUID == "" {
-		return uuid.UUID{}, fiber.ErrUnauthorized
-	}
-	return h.resolver.GetIDByFirebaseUID(c.Context(), firebaseUID)
 }

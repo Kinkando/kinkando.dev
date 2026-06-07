@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/kinkando/personal-dashboard/internal/auth"
 	"github.com/kinkando/personal-dashboard/internal/quest"
+	"github.com/kinkando/personal-dashboard/pkg/respond"
 	"github.com/kinkando/personal-dashboard/pkg/validate"
 )
 
@@ -28,17 +29,12 @@ type Service interface {
 	ListXPEvents(ctx context.Context, userID uuid.UUID, limit int) ([]*quest.XPEvent, error)
 }
 
-// UserResolver resolves a Firebase UID to the internal UUID stored in the users table.
-type UserResolver interface {
-	GetIDByFirebaseUID(ctx context.Context, firebaseUID string) (uuid.UUID, error)
-}
-
 type Handler struct {
 	svc   Service
-	users UserResolver
+	users auth.UserResolver
 }
 
-func New(svc Service, users UserResolver) *Handler {
+func New(svc Service, users auth.UserResolver) *Handler {
 	return &Handler{svc: svc, users: users}
 }
 
@@ -62,52 +58,52 @@ func (h *Handler) Register(router fiber.Router) {
 // ── Quest CRUD ────────────────────────────────────────────────────────────────
 
 func (h *Handler) listQuests(c *fiber.Ctx) error {
-	userID, err := h.resolveUserID(c)
+	userID, err := auth.ResolveUserID(c, h.users)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
+		return respond.Unauthorized(c, "invalid user")
 	}
 	questType := c.Query("type")
 	quests, err := h.svc.ListQuests(c.Context(), userID, questType)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
 	if quests == nil {
 		quests = []*quest.Quest{}
 	}
-	return c.JSON(fiber.Map{"data": quests})
+	return respond.Data(c, quests)
 }
 
 func (h *Handler) createQuest(c *fiber.Ctx) error {
-	userID, err := h.resolveUserID(c)
+	userID, err := auth.ResolveUserID(c, h.users)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
+		return respond.Unauthorized(c, "invalid user")
 	}
 	var in quest.CreateQuestInput
 	if err := c.BodyParser(&in); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
+		return respond.BadRequest(c, "invalid request body")
 	}
 	if err := validate.Struct(in); err != nil {
 		return err
 	}
 	q, err := h.svc.CreateQuest(c.Context(), userID, in)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+		return respond.BadRequest(c, err.Error())
 	}
-	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"data": q})
+	return respond.Created(c, q)
 }
 
 func (h *Handler) updateQuest(c *fiber.Ctx) error {
-	userID, err := h.resolveUserID(c)
+	userID, err := auth.ResolveUserID(c, h.users)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
+		return respond.Unauthorized(c, "invalid user")
 	}
 	id, err := uuid.Parse(c.Params("id"))
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid quest id"})
+		return respond.BadRequest(c, "invalid quest id")
 	}
 	var in quest.UpdateQuestInput
 	if err := c.BodyParser(&in); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
+		return respond.BadRequest(c, "invalid request body")
 	}
 	if err := validate.Struct(in); err != nil {
 		return err
@@ -115,27 +111,27 @@ func (h *Handler) updateQuest(c *fiber.Ctx) error {
 	q, err := h.svc.UpdateQuest(c.Context(), id, userID, in)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "quest not found"})
+			return respond.NotFound(c, "quest not found")
 		}
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+		return respond.BadRequest(c, err.Error())
 	}
-	return c.JSON(fiber.Map{"data": q})
+	return respond.Data(c, q)
 }
 
 func (h *Handler) deleteQuest(c *fiber.Ctx) error {
-	userID, err := h.resolveUserID(c)
+	userID, err := auth.ResolveUserID(c, h.users)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
+		return respond.Unauthorized(c, "invalid user")
 	}
 	id, err := uuid.Parse(c.Params("id"))
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid quest id"})
+		return respond.BadRequest(c, "invalid quest id")
 	}
 	if err := h.svc.DeleteQuest(c.Context(), id, userID); err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "quest not found"})
+			return respond.NotFound(c, "quest not found")
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
 	return c.SendStatus(fiber.StatusNoContent)
 }
@@ -149,86 +145,86 @@ func (h *Handler) deactivateQuest(c *fiber.Ctx) error {
 }
 
 func (h *Handler) setActive(c *fiber.Ctx, active bool) error {
-	userID, err := h.resolveUserID(c)
+	userID, err := auth.ResolveUserID(c, h.users)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
+		return respond.Unauthorized(c, "invalid user")
 	}
 	id, err := uuid.Parse(c.Params("id"))
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid quest id"})
+		return respond.BadRequest(c, "invalid quest id")
 	}
 	q, err := h.svc.SetActive(c.Context(), id, userID, active)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "quest not found"})
+			return respond.NotFound(c, "quest not found")
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
-	return c.JSON(fiber.Map{"data": q})
+	return respond.Data(c, q)
 }
 
 // ── Overview ──────────────────────────────────────────────────────────────────
 
 func (h *Handler) getOverview(c *fiber.Ctx) error {
-	userID, err := h.resolveUserID(c)
+	userID, err := auth.ResolveUserID(c, h.users)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
+		return respond.Unauthorized(c, "invalid user")
 	}
 	overview, err := h.svc.GetOverview(c.Context(), userID)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
-	return c.JSON(fiber.Map{"data": overview})
+	return respond.Data(c, overview)
 }
 
 // ── Streaks ───────────────────────────────────────────────────────────────────
 
 func (h *Handler) getStreaks(c *fiber.Ctx) error {
-	userID, err := h.resolveUserID(c)
+	userID, err := auth.ResolveUserID(c, h.users)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
+		return respond.Unauthorized(c, "invalid user")
 	}
 	streaks, err := h.svc.GetStreaks(c.Context(), userID)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
-	return c.JSON(fiber.Map{"data": streaks})
+	return respond.Data(c, streaks)
 }
 
 // ── Actions ───────────────────────────────────────────────────────────────────
 
 func (h *Handler) incrementQuest(c *fiber.Ctx) error {
-	userID, err := h.resolveUserID(c)
+	userID, err := auth.ResolveUserID(c, h.users)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
+		return respond.Unauthorized(c, "invalid user")
 	}
 	id, err := uuid.Parse(c.Params("id"))
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid quest id"})
+		return respond.BadRequest(c, "invalid quest id")
 	}
 	if err := h.svc.IncrementQuest(c.Context(), userID, id); err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "quest not found"})
+			return respond.NotFound(c, "quest not found")
 		}
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+		return respond.BadRequest(c, err.Error())
 	}
 	return c.SendStatus(fiber.StatusNoContent)
 }
 
 func (h *Handler) decrementQuest(c *fiber.Ctx) error {
-	userID, err := h.resolveUserID(c)
+	userID, err := auth.ResolveUserID(c, h.users)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
+		return respond.Unauthorized(c, "invalid user")
 	}
 	id, err := uuid.Parse(c.Params("id"))
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid quest id"})
+		return respond.BadRequest(c, "invalid quest id")
 	}
 	if err := h.svc.DecrementQuest(c.Context(), userID, id); err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "quest not found"})
+			return respond.NotFound(c, "quest not found")
 		}
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+		return respond.BadRequest(c, err.Error())
 	}
 	return c.SendStatus(fiber.StatusNoContent)
 }
@@ -236,9 +232,9 @@ func (h *Handler) decrementQuest(c *fiber.Ctx) error {
 // ── History ───────────────────────────────────────────────────────────────────
 
 func (h *Handler) listHistory(c *fiber.Ctx) error {
-	userID, err := h.resolveUserID(c)
+	userID, err := auth.ResolveUserID(c, h.users)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
+		return respond.Unauthorized(c, "invalid user")
 	}
 	limit := 50
 	if s := c.Query("limit"); s != "" {
@@ -248,20 +244,10 @@ func (h *Handler) listHistory(c *fiber.Ctx) error {
 	}
 	events, err := h.svc.ListXPEvents(c.Context(), userID, limit)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
 	if events == nil {
 		events = []*quest.XPEvent{}
 	}
-	return c.JSON(fiber.Map{"data": events})
-}
-
-// ── Auth helper ───────────────────────────────────────────────────────────────
-
-func (h *Handler) resolveUserID(c *fiber.Ctx) (uuid.UUID, error) {
-	firebaseUID := auth.GetUserID(c)
-	if firebaseUID == "" {
-		return uuid.UUID{}, fiber.ErrUnauthorized
-	}
-	return h.users.GetIDByFirebaseUID(c.Context(), firebaseUID)
+	return respond.Data(c, events)
 }

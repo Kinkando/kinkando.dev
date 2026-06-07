@@ -682,7 +682,7 @@ func reconcileBonusTx(ctx context.Context, db qrm.DB, userID uuid.UUID, questTyp
 		}
 	}
 
-	var bonusSource string
+	var bonusSource quest.XPSource
 	var bonusXP int
 	var bonusTitle string
 	if questType == quest.QuestTypeDaily {
@@ -704,13 +704,13 @@ func reconcileBonusTx(ctx context.Context, db qrm.DB, userID uuid.UUID, questTyp
 // insertBonusXPEventTx inserts a bonus XP event with quest_id = NULL (the default).
 // It checks for existence first; the partial unique index uq_xp_bonus_period is the
 // backstop against any concurrent double-insert.
-func insertBonusXPEventTx(ctx context.Context, db qrm.DB, userID uuid.UUID, source, title string, periodStart time.Time, xp int) error {
+func insertBonusXPEventTx(ctx context.Context, db qrm.DB, userID uuid.UUID, source quest.XPSource, title string, periodStart time.Time, xp int) error {
 	// Skip if the bonus row for this period already exists.
 	checkStmt := postgres.SELECT(postgres.COUNT(table.UserXpEvents.ID).AS("cnt")).
 		FROM(table.UserXpEvents).
 		WHERE(
 			table.UserXpEvents.UserID.EQ(postgres.UUID(userID)).
-				AND(table.UserXpEvents.Source.EQ(postgres.String(source))).
+				AND(table.UserXpEvents.Source.EQ(postgres.String(string(source)))).
 				AND(table.UserXpEvents.PeriodStart.EQ(postgres.DateT(periodStart))).
 				AND(table.UserXpEvents.QuestID.IS_NULL()),
 		)
@@ -734,7 +734,7 @@ func insertBonusXPEventTx(ctx context.Context, db qrm.DB, userID uuid.UUID, sour
 	).VALUES(
 		postgres.UUID(userID),
 		title,
-		source,
+		string(source),
 		postgres.DateT(periodStart),
 		xp,
 	)
@@ -746,10 +746,10 @@ func insertBonusXPEventTx(ctx context.Context, db qrm.DB, userID uuid.UUID, sour
 
 // deleteBonusXPEventTx removes the bonus XP row (quest_id IS NULL) for the given
 // user/source/period. It is a no-op when the row doesn't exist.
-func deleteBonusXPEventTx(ctx context.Context, db qrm.DB, userID uuid.UUID, source string, periodStart time.Time) error {
+func deleteBonusXPEventTx(ctx context.Context, db qrm.DB, userID uuid.UUID, source quest.XPSource, periodStart time.Time) error {
 	stmt := table.UserXpEvents.DELETE().WHERE(
 		table.UserXpEvents.UserID.EQ(postgres.UUID(userID)).
-			AND(table.UserXpEvents.Source.EQ(postgres.String(source))).
+			AND(table.UserXpEvents.Source.EQ(postgres.String(string(source)))).
 			AND(table.UserXpEvents.PeriodStart.EQ(postgres.DateT(periodStart))).
 			AND(table.UserXpEvents.QuestID.IS_NULL()),
 	)
@@ -782,7 +782,7 @@ func toXPEvent(m model.UserXpEvents) *quest.XPEvent {
 		ID:          m.ID,
 		QuestID:     m.QuestID,
 		QuestTitle:  m.QuestTitle,
-		Source:      m.Source,
+		Source:      quest.XPSource(m.Source),
 		PeriodStart: m.PeriodStart,
 		XP:          int(m.Xp),
 		CreatedAt:   m.CreatedAt,

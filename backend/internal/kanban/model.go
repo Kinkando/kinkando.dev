@@ -6,15 +6,19 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
+// Priority represents the urgency level of a kanban card.
+type Priority string
+
 const (
-	PriorityNone   = "none"
-	PriorityLow    = "low"
-	PriorityMedium = "medium"
-	PriorityHigh   = "high"
-	PriorityUrgent = "urgent"
+	PriorityNone   Priority = "none"
+	PriorityLow    Priority = "low"
+	PriorityMedium Priority = "medium"
+	PriorityHigh   Priority = "high"
+	PriorityUrgent Priority = "urgent"
 )
 
-func ValidPriority(p string) bool {
+// Valid reports whether p is a recognised priority value.
+func (p Priority) Valid() bool {
 	switch p {
 	case PriorityNone, PriorityLow, PriorityMedium, PriorityHigh, PriorityUrgent:
 		return true
@@ -22,31 +26,31 @@ func ValidPriority(p string) bool {
 	return false
 }
 
-const (
-	ColumnTypeTodo       = "todo"
-	ColumnTypeInProgress = "in_progress"
-	ColumnTypeDone       = "done"
-	ColumnTypeCustom     = "custom"
-)
-
-func ValidColumnType(t string) bool {
-	switch t {
-	case ColumnTypeTodo, ColumnTypeInProgress, ColumnTypeDone, ColumnTypeCustom:
-		return true
-	}
-	return false
-}
+// ColumnType identifies the semantic role of a kanban column.
+type ColumnType string
 
 const (
-	ArchiveReasonCompleted = "completed"
-	ArchiveReasonCancelled = "cancelled"
-	ArchiveReasonDuplicate = "duplicate"
-	ArchiveReasonStale     = "stale"
+	ColumnTypeTodo       ColumnType = "todo"
+	ColumnTypeInProgress ColumnType = "in_progress"
+	ColumnTypeDone       ColumnType = "done"
+	ColumnTypeCustom     ColumnType = "custom"
 )
 
-// ValidUserArchiveReason returns true for reasons the user may supply directly.
-// "completed" is reserved for system use (auto-assigned when archiving from a Done column).
-func ValidUserArchiveReason(r string) bool {
+
+// ArchiveReason records why a card was archived.
+type ArchiveReason string
+
+const (
+	ArchiveReasonCompleted ArchiveReason = "completed"
+	ArchiveReasonCancelled ArchiveReason = "cancelled"
+	ArchiveReasonDuplicate ArchiveReason = "duplicate"
+	ArchiveReasonStale     ArchiveReason = "stale"
+)
+
+// ValidUserSupplied reports whether r is a reason the user may supply directly.
+// ArchiveReasonCompleted is reserved for system use (auto-assigned when archiving
+// from a Done column).
+func (r ArchiveReason) ValidUserSupplied() bool {
 	switch r {
 	case ArchiveReasonCancelled, ArchiveReasonDuplicate, ArchiveReasonStale:
 		return true
@@ -65,7 +69,7 @@ type Column struct {
 	ID        primitive.ObjectID `bson:"_id,omitempty" json:"id"`
 	BoardID   primitive.ObjectID `bson:"board_id"      json:"board_id"`
 	Name      string             `bson:"name"          json:"name"`
-	Type      string             `bson:"type"          json:"type"`      // todo | in_progress | done | custom
+	Type      ColumnType         `bson:"type"          json:"type"`
 	IsSystem  bool               `bson:"is_system"     json:"is_system"` // system columns cannot be deleted
 	Order     int                `bson:"order"         json:"order"`
 	CreatedAt time.Time          `bson:"created_at"    json:"created_at"`
@@ -78,13 +82,13 @@ type Card struct {
 	Title         string             `bson:"title"                    json:"title"`
 	Content       string             `bson:"content"                  json:"content"`
 	Description   string             `bson:"description"              json:"description"`
-	Priority      string             `bson:"priority"                 json:"priority"`
+	Priority      Priority           `bson:"priority"                 json:"priority"`
 	DueDate       *time.Time         `bson:"due_date,omitempty"       json:"due_date,omitempty"`
 	Tags          []string           `bson:"tags"                     json:"tags"`
 	Order         int                `bson:"order"                    json:"order"`
 	CompletedAt   *time.Time         `bson:"completed_at,omitempty"   json:"completed_at,omitempty"`
 	ArchivedAt    *time.Time         `bson:"archived_at,omitempty"    json:"archived_at,omitempty"`
-	ArchiveReason string             `bson:"archive_reason,omitempty" json:"archive_reason,omitempty"`
+	ArchiveReason ArchiveReason      `bson:"archive_reason,omitempty" json:"archive_reason,omitempty"`
 	CreatedAt     time.Time          `bson:"created_at"               json:"created_at"`
 }
 
@@ -115,7 +119,7 @@ type DeleteColumnInput struct {
 }
 
 type ArchiveCardInput struct {
-	Reason string `json:"reason" validate:"omitempty,oneof=cancelled duplicate stale"` // cancelled | duplicate | stale; "completed" is system-assigned
+	Reason ArchiveReason `json:"reason" validate:"omitempty,oneof=cancelled duplicate stale"` // cancelled | duplicate | stale; "completed" is system-assigned
 }
 
 type CreateCardInput struct {
@@ -124,7 +128,7 @@ type CreateCardInput struct {
 	Title       string   `json:"title"     validate:"required"`
 	Content     string   `json:"content"`
 	Description string   `json:"description"`
-	Priority    string   `json:"priority"  validate:"omitempty,oneof=none low medium high urgent"`
+	Priority    Priority `json:"priority"  validate:"omitempty,oneof=none low medium high urgent"`
 	DueDate     *string  `json:"due_date"` // "YYYY-MM-DD"
 	Tags        []string `json:"tags"`
 }
@@ -134,7 +138,7 @@ type CreateCardInput struct {
 type UpdateCardInput struct {
 	Title       *string   `json:"title"`
 	Description *string   `json:"description"`
-	Priority    *string   `json:"priority"  validate:"omitempty,oneof=none low medium high urgent"`
+	Priority    *Priority `json:"priority"  validate:"omitempty,oneof=none low medium high urgent"`
 	DueDate     *string   `json:"due_date"`
 	Tags        *[]string `json:"tags"`
 }

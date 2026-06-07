@@ -324,7 +324,7 @@ func toColumnDTO(c *kanban.Column) columnDTO {
 		ID:        c.ID.Hex(),
 		BoardID:   c.BoardID.Hex(),
 		Name:      c.Name,
-		Type:      c.Type,
+		Type:      string(c.Type),
 		IsSystem:  c.IsSystem,
 		Order:     c.Order,
 		CreatedAt: c.CreatedAt.Format(time.RFC3339),
@@ -374,10 +374,10 @@ func toCardDTO(c *kanban.Card) cardDTO {
 		Title:         c.Title,
 		Content:       c.Content,
 		Description:   c.Description,
-		Priority:      priority,
+		Priority:      string(priority),
 		Tags:          tags,
 		Order:         c.Order,
-		ArchiveReason: c.ArchiveReason,
+		ArchiveReason: string(c.ArchiveReason),
 		CreatedAt:     c.CreatedAt.Format(time.RFC3339),
 	}
 	if c.DueDate != nil {
@@ -591,7 +591,7 @@ func toXPEventDTO(e *quest.XPEvent) xpEventDTO {
 	dto := xpEventDTO{
 		ID:          e.ID.String(),
 		QuestTitle:  e.QuestTitle,
-		Source:      e.Source,
+		Source:      string(e.Source),
 		PeriodStart: e.PeriodStart.Format(time.DateOnly),
 		XP:          e.XP,
 		CreatedAt:   e.CreatedAt.Format(time.RFC3339),
@@ -1059,7 +1059,7 @@ func registerTools(s *mcp.Server, d Deps) {
 			dueDateStr = &in.DueDate
 		}
 
-		priority := in.Priority
+		priority := kanban.Priority(in.Priority)
 		if priority == "" {
 			priority = kanban.PriorityNone
 		}
@@ -1100,10 +1100,11 @@ func registerTools(s *mcp.Server, d Deps) {
 			input.Description = &in.Description
 		}
 		if fields["priority"] {
-			if !kanban.ValidPriority(in.Priority) {
+			p := kanban.Priority(in.Priority)
+			if !p.Valid() {
 				return nil, updateCardOut{}, fmt.Errorf("invalid priority %q", in.Priority)
 			}
-			input.Priority = &in.Priority
+			input.Priority = &p
 		}
 		if fields["due_date"] {
 			input.DueDate = &in.DueDate
@@ -1183,10 +1184,11 @@ func registerTools(s *mcp.Server, d Deps) {
 		if err != nil {
 			return nil, archiveCardOut{}, fmt.Errorf("invalid card_id %q: %w", in.CardID, err)
 		}
-		if in.Reason != "" && !kanban.ValidUserArchiveReason(in.Reason) {
+		reason := kanban.ArchiveReason(in.Reason)
+		if in.Reason != "" && !reason.ValidUserSupplied() {
 			return nil, archiveCardOut{}, fmt.Errorf("invalid reason %q: must be cancelled, duplicate, or stale", in.Reason)
 		}
-		card, err := d.KanRepo.ArchiveCard(ctx, cardID, in.Reason)
+		card, err := d.KanRepo.ArchiveCard(ctx, cardID, reason)
 		if err != nil {
 			return nil, archiveCardOut{}, fmt.Errorf("archive card: %w", err)
 		}

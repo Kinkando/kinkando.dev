@@ -16,6 +16,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/kinkando/personal-dashboard/internal/notification"
+	"github.com/kinkando/personal-dashboard/internal/reminderlog"
 	"github.com/kinkando/personal-dashboard/pkg/helper"
 	"go.uber.org/zap"
 )
@@ -29,9 +30,6 @@ import (
 const (
 	dailyNudgeHour  = 20
 	weeklyNudgeHour = 18
-
-	domainQuestDaily  = "quest_daily"
-	domainQuestWeekly = "quest_weekly"
 )
 
 // ── Repository interfaces ─────────────────────────────────────────────────────
@@ -44,7 +42,7 @@ type QuestRepository interface {
 
 // ReminderLog persists dedup entries. *reminderlog.Repository satisfies it.
 type ReminderLog interface {
-	Log(ctx context.Context, userID uuid.UUID, domain, key string) (bool, error)
+	Log(ctx context.Context, userID uuid.UUID, domain reminderlog.Domain, key string) (bool, error)
 }
 
 // Notifier fans out a notification. *notificationSvc.Service satisfies it.
@@ -96,7 +94,7 @@ func (s *Service) Run(ctx context.Context) (*RunResult, error) {
 			return nil, fmt.Errorf("quest reminder: count daily incomplete: %w", err)
 		}
 		for userID, count := range incomplete {
-			logged, logErr := s.remLog.Log(ctx, userID, domainQuestDaily, todayKey)
+			logged, logErr := s.remLog.Log(ctx, userID, reminderlog.DomainQuestDaily, todayKey)
 			if logErr != nil {
 				s.log.Warn("quest reminder: log daily", zap.String("user_id", userID.String()), zap.Error(logErr))
 			}
@@ -120,7 +118,7 @@ func (s *Service) Run(ctx context.Context) (*RunResult, error) {
 			return nil, fmt.Errorf("quest reminder: count weekly incomplete: %w", err)
 		}
 		for userID, count := range incomplete {
-			logged, logErr := s.remLog.Log(ctx, userID, domainQuestWeekly, weekKey)
+			logged, logErr := s.remLog.Log(ctx, userID, reminderlog.DomainQuestWeekly, weekKey)
 			if logErr != nil {
 				s.log.Warn("quest reminder: log weekly", zap.String("user_id", userID.String()), zap.Error(logErr))
 			}

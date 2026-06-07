@@ -38,7 +38,3 @@ func matchesAnyPrefix(name string, prefixes []string) bool {
 	return false
 }
 
-// AllTools returns FunctionDeclarations for every tool in the registry.
-func AllTools() []*genai.FunctionDeclaration {
-	return toolDecls("")
-}

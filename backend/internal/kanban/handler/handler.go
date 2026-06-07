@@ -8,6 +8,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/kinkando/personal-dashboard/internal/auth"
 	"github.com/kinkando/personal-dashboard/internal/kanban"
+	"github.com/kinkando/personal-dashboard/pkg/respond"
 	"github.com/kinkando/personal-dashboard/pkg/validate"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
@@ -30,7 +31,7 @@ type Repository interface {
 	UpdateCard(ctx context.Context, cardID primitive.ObjectID, in kanban.UpdateCardInput) (*kanban.Card, error)
 	MoveCard(ctx context.Context, cardID primitive.ObjectID, in kanban.MoveCardInput) error
 	DeleteCard(ctx context.Context, cardID primitive.ObjectID) error
-	ArchiveCard(ctx context.Context, cardID primitive.ObjectID, reason string) (*kanban.Card, error)
+	ArchiveCard(ctx context.Context, cardID primitive.ObjectID, reason kanban.ArchiveReason) (*kanban.Card, error)
 	UnarchiveCard(ctx context.Context, cardID primitive.ObjectID) (*kanban.Card, error)
 	ListArchivedCards(ctx context.Context, boardID primitive.ObjectID, filter kanban.ListArchivedFilter) ([]*kanban.Card, error)
 	GetBoardStats(ctx context.Context, boardID primitive.ObjectID) (*kanban.BoardStats, error)
@@ -73,50 +74,50 @@ func (h *Handler) listBoards(c *fiber.Ctx) error {
 	userID := auth.GetUserID(c)
 	boards, err := h.repo.ListBoards(c.Context(), userID)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
 	if boards == nil {
 		boards = []*kanban.Board{}
 	}
-	return c.JSON(fiber.Map{"data": boards})
+	return respond.Data(c, boards)
 }
 
 func (h *Handler) createBoard(c *fiber.Ctx) error {
 	userID := auth.GetUserID(c)
 	var in kanban.CreateBoardInput
 	if err := c.BodyParser(&in); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
+		return respond.BadRequest(c, "invalid request body")
 	}
 	if err := validate.Struct(in); err != nil {
 		return err
 	}
 	board, err := h.repo.CreateBoard(c.Context(), userID, in.Name)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
-	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"data": board})
+	return respond.Created(c, board)
 }
 
 func (h *Handler) getBoard(c *fiber.Ctx) error {
 	userID := auth.GetUserID(c)
 	boardID, err := primitive.ObjectIDFromHex(c.Params("id"))
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid board id"})
+		return respond.BadRequest(c, "invalid board id")
 	}
 	board, err := h.repo.GetBoardByID(c.Context(), boardID, userID)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "board not found"})
+			return respond.NotFound(c, "board not found")
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
 	columns, err := h.repo.GetColumns(c.Context(), board.ID)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
 	cards, err := h.repo.GetCards(c.Context(), board.ID)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
 	if columns == nil {
 		columns = []*kanban.Column{}
@@ -139,56 +140,56 @@ func (h *Handler) getBoard(c *fiber.Ctx) error {
 			col.Type = kanban.ColumnTypeCustom
 		}
 	}
-	return c.JSON(fiber.Map{"data": fiber.Map{
+	return respond.Data(c, fiber.Map{
 		"board":   board,
 		"columns": columns,
 		"cards":   cards,
-	}})
+	})
 }
 
 func (h *Handler) getBoardStats(c *fiber.Ctx) error {
 	userID := auth.GetUserID(c)
 	boardID, err := primitive.ObjectIDFromHex(c.Params("id"))
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid board id"})
+		return respond.BadRequest(c, "invalid board id")
 	}
 	if _, err := h.repo.GetBoardByID(c.Context(), boardID, userID); err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "board not found"})
+			return respond.NotFound(c, "board not found")
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
 	stats, err := h.repo.GetBoardStats(c.Context(), boardID)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
-	return c.JSON(fiber.Map{"data": stats})
+	return respond.Data(c, stats)
 }
 
 func (h *Handler) updateBoard(c *fiber.Ctx) error {
 	userID := auth.GetUserID(c)
 	boardID, err := primitive.ObjectIDFromHex(c.Params("id"))
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid board id"})
+		return respond.BadRequest(c, "invalid board id")
 	}
 	if _, err := h.repo.GetBoardByID(c.Context(), boardID, userID); err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "board not found"})
+			return respond.NotFound(c, "board not found")
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
 	var in kanban.UpdateBoardInput
 	if err := c.BodyParser(&in); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
+		return respond.BadRequest(c, "invalid request body")
 	}
 	if err := validate.Struct(in); err != nil {
 		return err
 	}
 	if err := h.repo.UpdateBoard(c.Context(), boardID, in.Name); err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "board not found"})
+			return respond.NotFound(c, "board not found")
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
 	return c.SendStatus(fiber.StatusNoContent)
 }
@@ -197,19 +198,19 @@ func (h *Handler) deleteBoard(c *fiber.Ctx) error {
 	userID := auth.GetUserID(c)
 	boardID, err := primitive.ObjectIDFromHex(c.Params("id"))
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid board id"})
+		return respond.BadRequest(c, "invalid board id")
 	}
 	if _, err := h.repo.GetBoardByID(c.Context(), boardID, userID); err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "board not found"})
+			return respond.NotFound(c, "board not found")
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
 	if err := h.repo.DeleteBoard(c.Context(), boardID); err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "board not found"})
+			return respond.NotFound(c, "board not found")
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
 	return c.SendStatus(fiber.StatusNoContent)
 }
@@ -220,59 +221,59 @@ func (h *Handler) createColumn(c *fiber.Ctx) error {
 	userID := auth.GetUserID(c)
 	var in kanban.CreateColumnInput
 	if err := c.BodyParser(&in); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
+		return respond.BadRequest(c, "invalid request body")
 	}
 	if err := validate.Struct(in); err != nil {
 		return err
 	}
 	boardID, err := primitive.ObjectIDFromHex(in.BoardID)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid board_id"})
+		return respond.BadRequest(c, "invalid board_id")
 	}
 	if _, err := h.repo.GetBoardByID(c.Context(), boardID, userID); err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "board not found"})
+			return respond.NotFound(c, "board not found")
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
 	col, err := h.repo.CreateColumn(c.Context(), boardID, in.Name)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
-	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"data": col})
+	return respond.Created(c, col)
 }
 
 func (h *Handler) updateColumn(c *fiber.Ctx) error {
 	userID := auth.GetUserID(c)
 	columnID, err := primitive.ObjectIDFromHex(c.Params("id"))
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid column id"})
+		return respond.BadRequest(c, "invalid column id")
 	}
 	col, err := h.repo.GetColumn(c.Context(), columnID)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "column not found"})
+			return respond.NotFound(c, "column not found")
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
 	if _, err := h.repo.GetBoardByID(c.Context(), col.BoardID, userID); err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "column not found"})
+			return respond.NotFound(c, "column not found")
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
 	var in kanban.UpdateColumnInput
 	if err := c.BodyParser(&in); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
+		return respond.BadRequest(c, "invalid request body")
 	}
 	if err := validate.Struct(in); err != nil {
 		return err
 	}
 	if err := h.repo.UpdateColumn(c.Context(), columnID, in.Name); err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "column not found"})
+			return respond.NotFound(c, "column not found")
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
 	return c.SendStatus(fiber.StatusNoContent)
 }
@@ -281,23 +282,23 @@ func (h *Handler) reorderColumns(c *fiber.Ctx) error {
 	userID := auth.GetUserID(c)
 	boardID, err := primitive.ObjectIDFromHex(c.Params("id"))
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid board id"})
+		return respond.BadRequest(c, "invalid board id")
 	}
 	if _, err := h.repo.GetBoardByID(c.Context(), boardID, userID); err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "board not found"})
+			return respond.NotFound(c, "board not found")
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
 	var in kanban.ReorderColumnsInput
 	if err := c.BodyParser(&in); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
+		return respond.BadRequest(c, "invalid request body")
 	}
 	if err := validate.Struct(in); err != nil {
 		return err
 	}
 	if err := h.repo.ReorderColumns(c.Context(), boardID, in.ColumnIDs); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
 	return c.SendStatus(fiber.StatusNoContent)
 }
@@ -306,42 +307,42 @@ func (h *Handler) deleteColumn(c *fiber.Ctx) error {
 	userID := auth.GetUserID(c)
 	columnID, err := primitive.ObjectIDFromHex(c.Params("id"))
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid column id"})
+		return respond.BadRequest(c, "invalid column id")
 	}
 	col, err := h.repo.GetColumn(c.Context(), columnID)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "column not found"})
+			return respond.NotFound(c, "column not found")
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
 	if _, err := h.repo.GetBoardByID(c.Context(), col.BoardID, userID); err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "column not found"})
+			return respond.NotFound(c, "column not found")
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
 	if col.IsSystem {
-		return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": "system columns cannot be deleted"})
+		return respond.Conflict(c, "system columns cannot be deleted")
 	}
 	var in kanban.DeleteColumnInput
 	if err := c.BodyParser(&in); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
+		return respond.BadRequest(c, "invalid request body")
 	}
 	if err := validate.Struct(in); err != nil {
 		return err
 	}
 	if err := h.repo.DeleteColumn(c.Context(), columnID, in.Action, in.TargetColumnID); err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": err.Error()})
+			return respond.NotFound(c, err.Error())
 		}
 		if strings.Contains(err.Error(), "system column") {
-			return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": err.Error()})
+			return respond.Conflict(c, err.Error())
 		}
 		if strings.Contains(err.Error(), "invalid") {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+			return respond.BadRequest(c, err.Error())
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
 	return c.SendStatus(fiber.StatusNoContent)
 }
@@ -352,57 +353,57 @@ func (h *Handler) createCard(c *fiber.Ctx) error {
 	userID := auth.GetUserID(c)
 	var in kanban.CreateCardInput
 	if err := c.BodyParser(&in); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
+		return respond.BadRequest(c, "invalid request body")
 	}
 	if err := validate.Struct(in); err != nil {
 		return err
 	}
 	boardID, err := primitive.ObjectIDFromHex(in.BoardID)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid board_id"})
+		return respond.BadRequest(c, "invalid board_id")
 	}
 	if _, err := h.repo.GetBoardByID(c.Context(), boardID, userID); err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "board not found"})
+			return respond.NotFound(c, "board not found")
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
 	colID, err := primitive.ObjectIDFromHex(in.ColumnID)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid column_id"})
+		return respond.BadRequest(c, "invalid column_id")
 	}
 	card, err := h.repo.CreateCard(c.Context(), boardID, colID, in)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
 	if card.Tags == nil {
 		card.Tags = []string{}
 	}
-	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"data": card})
+	return respond.Created(c, card)
 }
 
 func (h *Handler) updateCard(c *fiber.Ctx) error {
 	userID := auth.GetUserID(c)
 	cardID, err := primitive.ObjectIDFromHex(c.Params("id"))
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid card id"})
+		return respond.BadRequest(c, "invalid card id")
 	}
 	card, err := h.repo.GetCard(c.Context(), cardID)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "card not found"})
+			return respond.NotFound(c, "card not found")
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
 	if _, err := h.repo.GetBoardByID(c.Context(), card.BoardID, userID); err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "card not found"})
+			return respond.NotFound(c, "card not found")
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
 	var in kanban.UpdateCardInput
 	if err := c.BodyParser(&in); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
+		return respond.BadRequest(c, "invalid request body")
 	}
 	if err := validate.Struct(in); err != nil {
 		return err
@@ -410,9 +411,9 @@ func (h *Handler) updateCard(c *fiber.Ctx) error {
 	updated, err := h.repo.UpdateCard(c.Context(), cardID, in)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "card not found"})
+			return respond.NotFound(c, "card not found")
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
 	if updated.Tags == nil {
 		updated.Tags = []string{}
@@ -420,40 +421,40 @@ func (h *Handler) updateCard(c *fiber.Ctx) error {
 	if updated.Priority == "" {
 		updated.Priority = kanban.PriorityNone
 	}
-	return c.JSON(fiber.Map{"data": updated})
+	return respond.Data(c, updated)
 }
 
 func (h *Handler) moveCard(c *fiber.Ctx) error {
 	userID := auth.GetUserID(c)
 	cardID, err := primitive.ObjectIDFromHex(c.Params("id"))
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid card id"})
+		return respond.BadRequest(c, "invalid card id")
 	}
 	card, err := h.repo.GetCard(c.Context(), cardID)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "card not found"})
+			return respond.NotFound(c, "card not found")
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
 	if _, err := h.repo.GetBoardByID(c.Context(), card.BoardID, userID); err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "card not found"})
+			return respond.NotFound(c, "card not found")
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
 	var in kanban.MoveCardInput
 	if err := c.BodyParser(&in); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
+		return respond.BadRequest(c, "invalid request body")
 	}
 	if err := validate.Struct(in); err != nil {
 		return err
 	}
 	if err := h.repo.MoveCard(c.Context(), cardID, in); err != nil {
 		if strings.Contains(err.Error(), "invalid column_id") {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+			return respond.BadRequest(c, err.Error())
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
 	return c.SendStatus(fiber.StatusNoContent)
 }
@@ -462,26 +463,26 @@ func (h *Handler) deleteCard(c *fiber.Ctx) error {
 	userID := auth.GetUserID(c)
 	cardID, err := primitive.ObjectIDFromHex(c.Params("id"))
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid card id"})
+		return respond.BadRequest(c, "invalid card id")
 	}
 	card, err := h.repo.GetCard(c.Context(), cardID)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "card not found"})
+			return respond.NotFound(c, "card not found")
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
 	if _, err := h.repo.GetBoardByID(c.Context(), card.BoardID, userID); err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "card not found"})
+			return respond.NotFound(c, "card not found")
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
 	if err := h.repo.DeleteCard(c.Context(), cardID); err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "card not found"})
+			return respond.NotFound(c, "card not found")
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
 	return c.SendStatus(fiber.StatusNoContent)
 }
@@ -490,29 +491,29 @@ func (h *Handler) archiveCard(c *fiber.Ctx) error {
 	userID := auth.GetUserID(c)
 	cardID, err := primitive.ObjectIDFromHex(c.Params("id"))
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid card id"})
+		return respond.BadRequest(c, "invalid card id")
 	}
 	card, err := h.repo.GetCard(c.Context(), cardID)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "card not found"})
+			return respond.NotFound(c, "card not found")
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
 	if _, err := h.repo.GetBoardByID(c.Context(), card.BoardID, userID); err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "card not found"})
+			return respond.NotFound(c, "card not found")
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
 	var in kanban.ArchiveCardInput
 	if err := c.BodyParser(&in); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
+		return respond.BadRequest(c, "invalid request body")
 	}
 	// Reject client-supplied "completed" before general validation — it is
 	// system-assigned based on column type and warrants a specific message.
 	if in.Reason == kanban.ArchiveReasonCompleted {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "reason 'completed' is reserved; omit it and the server will assign it when archiving from a Done column"})
+		return respond.BadRequest(c, "reason 'completed' is reserved; omit it and the server will assign it when archiving from a Done column")
 	}
 	if err := validate.Struct(in); err != nil {
 		return err
@@ -520,62 +521,62 @@ func (h *Handler) archiveCard(c *fiber.Ctx) error {
 	archived, err := h.repo.ArchiveCard(c.Context(), cardID, in.Reason)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "card not found"})
+			return respond.NotFound(c, "card not found")
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
 	if archived.Tags == nil {
 		archived.Tags = []string{}
 	}
-	return c.JSON(fiber.Map{"data": archived})
+	return respond.Data(c, archived)
 }
 
 func (h *Handler) unarchiveCard(c *fiber.Ctx) error {
 	userID := auth.GetUserID(c)
 	cardID, err := primitive.ObjectIDFromHex(c.Params("id"))
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid card id"})
+		return respond.BadRequest(c, "invalid card id")
 	}
 	card, err := h.repo.GetCard(c.Context(), cardID)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "card not found"})
+			return respond.NotFound(c, "card not found")
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
 	if _, err := h.repo.GetBoardByID(c.Context(), card.BoardID, userID); err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "card not found"})
+			return respond.NotFound(c, "card not found")
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
 	restored, err := h.repo.UnarchiveCard(c.Context(), cardID)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "card not found"})
+			return respond.NotFound(c, "card not found")
 		}
 		if strings.Contains(err.Error(), "not archived") {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+			return respond.BadRequest(c, err.Error())
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
 	if restored.Tags == nil {
 		restored.Tags = []string{}
 	}
-	return c.JSON(fiber.Map{"data": restored})
+	return respond.Data(c, restored)
 }
 
 func (h *Handler) listArchive(c *fiber.Ctx) error {
 	userID := auth.GetUserID(c)
 	boardID, err := primitive.ObjectIDFromHex(c.Params("id"))
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid board id"})
+		return respond.BadRequest(c, "invalid board id")
 	}
 	if _, err := h.repo.GetBoardByID(c.Context(), boardID, userID); err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "board not found"})
+			return respond.NotFound(c, "board not found")
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
 
 	filter := kanban.ListArchivedFilter{
@@ -594,7 +595,7 @@ func (h *Handler) listArchive(c *fiber.Ctx) error {
 
 	cards, err := h.repo.ListArchivedCards(c.Context(), boardID, filter)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
 	if cards == nil {
 		cards = []*kanban.Card{}
@@ -607,5 +608,5 @@ func (h *Handler) listArchive(c *fiber.Ctx) error {
 			card.Priority = kanban.PriorityNone
 		}
 	}
-	return c.JSON(fiber.Map{"data": cards})
+	return respond.Data(c, cards)
 }

@@ -13,6 +13,15 @@ import (
 	"github.com/kinkando/personal-dashboard/gen/kinkando/public/table"
 )
 
+// Domain identifies which reminder batch job owns a reminder_log entry.
+type Domain string
+
+const (
+	DomainQuestDaily  Domain = "quest_daily"
+	DomainQuestWeekly Domain = "quest_weekly"
+	DomainWeight      Domain = "weight"
+)
+
 // Repository wraps the reminder_log table with a single idempotent Log method.
 type Repository struct {
 	db *sql.DB
@@ -26,16 +35,15 @@ func New(db *sql.DB) *Repository {
 // It returns true when the row was newly inserted (reminder not yet sent),
 // or false when the ON CONFLICT suppressed the insert (already sent this period).
 //
-// domain examples: "quest_daily", "quest_weekly", "weight"
-// key examples:    "2026-06-04" (daily/weight), "2026-06-02" (weekly period start)
-func (r *Repository) Log(ctx context.Context, userID uuid.UUID, domain, key string) (bool, error) {
+// key examples: "2026-06-04" (daily/weight), "2026-06-02" (weekly period start)
+func (r *Repository) Log(ctx context.Context, userID uuid.UUID, domain Domain, key string) (bool, error) {
 	stmt := table.ReminderLog.INSERT(
 		table.ReminderLog.UserID,
 		table.ReminderLog.Domain,
 		table.ReminderLog.ReminderKey,
 	).VALUES(
 		postgres.UUID(userID),
-		domain,
+		string(domain),
 		key,
 	).ON_CONFLICT(
 		table.ReminderLog.UserID,

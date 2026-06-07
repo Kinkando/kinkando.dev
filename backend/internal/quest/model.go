@@ -24,10 +24,13 @@ const (
 	SourceTypeSleep      SourceType = "sleep"
 )
 
+// XPSource identifies the origin of an XP event written into user_xp_events.source.
+type XPSource string
+
 // Bonus XP source labels — written into user_xp_events.source for all-set bonuses.
 const (
-	SourceDailyBonus  = "daily_bonus"
-	SourceWeeklyBonus = "weekly_bonus"
+	SourceDailyBonus  XPSource = "daily_bonus"
+	SourceWeeklyBonus XPSource = "weekly_bonus"
 )
 
 // Bonus XP amounts awarded when every active quest of a type is complete for the period.
@@ -100,7 +103,7 @@ type XPEvent struct {
 	ID          uuid.UUID  `json:"id"`
 	QuestID     *uuid.UUID `json:"quest_id"`
 	QuestTitle  string     `json:"quest_title"`
-	Source      string     `json:"source"`
+	Source      XPSource   `json:"source"`
 	PeriodStart time.Time  `json:"period_start"`
 	XP          int        `json:"xp"`
 	CreatedAt   time.Time  `json:"created_at"`

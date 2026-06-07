@@ -14,6 +14,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/kinkando/personal-dashboard/internal/notification"
+	"github.com/kinkando/personal-dashboard/internal/reminderlog"
 	"github.com/kinkando/personal-dashboard/pkg/helper"
 	"go.uber.org/zap"
 )
@@ -27,7 +28,6 @@ import (
 
 const (
 	weightNudgeHour = 8
-	domainWeight    = "weight"
 )
 
 // ── Repository interfaces ─────────────────────────────────────────────────────
@@ -40,7 +40,7 @@ type HealthRepository interface {
 
 // ReminderLog persists dedup entries. *reminderlog.Repository satisfies it.
 type ReminderLog interface {
-	Log(ctx context.Context, userID uuid.UUID, domain, key string) (bool, error)
+	Log(ctx context.Context, userID uuid.UUID, domain reminderlog.Domain, key string) (bool, error)
 }
 
 // Notifier fans out a notification. *notificationSvc.Service satisfies it.
@@ -89,7 +89,7 @@ func (s *Service) Run(ctx context.Context) (*RunResult, error) {
 	}
 
 	for _, userID := range candidates {
-		logged, logErr := s.remLog.Log(ctx, userID, domainWeight, todayKey)
+		logged, logErr := s.remLog.Log(ctx, userID, reminderlog.DomainWeight, todayKey)
 		if logErr != nil {
 			s.log.Warn("weight nudge: log reminder", zap.String("user_id", userID.String()), zap.Error(logErr))
 		}

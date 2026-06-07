@@ -29,7 +29,7 @@ func New(db *mongo.Database) *Repository {
 // defaultColumns seeds a new board with system columns.
 var defaultColumns = []struct {
 	Name     string
-	Type     string
+	Type     kanban.ColumnType
 	IsSystem bool
 }{
 	{Name: "To Do", Type: kanban.ColumnTypeTodo, IsSystem: true},
@@ -38,7 +38,7 @@ var defaultColumns = []struct {
 }
 
 // inferColumnType maps a legacy column name to its canonical type and system flag.
-func inferColumnType(name string) (string, bool) {
+func inferColumnType(name string) (kanban.ColumnType, bool) {
 	switch name {
 	case "To Do":
 		return kanban.ColumnTypeTodo, true
@@ -340,12 +340,12 @@ func (r *Repository) DeleteColumn(ctx context.Context, columnID primitive.Object
 }
 
 // columnTypeByID returns a map from column hex ID to column type for a board.
-func (r *Repository) columnTypeByID(ctx context.Context, boardID primitive.ObjectID) (map[string]string, error) {
+func (r *Repository) columnTypeByID(ctx context.Context, boardID primitive.ObjectID) (map[string]kanban.ColumnType, error) {
 	cols, err := r.GetColumns(ctx, boardID)
 	if err != nil {
 		return nil, err
 	}
-	m := make(map[string]string, len(cols))
+	m := make(map[string]kanban.ColumnType, len(cols))
 	for _, c := range cols {
 		m[c.ID.Hex()] = c.Type
 	}
@@ -394,7 +394,7 @@ func (r *Repository) CreateCard(ctx context.Context, boardID, columnID primitive
 	}
 
 	priority := in.Priority
-	if !kanban.ValidPriority(priority) {
+	if !priority.Valid() {
 		priority = kanban.PriorityNone
 	}
 
@@ -573,7 +573,7 @@ func (r *Repository) DeleteCard(ctx context.Context, cardID primitive.ObjectID) 
 
 // ArchiveCard soft-deletes a card. The archive_reason is forced to "completed" when the
 // card's column type is "done"; otherwise the caller-supplied reason is used.
-func (r *Repository) ArchiveCard(ctx context.Context, cardID primitive.ObjectID, reason string) (*kanban.Card, error) {
+func (r *Repository) ArchiveCard(ctx context.Context, cardID primitive.ObjectID, reason kanban.ArchiveReason) (*kanban.Card, error) {
 	card, err := r.GetCard(ctx, cardID)
 	if err != nil {
 		return nil, err
@@ -585,7 +585,7 @@ func (r *Repository) ArchiveCard(ctx context.Context, cardID primitive.ObjectID,
 	}
 	effectiveReason := reason
 	if colTypes[card.ColumnID.Hex()] == kanban.ColumnTypeDone {
-		effectiveReason = kanban.ArchiveReasonCompleted
+		effectiveReason = kanban.ArchiveReasonCompleted // system-assigned
 	}
 
 	// Shift remaining sibling cards' orders down.
@@ -670,7 +670,7 @@ func (r *Repository) ListArchivedCards(ctx context.Context, boardID primitive.Ob
 
 	sortField := "archived_at"
 	switch filter.Reason {
-	case kanban.ArchiveReasonCompleted:
+	case string(kanban.ArchiveReasonCompleted):
 		q["archive_reason"] = kanban.ArchiveReasonCompleted
 		sortField = "completed_at"
 	case "general":
@@ -739,7 +739,7 @@ func (r *Repository) GetBoardStats(ctx context.Context, boardID primitive.Object
 		if p == "" {
 			p = kanban.PriorityNone
 		}
-		stats.ByPriority[p]++
+		stats.ByPriority[string(p)]++
 
 		if card.DueDate == nil {
 			stats.NoDueDate++

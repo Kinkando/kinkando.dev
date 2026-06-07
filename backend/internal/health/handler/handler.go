@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/kinkando/personal-dashboard/internal/auth"
 	"github.com/kinkando/personal-dashboard/internal/health"
+	"github.com/kinkando/personal-dashboard/pkg/respond"
 	"github.com/kinkando/personal-dashboard/pkg/validate"
 )
 
@@ -32,17 +33,12 @@ type Service interface {
 	DeleteSleepLog(ctx context.Context, id uuid.UUID, userID uuid.UUID) error
 }
 
-// UserResolver resolves a Firebase UID to the internal UUID stored in the users table.
-type UserResolver interface {
-	GetIDByFirebaseUID(ctx context.Context, firebaseUID string) (uuid.UUID, error)
-}
-
 type Handler struct {
 	svc   Service
-	users UserResolver
+	users auth.UserResolver
 }
 
-func New(svc Service, users UserResolver) *Handler {
+func New(svc Service, users auth.UserResolver) *Handler {
 	return &Handler{svc: svc, users: users}
 }
 
@@ -69,101 +65,101 @@ func (h *Handler) Register(router fiber.Router) {
 // ── Profile handlers ──────────────────────────────────────────────────────────
 
 func (h *Handler) getProfile(c *fiber.Ctx) error {
-	userID, err := h.resolveUserID(c)
+	userID, err := auth.ResolveUserID(c, h.users)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
+		return respond.Unauthorized(c, "invalid user")
 	}
 	profile, err := h.svc.GetProfile(c.Context(), userID)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
 	// profile may be nil (no row yet) — return {"data": null} so the frontend
 	// distinguishes "not set up yet" from an actual error.
-	return c.JSON(fiber.Map{"data": profile})
+	return respond.Data(c, profile)
 }
 
 func (h *Handler) upsertProfile(c *fiber.Ctx) error {
-	userID, err := h.resolveUserID(c)
+	userID, err := auth.ResolveUserID(c, h.users)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
+		return respond.Unauthorized(c, "invalid user")
 	}
 	var in health.UpsertProfileInput
 	if err := c.BodyParser(&in); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
+		return respond.BadRequest(c, "invalid request body")
 	}
 	if err := validate.Struct(in); err != nil {
 		return err
 	}
 	profile, err := h.svc.UpsertProfile(c.Context(), userID, in)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
-	return c.JSON(fiber.Map{"data": profile})
+	return respond.Data(c, profile)
 }
 
 // ── Weight log handlers ───────────────────────────────────────────────────────
 
 func (h *Handler) listWeightLogs(c *fiber.Ctx) error {
-	userID, err := h.resolveUserID(c)
+	userID, err := auth.ResolveUserID(c, h.users)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
+		return respond.Unauthorized(c, "invalid user")
 	}
 	var from, to time.Time
 	if s := c.Query("from"); s != "" {
 		t, err := time.Parse(time.DateOnly, s)
 		if err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid from date"})
+			return respond.BadRequest(c, "invalid from date")
 		}
 		from = t
 	}
 	if s := c.Query("to"); s != "" {
 		t, err := time.Parse(time.DateOnly, s)
 		if err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid to date"})
+			return respond.BadRequest(c, "invalid to date")
 		}
 		to = t
 	}
 	logs, err := h.svc.ListWeightLogs(c.Context(), userID, from, to)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
 	if logs == nil {
 		logs = []*health.WeightLog{}
 	}
-	return c.JSON(fiber.Map{"data": logs})
+	return respond.Data(c, logs)
 }
 
 func (h *Handler) createWeightLog(c *fiber.Ctx) error {
-	userID, err := h.resolveUserID(c)
+	userID, err := auth.ResolveUserID(c, h.users)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
+		return respond.Unauthorized(c, "invalid user")
 	}
 	var in health.CreateWeightInput
 	if err := c.BodyParser(&in); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
+		return respond.BadRequest(c, "invalid request body")
 	}
 	if err := validate.Struct(in); err != nil {
 		return err
 	}
 	log, err := h.svc.CreateWeightLog(c.Context(), userID, in)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
-	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"data": log})
+	return respond.Created(c, log)
 }
 
 func (h *Handler) updateWeightLog(c *fiber.Ctx) error {
-	userID, err := h.resolveUserID(c)
+	userID, err := auth.ResolveUserID(c, h.users)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
+		return respond.Unauthorized(c, "invalid user")
 	}
 	id, err := uuid.Parse(c.Params("id"))
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid weight log id"})
+		return respond.BadRequest(c, "invalid weight log id")
 	}
 	var in health.UpdateWeightInput
 	if err := c.BodyParser(&in); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
+		return respond.BadRequest(c, "invalid request body")
 	}
 	if err := validate.Struct(in); err != nil {
 		return err
@@ -171,27 +167,27 @@ func (h *Handler) updateWeightLog(c *fiber.Ctx) error {
 	log, err := h.svc.UpdateWeightLog(c.Context(), id, userID, in)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "weight log not found"})
+			return respond.NotFound(c, "weight log not found")
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
-	return c.JSON(fiber.Map{"data": log})
+	return respond.Data(c, log)
 }
 
 func (h *Handler) deleteWeightLog(c *fiber.Ctx) error {
-	userID, err := h.resolveUserID(c)
+	userID, err := auth.ResolveUserID(c, h.users)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
+		return respond.Unauthorized(c, "invalid user")
 	}
 	id, err := uuid.Parse(c.Params("id"))
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid weight log id"})
+		return respond.BadRequest(c, "invalid weight log id")
 	}
 	if err := h.svc.DeleteWeightLog(c.Context(), id, userID); err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "weight log not found"})
+			return respond.NotFound(c, "weight log not found")
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
 	return c.SendStatus(fiber.StatusNoContent)
 }
@@ -199,51 +195,51 @@ func (h *Handler) deleteWeightLog(c *fiber.Ctx) error {
 // ── Food log handlers ─────────────────────────────────────────────────────────
 
 func (h *Handler) listFoodLogs(c *fiber.Ctx) error {
-	userID, err := h.resolveUserID(c)
+	userID, err := auth.ResolveUserID(c, h.users)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
+		return respond.Unauthorized(c, "invalid user")
 	}
 	logs, err := h.svc.ListFoodLogs(c.Context(), userID)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
 	if logs == nil {
 		logs = []*health.FoodLog{}
 	}
-	return c.JSON(fiber.Map{"data": logs})
+	return respond.Data(c, logs)
 }
 
 func (h *Handler) createFoodLog(c *fiber.Ctx) error {
-	userID, err := h.resolveUserID(c)
+	userID, err := auth.ResolveUserID(c, h.users)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
+		return respond.Unauthorized(c, "invalid user")
 	}
 	var in health.CreateFoodInput
 	if err := c.BodyParser(&in); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
+		return respond.BadRequest(c, "invalid request body")
 	}
 	if err := validate.Struct(in); err != nil {
 		return err
 	}
 	log, err := h.svc.CreateFoodLog(c.Context(), userID, in)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
-	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"data": log})
+	return respond.Created(c, log)
 }
 
 func (h *Handler) updateFoodLog(c *fiber.Ctx) error {
-	userID, err := h.resolveUserID(c)
+	userID, err := auth.ResolveUserID(c, h.users)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
+		return respond.Unauthorized(c, "invalid user")
 	}
 	id, err := uuid.Parse(c.Params("id"))
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid food log id"})
+		return respond.BadRequest(c, "invalid food log id")
 	}
 	var in health.UpdateFoodInput
 	if err := c.BodyParser(&in); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
+		return respond.BadRequest(c, "invalid request body")
 	}
 	if err := validate.Struct(in); err != nil {
 		return err
@@ -251,27 +247,27 @@ func (h *Handler) updateFoodLog(c *fiber.Ctx) error {
 	log, err := h.svc.UpdateFoodLog(c.Context(), id, userID, in)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "food log not found"})
+			return respond.NotFound(c, "food log not found")
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
-	return c.JSON(fiber.Map{"data": log})
+	return respond.Data(c, log)
 }
 
 func (h *Handler) deleteFoodLog(c *fiber.Ctx) error {
-	userID, err := h.resolveUserID(c)
+	userID, err := auth.ResolveUserID(c, h.users)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
+		return respond.Unauthorized(c, "invalid user")
 	}
 	id, err := uuid.Parse(c.Params("id"))
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid food log id"})
+		return respond.BadRequest(c, "invalid food log id")
 	}
 	if err := h.svc.DeleteFoodLog(c.Context(), id, userID); err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "food log not found"})
+			return respond.NotFound(c, "food log not found")
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
 	return c.SendStatus(fiber.StatusNoContent)
 }
@@ -279,43 +275,43 @@ func (h *Handler) deleteFoodLog(c *fiber.Ctx) error {
 // ── Sleep log handlers ────────────────────────────────────────────────────────
 
 func (h *Handler) listSleepLogs(c *fiber.Ctx) error {
-	userID, err := h.resolveUserID(c)
+	userID, err := auth.ResolveUserID(c, h.users)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
+		return respond.Unauthorized(c, "invalid user")
 	}
 	var from, to time.Time
 	if s := c.Query("from"); s != "" {
 		t, err := time.Parse(time.DateOnly, s)
 		if err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid from date"})
+			return respond.BadRequest(c, "invalid from date")
 		}
 		from = t
 	}
 	if s := c.Query("to"); s != "" {
 		t, err := time.Parse(time.DateOnly, s)
 		if err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid to date"})
+			return respond.BadRequest(c, "invalid to date")
 		}
 		to = t
 	}
 	logs, err := h.svc.ListSleepLogs(c.Context(), userID, from, to)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
 	if logs == nil {
 		logs = []*health.SleepLog{}
 	}
-	return c.JSON(fiber.Map{"data": logs})
+	return respond.Data(c, logs)
 }
 
 func (h *Handler) createSleepLog(c *fiber.Ctx) error {
-	userID, err := h.resolveUserID(c)
+	userID, err := auth.ResolveUserID(c, h.users)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
+		return respond.Unauthorized(c, "invalid user")
 	}
 	var in health.CreateSleepInput
 	if err := c.BodyParser(&in); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
+		return respond.BadRequest(c, "invalid request body")
 	}
 	if err := validate.Struct(in); err != nil {
 		return err
@@ -323,25 +319,25 @@ func (h *Handler) createSleepLog(c *fiber.Ctx) error {
 	log, err := h.svc.CreateSleepLog(c.Context(), userID, in)
 	if err != nil {
 		if strings.Contains(err.Error(), "ended_at must be after started_at") {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+			return respond.BadRequest(c, err.Error())
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
-	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"data": log})
+	return respond.Created(c, log)
 }
 
 func (h *Handler) updateSleepLog(c *fiber.Ctx) error {
-	userID, err := h.resolveUserID(c)
+	userID, err := auth.ResolveUserID(c, h.users)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
+		return respond.Unauthorized(c, "invalid user")
 	}
 	id, err := uuid.Parse(c.Params("id"))
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid sleep log id"})
+		return respond.BadRequest(c, "invalid sleep log id")
 	}
 	var in health.UpdateSleepInput
 	if err := c.BodyParser(&in); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
+		return respond.BadRequest(c, "invalid request body")
 	}
 	if err := validate.Struct(in); err != nil {
 		return err
@@ -349,39 +345,30 @@ func (h *Handler) updateSleepLog(c *fiber.Ctx) error {
 	log, err := h.svc.UpdateSleepLog(c.Context(), id, userID, in)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "sleep log not found"})
+			return respond.NotFound(c, "sleep log not found")
 		}
 		if strings.Contains(err.Error(), "ended_at must be after started_at") {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+			return respond.BadRequest(c, err.Error())
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
-	return c.JSON(fiber.Map{"data": log})
+	return respond.Data(c, log)
 }
 
 func (h *Handler) deleteSleepLog(c *fiber.Ctx) error {
-	userID, err := h.resolveUserID(c)
+	userID, err := auth.ResolveUserID(c, h.users)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
+		return respond.Unauthorized(c, "invalid user")
 	}
 	id, err := uuid.Parse(c.Params("id"))
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid sleep log id"})
+		return respond.BadRequest(c, "invalid sleep log id")
 	}
 	if err := h.svc.DeleteSleepLog(c.Context(), id, userID); err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "sleep log not found"})
+			return respond.NotFound(c, "sleep log not found")
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
 	return c.SendStatus(fiber.StatusNoContent)
-}
-
-// resolveUserID looks up the internal UUID for the Firebase UID in the request context.
-func (h *Handler) resolveUserID(c *fiber.Ctx) (uuid.UUID, error) {
-	firebaseUID := auth.GetUserID(c)
-	if firebaseUID == "" {
-		return uuid.UUID{}, fiber.ErrUnauthorized
-	}
-	return h.users.GetIDByFirebaseUID(c.Context(), firebaseUID)
 }

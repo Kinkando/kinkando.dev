@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/kinkando/personal-dashboard/internal/auth"
 	"github.com/kinkando/personal-dashboard/internal/medicine"
+	"github.com/kinkando/personal-dashboard/pkg/respond"
 	"github.com/kinkando/personal-dashboard/pkg/validate"
 )
 
@@ -29,17 +30,12 @@ type Service interface {
 	ListStockAdjustments(ctx context.Context, userID uuid.UUID, opts medicine.ListAdjustmentOpts) ([]*medicine.MedicineStockAdjustment, error)
 }
 
-// UserResolver resolves a Firebase UID to the internal UUID stored in the users table.
-type UserResolver interface {
-	GetIDByFirebaseUID(ctx context.Context, firebaseUID string) (uuid.UUID, error)
-}
-
 type Handler struct {
 	svc   Service
-	users UserResolver
+	users auth.UserResolver
 }
 
-func New(svc Service, users UserResolver) *Handler {
+func New(svc Service, users auth.UserResolver) *Handler {
 	return &Handler{svc: svc, users: users}
 }
 
@@ -64,9 +60,9 @@ func (h *Handler) Register(router fiber.Router) {
 // ── Medicines ─────────────────────────────────────────────────────────────────
 
 func (h *Handler) listMedicines(c *fiber.Ctx) error {
-	userID, err := h.resolveUserID(c)
+	userID, err := auth.ResolveUserID(c, h.users)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
+		return respond.Unauthorized(c, "invalid user")
 	}
 	includeArchived := strings.ToLower(c.Query("include_archived")) == "true"
 	sourceType, err := parseSourceType(c)
@@ -75,45 +71,45 @@ func (h *Handler) listMedicines(c *fiber.Ctx) error {
 	}
 	meds, err := h.svc.ListMedicines(c.Context(), userID, includeArchived, sourceType)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
 	if meds == nil {
 		meds = []*medicine.Medicine{}
 	}
-	return c.JSON(fiber.Map{"data": meds})
+	return respond.Data(c, meds)
 }
 
 func (h *Handler) createMedicine(c *fiber.Ctx) error {
-	userID, err := h.resolveUserID(c)
+	userID, err := auth.ResolveUserID(c, h.users)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
+		return respond.Unauthorized(c, "invalid user")
 	}
 	var in medicine.CreateMedicineInput
 	if err := c.BodyParser(&in); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
+		return respond.BadRequest(c, "invalid request body")
 	}
 	if err := validate.Struct(in); err != nil {
 		return err
 	}
 	med, err := h.svc.CreateMedicine(c.Context(), userID, in)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
-	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"data": med})
+	return respond.Created(c, med)
 }
 
 func (h *Handler) updateMedicine(c *fiber.Ctx) error {
-	userID, err := h.resolveUserID(c)
+	userID, err := auth.ResolveUserID(c, h.users)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
+		return respond.Unauthorized(c, "invalid user")
 	}
 	id, err := uuid.Parse(c.Params("id"))
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid medicine id"})
+		return respond.BadRequest(c, "invalid medicine id")
 	}
 	var in medicine.UpdateMedicineInput
 	if err := c.BodyParser(&in); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
+		return respond.BadRequest(c, "invalid request body")
 	}
 	if err := validate.Struct(in); err != nil {
 		return err
@@ -121,11 +117,11 @@ func (h *Handler) updateMedicine(c *fiber.Ctx) error {
 	med, err := h.svc.UpdateMedicine(c.Context(), id, userID, in)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "medicine not found"})
+			return respond.NotFound(c, "medicine not found")
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
-	return c.JSON(fiber.Map{"data": med})
+	return respond.Data(c, med)
 }
 
 func (h *Handler) archiveMedicine(c *fiber.Ctx) error {
@@ -137,38 +133,38 @@ func (h *Handler) unarchiveMedicine(c *fiber.Ctx) error {
 }
 
 func (h *Handler) setArchived(c *fiber.Ctx, archived bool) error {
-	userID, err := h.resolveUserID(c)
+	userID, err := auth.ResolveUserID(c, h.users)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
+		return respond.Unauthorized(c, "invalid user")
 	}
 	id, err := uuid.Parse(c.Params("id"))
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid medicine id"})
+		return respond.BadRequest(c, "invalid medicine id")
 	}
 	med, err := h.svc.SetArchived(c.Context(), id, userID, archived)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "medicine not found"})
+			return respond.NotFound(c, "medicine not found")
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
-	return c.JSON(fiber.Map{"data": med})
+	return respond.Data(c, med)
 }
 
 // ── Take ──────────────────────────────────────────────────────────────────────
 
 func (h *Handler) takeMedicine(c *fiber.Ctx) error {
-	userID, err := h.resolveUserID(c)
+	userID, err := auth.ResolveUserID(c, h.users)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
+		return respond.Unauthorized(c, "invalid user")
 	}
 	medicineID, err := uuid.Parse(c.Params("id"))
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid medicine id"})
+		return respond.BadRequest(c, "invalid medicine id")
 	}
 	var in medicine.TakeMedicineInput
 	if err := c.BodyParser(&in); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
+		return respond.BadRequest(c, "invalid request body")
 	}
 	if err := validate.Struct(in); err != nil {
 		return err
@@ -176,33 +172,33 @@ func (h *Handler) takeMedicine(c *fiber.Ctx) error {
 	intake, med, err := h.svc.Take(c.Context(), userID, medicineID, in)
 	if err != nil {
 		if errors.Is(err, medicine.ErrInsufficientStock) {
-			return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": "insufficient stock; set allow_negative to true to override"})
+			return respond.Conflict(c, "insufficient stock; set allow_negative to true to override")
 		}
 		if strings.Contains(err.Error(), "not found") {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "medicine not found"})
+			return respond.NotFound(c, "medicine not found")
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
-	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"data": fiber.Map{
+	return respond.Created(c, fiber.Map{
 		"intake":   intake,
 		"medicine": med,
-	}})
+	})
 }
 
 // ── Stock adjustment ──────────────────────────────────────────────────────────
 
 func (h *Handler) adjustStock(c *fiber.Ctx) error {
-	userID, err := h.resolveUserID(c)
+	userID, err := auth.ResolveUserID(c, h.users)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
+		return respond.Unauthorized(c, "invalid user")
 	}
 	medicineID, err := uuid.Parse(c.Params("id"))
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid medicine id"})
+		return respond.BadRequest(c, "invalid medicine id")
 	}
 	var in medicine.AdjustStockInput
 	if err := c.BodyParser(&in); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
+		return respond.BadRequest(c, "invalid request body")
 	}
 	if err := validate.Struct(in); err != nil {
 		return err
@@ -210,14 +206,14 @@ func (h *Handler) adjustStock(c *fiber.Ctx) error {
 	adj, med, err := h.svc.AdjustStock(c.Context(), userID, medicineID, in)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "medicine not found"})
+			return respond.NotFound(c, "medicine not found")
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
-	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"data": fiber.Map{
+	return respond.Created(c, fiber.Map{
 		"adjustment": adj,
 		"medicine":   med,
-	}})
+	})
 }
 
 // ── Intakes ───────────────────────────────────────────────────────────────────
@@ -229,15 +225,15 @@ func (h *Handler) listAllIntakes(c *fiber.Ctx) error {
 func (h *Handler) listMedicineIntakes(c *fiber.Ctx) error {
 	medicineID, err := uuid.Parse(c.Params("id"))
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid medicine id"})
+		return respond.BadRequest(c, "invalid medicine id")
 	}
 	return h.listIntakesHandler(c, &medicineID)
 }
 
 func (h *Handler) listIntakesHandler(c *fiber.Ctx, medicineID *uuid.UUID) error {
-	userID, err := h.resolveUserID(c)
+	userID, err := auth.ResolveUserID(c, h.users)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
+		return respond.Unauthorized(c, "invalid user")
 	}
 
 	opts := medicine.ListIntakeOpts{MedicineID: medicineID}
@@ -249,26 +245,26 @@ func (h *Handler) listIntakesHandler(c *fiber.Ctx, medicineID *uuid.UUID) error 
 	if dateStr := c.Query("date"); dateStr != "" {
 		t, err := time.Parse(time.DateOnly, dateStr)
 		if err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid date format; use YYYY-MM-DD"})
+			return respond.BadRequest(c, "invalid date format; use YYYY-MM-DD")
 		}
 		opts.Date = &t
 	}
 	if limitStr := c.Query("limit"); limitStr != "" {
 		n, err := strconv.Atoi(limitStr)
 		if err != nil || n <= 0 {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "limit must be a positive integer"})
+			return respond.BadRequest(c, "limit must be a positive integer")
 		}
 		opts.Limit = n
 	}
 
 	intakes, err := h.svc.ListIntakes(c.Context(), userID, opts)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
 	if intakes == nil {
 		intakes = []*medicine.MedicineIntake{}
 	}
-	return c.JSON(fiber.Map{"data": intakes})
+	return respond.Data(c, intakes)
 }
 
 // ── Stock adjustments ─────────────────────────────────────────────────────────
@@ -280,15 +276,15 @@ func (h *Handler) listAllStockAdjustments(c *fiber.Ctx) error {
 func (h *Handler) listMedicineStockAdjustments(c *fiber.Ctx) error {
 	medicineID, err := uuid.Parse(c.Params("id"))
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid medicine id"})
+		return respond.BadRequest(c, "invalid medicine id")
 	}
 	return h.listStockAdjustmentsHandler(c, &medicineID)
 }
 
 func (h *Handler) listStockAdjustmentsHandler(c *fiber.Ctx, medicineID *uuid.UUID) error {
-	userID, err := h.resolveUserID(c)
+	userID, err := auth.ResolveUserID(c, h.users)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
+		return respond.Unauthorized(c, "invalid user")
 	}
 
 	opts := medicine.ListAdjustmentOpts{MedicineID: medicineID}
@@ -300,26 +296,26 @@ func (h *Handler) listStockAdjustmentsHandler(c *fiber.Ctx, medicineID *uuid.UUI
 	if dateStr := c.Query("date"); dateStr != "" {
 		t, err := time.Parse(time.DateOnly, dateStr)
 		if err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid date format; use YYYY-MM-DD"})
+			return respond.BadRequest(c, "invalid date format; use YYYY-MM-DD")
 		}
 		opts.Date = &t
 	}
 	if limitStr := c.Query("limit"); limitStr != "" {
 		n, err := strconv.Atoi(limitStr)
 		if err != nil || n <= 0 {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "limit must be a positive integer"})
+			return respond.BadRequest(c, "limit must be a positive integer")
 		}
 		opts.Limit = n
 	}
 
 	adjs, err := h.svc.ListStockAdjustments(c.Context(), userID, opts)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
 	if adjs == nil {
 		adjs = []*medicine.MedicineStockAdjustment{}
 	}
-	return c.JSON(fiber.Map{"data": adjs})
+	return respond.Data(c, adjs)
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -346,12 +342,4 @@ func parseSourceType(c *fiber.Ctx) (*medicine.SourceType, error) {
 	}
 	st := medicine.SourceType(q.SourceType)
 	return &st, nil
-}
-
-func (h *Handler) resolveUserID(c *fiber.Ctx) (uuid.UUID, error) {
-	firebaseUID := auth.GetUserID(c)
-	if firebaseUID == "" {
-		return uuid.UUID{}, fiber.ErrUnauthorized
-	}
-	return h.users.GetIDByFirebaseUID(c.Context(), firebaseUID)
 }

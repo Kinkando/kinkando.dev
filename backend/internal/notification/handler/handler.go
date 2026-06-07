@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/kinkando/personal-dashboard/internal/auth"
 	"github.com/kinkando/personal-dashboard/internal/notification"
+	"github.com/kinkando/personal-dashboard/pkg/respond"
 	"github.com/kinkando/personal-dashboard/pkg/validate"
 )
 
@@ -20,19 +21,14 @@ type Service interface {
 	SendTest(ctx context.Context, userID uuid.UUID) *notification.DeliveryResult
 }
 
-// UserResolver resolves a Firebase UID to the internal UUID.
-type UserResolver interface {
-	GetIDByFirebaseUID(ctx context.Context, firebaseUID string) (uuid.UUID, error)
-}
-
 // Handler wires HTTP routes to the notification service.
 type Handler struct {
 	svc   Service
-	users UserResolver
+	users auth.UserResolver
 }
 
 // New constructs a Handler.
-func New(svc Service, users UserResolver) *Handler {
+func New(svc Service, users auth.UserResolver) *Handler {
 	return &Handler{svc: svc, users: users}
 }
 
@@ -49,50 +45,50 @@ func (h *Handler) Register(router fiber.Router) {
 // ── Handlers ──────────────────────────────────────────────────────────────────
 
 func (h *Handler) getSettings(c *fiber.Ctx) error {
-	userID, err := h.resolveUserID(c)
+	userID, err := auth.ResolveUserID(c, h.users)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
+		return respond.Unauthorized(c, "invalid user")
 	}
 	settings, err := h.svc.GetSettings(c.Context(), userID)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
-	return c.JSON(fiber.Map{"data": settings})
+	return respond.Data(c, settings)
 }
 
 func (h *Handler) upsertSettings(c *fiber.Ctx) error {
-	userID, err := h.resolveUserID(c)
+	userID, err := auth.ResolveUserID(c, h.users)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
+		return respond.Unauthorized(c, "invalid user")
 	}
 	var in notification.UpsertSettingsInput
 	if err := c.BodyParser(&in); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
+		return respond.BadRequest(c, "invalid request body")
 	}
 	if err := validate.Struct(in); err != nil {
 		return err
 	}
 	settings, err := h.svc.UpsertSettings(c.Context(), userID, in)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
-	return c.JSON(fiber.Map{"data": settings})
+	return respond.Data(c, settings)
 }
 
 func (h *Handler) registerToken(c *fiber.Ctx) error {
-	userID, err := h.resolveUserID(c)
+	userID, err := auth.ResolveUserID(c, h.users)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
+		return respond.Unauthorized(c, "invalid user")
 	}
 	var in notification.RegisterTokenInput
 	if err := c.BodyParser(&in); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
+		return respond.BadRequest(c, "invalid request body")
 	}
 	if err := validate.Struct(in); err != nil {
 		return err
 	}
 	if err := h.svc.RegisterToken(c.Context(), userID, in.Token); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
 	return c.SendStatus(fiber.StatusNoContent)
 }
@@ -101,50 +97,41 @@ func (h *Handler) removeToken(c *fiber.Ctx) error {
 	// No user-scope check needed — token uniqueness guarantees ownership.
 	var in notification.RemoveTokenInput
 	if err := c.BodyParser(&in); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
+		return respond.BadRequest(c, "invalid request body")
 	}
 	if err := validate.Struct(in); err != nil {
 		return err
 	}
 	if err := h.svc.RemoveToken(c.Context(), in.Token); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
 	return c.SendStatus(fiber.StatusNoContent)
 }
 
 func (h *Handler) checkToken(c *fiber.Ctx) error {
-	userID, err := h.resolveUserID(c)
+	userID, err := auth.ResolveUserID(c, h.users)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
+		return respond.Unauthorized(c, "invalid user")
 	}
 	var in notification.RegisterTokenInput
 	if err := c.BodyParser(&in); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
+		return respond.BadRequest(c, "invalid request body")
 	}
 	if err := validate.Struct(in); err != nil {
 		return err
 	}
 	registered, err := h.svc.IsTokenRegistered(c.Context(), userID, in.Token)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respond.Internal(c, err)
 	}
-	return c.JSON(fiber.Map{"data": fiber.Map{"registered": registered}})
+	return respond.Data(c, fiber.Map{"registered": registered})
 }
 
 func (h *Handler) sendTest(c *fiber.Ctx) error {
-	userID, err := h.resolveUserID(c)
+	userID, err := auth.ResolveUserID(c, h.users)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user"})
+		return respond.Unauthorized(c, "invalid user")
 	}
 	res := h.svc.SendTest(c.Context(), userID)
-	return c.JSON(fiber.Map{"data": res})
-}
-
-// resolveUserID looks up the internal UUID for the Firebase UID in the request context.
-func (h *Handler) resolveUserID(c *fiber.Ctx) (uuid.UUID, error) {
-	firebaseUID := auth.GetUserID(c)
-	if firebaseUID == "" {
-		return uuid.UUID{}, fiber.ErrUnauthorized
-	}
-	return h.users.GetIDByFirebaseUID(c.Context(), firebaseUID)
+	return respond.Data(c, res)
 }

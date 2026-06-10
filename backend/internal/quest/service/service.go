@@ -38,11 +38,12 @@ type Repository interface {
 
 type Service struct {
 	repo   Repository
-	events EventPublisher // nil-safe; set via New
+	events EventPublisher  // nil-safe; set via New
+	now    func() time.Time // injectable clock; defaults to helper.Today
 }
 
 func New(repo Repository, events EventPublisher) *Service {
-	return &Service{repo: repo, events: events}
+	return &Service{repo: repo, events: events, now: helper.Today}
 }
 
 // publishCompleted emits QuestCompleted so cross-module subscribers (e.g.
@@ -82,7 +83,7 @@ func (s *Service) SetActive(ctx context.Context, id uuid.UUID, userID uuid.UUID,
 // ── Overview ──────────────────────────────────────────────────────────────────
 
 func (s *Service) GetOverview(ctx context.Context, userID uuid.UUID) (*quest.Overview, error) {
-	today := helper.Today()
+	today := s.now()
 	weekStart := s.weekStart()
 
 	daily, err := s.repo.GetQuestStatus(ctx, userID, quest.QuestTypeDaily, today)
@@ -141,7 +142,7 @@ func (s *Service) GetOverview(ctx context.Context, userID uuid.UUID) (*quest.Ove
 // "perfect day" is one where every active daily quest reached its target; a day
 // with no active daily quests is a gap that breaks a streak.
 func (s *Service) GetStreaks(ctx context.Context, userID uuid.UUID) (*quest.StreakSummary, error) {
-	today := helper.Today()
+	today := s.now()
 	from := today.AddDate(0, 0, -364)
 
 	rows, err := s.repo.ListDailyResults(ctx, userID, from, today)
@@ -267,7 +268,7 @@ func (s *Service) DecrementQuest(ctx context.Context, userID uuid.UUID, questID 
 // HandleSourceEvent advances all active quests linked to the given sourceType
 // for the user. Called by the event bus — never by the user directly.
 func (s *Service) HandleSourceEvent(ctx context.Context, userID uuid.UUID, sourceType string) error {
-	if err := s.repo.ProgressBySource(ctx, userID, sourceType, helper.Today(), s.weekStart()); err != nil {
+	if err := s.repo.ProgressBySource(ctx, userID, sourceType, s.now(), s.weekStart()); err != nil {
 		return err
 	}
 	s.publishCompleted(ctx, userID)
@@ -277,7 +278,7 @@ func (s *Service) HandleSourceEvent(ctx context.Context, userID uuid.UUID, sourc
 // periodFor returns the period start time and XP source label for the given quest type.
 func (s *Service) periodFor(qType quest.QuestType) (time.Time, string) {
 	if qType == quest.QuestTypeDaily {
-		return helper.Today(), "daily"
+		return s.now(), "daily"
 	}
 	return s.weekStart(), "weekly"
 }
@@ -290,7 +291,7 @@ func (s *Service) ListXPEvents(ctx context.Context, userID uuid.UUID, limit int)
 
 // weekStart returns midnight UTC for the Monday that starts the current week in Asia/Bangkok.
 func (s *Service) weekStart() time.Time {
-	today := helper.Today()
+	today := s.now()
 	weekday := today.Weekday()
 	daysFromMonday := int(weekday-time.Monday+7) % 7
 	return today.AddDate(0, 0, -daysFromMonday)

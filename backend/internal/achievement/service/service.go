@@ -33,10 +33,11 @@ type Service struct {
 	repo     Repository
 	quest    QuestStats
 	notifier Notifier
+	now      func() time.Time // injectable clock; defaults to time.Now
 }
 
 func New(repo Repository, quest QuestStats, notifier Notifier) *Service {
-	return &Service{repo: repo, quest: quest, notifier: notifier}
+	return &Service{repo: repo, quest: quest, notifier: notifier, now: time.Now}
 }
 
 // Evaluate computes progress for every badge, persists any newly-met unlocks,
@@ -72,7 +73,7 @@ func (s *Service) Evaluate(ctx context.Context, userID uuid.UUID) (*achievement.
 		return nil, err
 	}
 
-	now := time.Now()
+	now := s.now()
 	achievements := make([]achievement.Achievement, 0, len(achievement.Catalog))
 	var newly []string
 	unlockedCount := 0

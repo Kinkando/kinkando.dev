@@ -20,7 +20,6 @@ import (
 	"time"
 
 	"github.com/kinkando/personal-dashboard/internal/quest"
-	"github.com/kinkando/personal-dashboard/pkg/helper"
 	"go.uber.org/zap"
 )
 
@@ -45,17 +44,18 @@ type RunResult struct {
 type Service struct {
 	quests QuestRepository
 	log    *zap.Logger
+	now    func() time.Time // injectable clock; defaults to time.Now (Asia/Bangkok via time.Local)
 }
 
 func New(quests QuestRepository, log *zap.Logger) *Service {
-	return &Service{quests: quests, log: log}
+	return &Service{quests: quests, log: log, now: time.Now}
 }
 
 // Run executes the quest-period-snapshot batch job. Safe to call concurrently —
 // idempotency is guaranteed by the quest_period_results unique constraint.
 func (s *Service) Run(ctx context.Context) (*RunResult, error) {
-	now := time.Now() // Asia/Bangkok via time.Local set in main.go
-	today := helper.Today()
+	now := s.now()
+	today := todayFor(now)
 	yesterday := today.AddDate(0, 0, -1)
 
 	result := &RunResult{}
@@ -85,6 +85,13 @@ func (s *Service) Run(ctx context.Context) (*RunResult, error) {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+// todayFor returns midnight UTC for the Bangkok calendar day of t.
+func todayFor(t time.Time) time.Time {
+	loc, _ := time.LoadLocation("Asia/Bangkok")
+	bkk := t.In(loc)
+	return time.Date(bkk.Year(), bkk.Month(), bkk.Day(), 0, 0, 0, 0, time.UTC)
+}
 
 // weekStartFor returns midnight UTC for the Monday that starts the week
 // containing the given day (Bangkok-midnight-UTC). Mirrors quest/service weekStart().

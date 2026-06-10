@@ -39,10 +39,11 @@ type Repository interface {
 type Service struct {
 	repo   Repository
 	events EventPublisher // nil-safe; set via New
+	now    func() time.Time // injectable clock; defaults to helper.Today
 }
 
 func New(repo Repository, events EventPublisher) *Service {
-	return &Service{repo: repo, events: events}
+	return &Service{repo: repo, events: events, now: helper.Today}
 }
 
 func (s *Service) GetProfile(ctx context.Context, userID uuid.UUID) (*health.Profile, error) {
@@ -64,7 +65,7 @@ func (s *Service) CreateWeightLog(ctx context.Context, userID uuid.UUID, in heal
 	}
 	// Publish only when the logged date is the local current day (Asia/Bangkok).
 	// Logging a past or future date must not complete today's quest.
-	if s.events != nil && log.LoggedAt.Equal(helper.Today()) {
+	if s.events != nil && log.LoggedAt.Equal(s.now()) {
 		s.events.Publish(ctx, event.Event{Type: event.WeightLogged, UserID: userID})
 	}
 	return log, nil
@@ -105,7 +106,7 @@ func (s *Service) CreateSleepLog(ctx context.Context, userID uuid.UUID, in healt
 	}
 	// Publish only when the logged date is the local current day (Asia/Bangkok).
 	// Logging a past or future date must not complete today's quest.
-	if s.events != nil && log.LoggedAt.Equal(helper.Today()) {
+	if s.events != nil && log.LoggedAt.Equal(s.now()) {
 		s.events.Publish(ctx, event.Event{Type: event.SleepLogged, UserID: userID})
 	}
 	return log, nil

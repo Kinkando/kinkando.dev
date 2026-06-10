@@ -77,16 +77,17 @@ type Service struct {
 	medRepo MedicineRepository
 	noti    Notifier
 	log     *zap.Logger
+	now     func() time.Time // injectable clock; defaults to time.Now
 }
 
 func New(medRepo MedicineRepository, noti Notifier, log *zap.Logger) *Service {
-	return &Service{medRepo: medRepo, noti: noti, log: log}
+	return &Service{medRepo: medRepo, noti: noti, log: log, now: time.Now}
 }
 
 // Run executes the reminder batch job.  It is safe to call concurrently
 // (idempotency is guaranteed by the medicine_reminder_log unique constraint).
 func (s *Service) Run(ctx context.Context) (*RunResult, error) {
-	now := time.Now() // Asia/Bangkok via time.Local set in main.go
+	now := s.now() // Asia/Bangkok via time.Local set in main.go
 	todayKey := now.Format(time.DateOnly)
 
 	meds, err := s.medRepo.ScanActiveMedicinesForReminders(ctx)

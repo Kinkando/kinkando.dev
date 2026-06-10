@@ -15,7 +15,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/kinkando/personal-dashboard/internal/notification"
 	"github.com/kinkando/personal-dashboard/internal/reminderlog"
-	"github.com/kinkando/personal-dashboard/pkg/helper"
 	"go.uber.org/zap"
 )
 
@@ -62,17 +61,25 @@ type Service struct {
 	remLog ReminderLog
 	noti   Notifier
 	log    *zap.Logger
+	now    func() time.Time // injectable clock; defaults to time.Now
 }
 
 func New(health HealthRepository, remLog ReminderLog, noti Notifier, log *zap.Logger) *Service {
-	return &Service{health: health, remLog: remLog, noti: noti, log: log}
+	return &Service{health: health, remLog: remLog, noti: noti, log: log, now: time.Now}
+}
+
+// todayFor returns midnight UTC for the Bangkok calendar day of t.
+func todayFor(t time.Time) time.Time {
+	loc, _ := time.LoadLocation("Asia/Bangkok")
+	bkk := t.In(loc)
+	return time.Date(bkk.Year(), bkk.Month(), bkk.Day(), 0, 0, 0, 0, time.UTC)
 }
 
 // Run executes the weight-log nudge batch job.
 // Safe to call concurrently — idempotency is guaranteed by the reminder_log
 // unique constraint.
 func (s *Service) Run(ctx context.Context) (*RunResult, error) {
-	now := time.Now() // Asia/Bangkok via time.Local set in main.go
+	now := s.now() // Asia/Bangkok via time.Local set in main.go
 	result := &RunResult{}
 
 	if now.Hour() < weightNudgeHour {
@@ -80,7 +87,7 @@ func (s *Service) Run(ctx context.Context) (*RunResult, error) {
 		return result, nil
 	}
 
-	today := helper.Today()
+	today := todayFor(now)
 	todayKey := now.Format(time.DateOnly)
 
 	candidates, err := s.health.UsersMissingWeightToday(ctx, today)

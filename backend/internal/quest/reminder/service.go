@@ -17,7 +17,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/kinkando/personal-dashboard/internal/notification"
 	"github.com/kinkando/personal-dashboard/internal/reminderlog"
-	"github.com/kinkando/personal-dashboard/pkg/helper"
 	"go.uber.org/zap"
 )
 
@@ -65,17 +64,18 @@ type Service struct {
 	remLog ReminderLog
 	noti   Notifier
 	log    *zap.Logger
+	now    func() time.Time // injectable clock; defaults to time.Now
 }
 
 func New(quests QuestRepository, remLog ReminderLog, noti Notifier, log *zap.Logger) *Service {
-	return &Service{quests: quests, remLog: remLog, noti: noti, log: log}
+	return &Service{quests: quests, remLog: remLog, noti: noti, log: log, now: time.Now}
 }
 
 // Run executes the quest-reminder batch job. Safe to call concurrently —
 // idempotency is guaranteed by the reminder_log unique constraint.
 func (s *Service) Run(ctx context.Context) (*RunResult, error) {
-	now := time.Now() // Asia/Bangkok via time.Local set in main.go
-	today := helper.Today()
+	now := s.now() // Asia/Bangkok via time.Local set in main.go
+	today := todayFor(now)
 	todayKey := now.Format(time.DateOnly)
 
 	result := &RunResult{ItemsByType: make(map[string]int)}
@@ -166,4 +166,11 @@ func weekStartFor(today time.Time) time.Time {
 	weekday := today.Weekday()
 	daysFromMonday := int(weekday-time.Monday+7) % 7
 	return today.AddDate(0, 0, -daysFromMonday)
+}
+
+// todayFor returns midnight UTC for the Bangkok calendar day of t.
+func todayFor(t time.Time) time.Time {
+	loc, _ := time.LoadLocation("Asia/Bangkok")
+	bkk := t.In(loc)
+	return time.Date(bkk.Year(), bkk.Month(), bkk.Day(), 0, 0, 0, 0, time.UTC)
 }

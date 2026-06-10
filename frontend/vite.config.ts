@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import { defineConfig, loadEnv, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
@@ -56,5 +57,9 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react(), tailwindcss(), firebaseSwEnv(env)],
     server: { port: 3000, strictPort: true },
+    test: {
+      environment: 'node',
+      include: ['src/**/*.test.ts'],
+    },
   }
 })

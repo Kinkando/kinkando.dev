@@ -3,7 +3,7 @@ import type { NewsItem, NewsCategory } from '../news'
 
 // API shape (snake_case). Mapped to the app's NewsItem so the existing cards
 // (which read `publishedAt`) stay unchanged.
-type ApiNewsItem = {
+export type ApiNewsItem = {
   id: string
   title: string
   summary: string
@@ -14,9 +14,9 @@ type ApiNewsItem = {
   featured: boolean
 }
 
-export async function fetchNews(): Promise<NewsItem[]> {
-  const items = await apiFetch<ApiNewsItem[]>('/news')
-  return (items ?? []).map((it) => ({
+/** Maps a single snake_case API response item to the camelCase app shape. */
+export function mapNewsItem(it: ApiNewsItem): NewsItem {
+  return {
     id: it.id,
     title: it.title,
     summary: it.summary,
@@ -25,5 +25,10 @@ export async function fetchNews(): Promise<NewsItem[]> {
     url: it.url,
     publishedAt: it.published_at,
     featured: it.featured,
-  }))
+  }
+}
+
+export async function fetchNews(): Promise<NewsItem[]> {
+  const items = await apiFetch<ApiNewsItem[]>('/news')
+  return (items ?? []).map(mapNewsItem)
 }

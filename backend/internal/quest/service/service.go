@@ -38,7 +38,7 @@ type Repository interface {
 
 type Service struct {
 	repo   Repository
-	events EventPublisher  // nil-safe; set via New
+	events EventPublisher   // nil-safe; set via New
 	now    func() time.Time // injectable clock; defaults to helper.Today
 }
 
@@ -107,13 +107,23 @@ func (s *Service) GetOverview(ctx context.Context, userID uuid.UUID) (*quest.Ove
 	}
 
 	dailyDone := 0
-	for _, d := range daily {
+	var dailyQuests []*quest.QuestStatus
+	for index, d := range daily {
+		if !d.IsActive {
+			continue
+		}
+		dailyQuests = append(dailyQuests, daily[index])
 		if d.Completed {
 			dailyDone++
 		}
 	}
 	weeklyDone := 0
-	for _, w := range weekly {
+	var weeklyQuests []*quest.QuestStatus
+	for index, w := range weekly {
+		if !w.IsActive {
+			continue
+		}
+		weeklyQuests = append(weeklyQuests, weekly[index])
 		if w.Completed {
 			weeklyDone++
 		}
@@ -123,12 +133,12 @@ func (s *Service) GetOverview(ctx context.Context, userID uuid.UUID) (*quest.Ove
 		Date:          today.Format(time.DateOnly),
 		WeekStart:     weekStart.Format(time.DateOnly),
 		XP:            xpSummary(totalXP),
-		Daily:         daily,
-		Weekly:        weekly,
+		Daily:         dailyQuests,
+		Weekly:        weeklyQuests,
 		DailyDone:     dailyDone,
-		DailyTotal:    len(daily),
+		DailyTotal:    len(dailyQuests),
 		WeeklyDone:    weeklyDone,
-		WeeklyTotal:   len(weekly),
+		WeeklyTotal:   len(weeklyQuests),
 		DailyBonusXP:  quest.DailyBonusXP,
 		WeeklyBonusXP: quest.WeeklyBonusXP,
 	}, nil

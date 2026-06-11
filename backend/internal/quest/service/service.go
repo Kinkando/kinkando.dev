@@ -107,23 +107,13 @@ func (s *Service) GetOverview(ctx context.Context, userID uuid.UUID) (*quest.Ove
 	}
 
 	dailyDone := 0
-	var dailyQuests []*quest.QuestStatus
-	for index, d := range daily {
-		if !d.IsActive {
-			continue
-		}
-		dailyQuests = append(dailyQuests, daily[index])
+	for _, d := range daily {
 		if d.Completed {
 			dailyDone++
 		}
 	}
 	weeklyDone := 0
-	var weeklyQuests []*quest.QuestStatus
-	for index, w := range weekly {
-		if !w.IsActive {
-			continue
-		}
-		weeklyQuests = append(weeklyQuests, weekly[index])
+	for _, w := range weekly {
 		if w.Completed {
 			weeklyDone++
 		}
@@ -133,12 +123,12 @@ func (s *Service) GetOverview(ctx context.Context, userID uuid.UUID) (*quest.Ove
 		Date:          today.Format(time.DateOnly),
 		WeekStart:     weekStart.Format(time.DateOnly),
 		XP:            xpSummary(totalXP),
-		Daily:         dailyQuests,
-		Weekly:        weeklyQuests,
+		Daily:         daily,
+		Weekly:        weekly,
 		DailyDone:     dailyDone,
-		DailyTotal:    len(dailyQuests),
+		DailyTotal:    len(daily),
 		WeeklyDone:    weeklyDone,
-		WeeklyTotal:   len(weeklyQuests),
+		WeeklyTotal:   len(weekly),
 		DailyBonusXP:  quest.DailyBonusXP,
 		WeeklyBonusXP: quest.WeeklyBonusXP,
 	}, nil

@@ -102,7 +102,7 @@ export default function StreaksSection() {
             />
           </div>
 
-          {data.days.length === 0 ? (
+          {!data.days || data.days.length === 0 ? (
             <p className="py-6 text-center text-sm text-gray-500">
               Complete daily quests to start your streak.
             </p>

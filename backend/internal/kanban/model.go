@@ -75,6 +75,18 @@ type Column struct {
 	CreatedAt time.Time          `bson:"created_at"    json:"created_at"`
 }
 
+// Attachment is a file uploaded to client-side object storage (Firebase Storage).
+// Only metadata is persisted server-side; the bytes live in the bucket at StoragePath.
+type Attachment struct {
+	ID          primitive.ObjectID `bson:"_id"          json:"id"`
+	Name        string             `bson:"name"         json:"name"`
+	URL         string             `bson:"url"          json:"url"`
+	StoragePath string             `bson:"storage_path" json:"storage_path"`
+	Size        int64              `bson:"size"         json:"size"`
+	ContentType string             `bson:"content_type" json:"content_type"`
+	UploadedAt  time.Time          `bson:"uploaded_at"  json:"uploaded_at"`
+}
+
 type Card struct {
 	ID            primitive.ObjectID `bson:"_id,omitempty"            json:"id"`
 	BoardID       primitive.ObjectID `bson:"board_id"                 json:"board_id"`
@@ -85,6 +97,7 @@ type Card struct {
 	Priority      Priority           `bson:"priority"                 json:"priority"`
 	DueDate       *time.Time         `bson:"due_date,omitempty"       json:"due_date,omitempty"`
 	Tags          []string           `bson:"tags"                     json:"tags"`
+	Attachments   []Attachment       `bson:"attachments"              json:"attachments"`
 	Order         int                `bson:"order"                    json:"order"`
 	CompletedAt   *time.Time         `bson:"completed_at,omitempty"   json:"completed_at,omitempty"`
 	ArchivedAt    *time.Time         `bson:"archived_at,omitempty"    json:"archived_at,omitempty"`
@@ -146,6 +159,14 @@ type UpdateCardInput struct {
 type MoveCardInput struct {
 	ColumnID string `json:"column_id" validate:"required"`
 	Order    int    `json:"order"     validate:"min=0"`
+}
+
+type AddAttachmentInput struct {
+	Name        string `json:"name"         validate:"required"`
+	URL         string `json:"url"          validate:"required,url"`
+	StoragePath string `json:"storage_path" validate:"required"`
+	Size        int64  `json:"size"         validate:"min=0"`
+	ContentType string `json:"content_type"`
 }
 
 type BoardStats struct {

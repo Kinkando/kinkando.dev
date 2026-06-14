@@ -403,6 +403,8 @@ func (r *Repository) CreateCard(ctx context.Context, boardID, columnID primitive
 		tags = []string{}
 	}
 
+	attachments := []kanban.Attachment{}
+
 	var dueDate *time.Time
 	if in.DueDate != nil && *in.DueDate != "" {
 		t, parseErr := time.Parse(time.DateOnly, *in.DueDate)
@@ -422,6 +424,7 @@ func (r *Repository) CreateCard(ctx context.Context, boardID, columnID primitive
 		Priority:    priority,
 		DueDate:     dueDate,
 		Tags:        tags,
+		Attachments: attachments,
 		Order:       int(count),
 		CreatedAt:   time.Now(),
 	}
@@ -558,6 +561,57 @@ func (r *Repository) MoveCard(ctx context.Context, cardID primitive.ObjectID, in
 
 	_, err = r.cards.UpdateOne(ctx, bson.M{"_id": cardID}, finalUpdate)
 	return err
+}
+
+// AddAttachment appends an Attachment to the card and returns the new attachment.
+func (r *Repository) AddAttachment(ctx context.Context, cardID primitive.ObjectID, in kanban.AddAttachmentInput) (*kanban.Attachment, error) {
+	att := kanban.Attachment{
+		ID:          primitive.NewObjectID(),
+		Name:        in.Name,
+		URL:         in.URL,
+		StoragePath: in.StoragePath,
+		Size:        in.Size,
+		ContentType: in.ContentType,
+		UploadedAt:  time.Now(),
+	}
+	res, err := r.cards.UpdateOne(ctx,
+		bson.M{"_id": cardID},
+		bson.M{"$push": bson.M{"attachments": att}},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("add attachment: %w", err)
+	}
+	if res.MatchedCount == 0 {
+		return nil, fmt.Errorf("card not found")
+	}
+	return &att, nil
+}
+
+// RemoveAttachment removes an attachment from the card and returns it so callers
+// can delete the underlying object from storage.
+func (r *Repository) RemoveAttachment(ctx context.Context, cardID, attachmentID primitive.ObjectID) (*kanban.Attachment, error) {
+	card, err := r.GetCard(ctx, cardID)
+	if err != nil {
+		return nil, err
+	}
+	var found *kanban.Attachment
+	for i := range card.Attachments {
+		if card.Attachments[i].ID == attachmentID {
+			found = &card.Attachments[i]
+			break
+		}
+	}
+	if found == nil {
+		return nil, fmt.Errorf("attachment not found")
+	}
+	_, err = r.cards.UpdateOne(ctx,
+		bson.M{"_id": cardID},
+		bson.M{"$pull": bson.M{"attachments": bson.M{"_id": attachmentID}}},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("remove attachment: %w", err)
+	}
+	return found, nil
 }
 
 func (r *Repository) DeleteCard(ctx context.Context, cardID primitive.ObjectID) error {

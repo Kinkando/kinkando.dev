@@ -31,6 +31,8 @@ type Repository interface {
 	UpdateCard(ctx context.Context, cardID primitive.ObjectID, in kanban.UpdateCardInput) (*kanban.Card, error)
 	MoveCard(ctx context.Context, cardID primitive.ObjectID, in kanban.MoveCardInput) error
 	DeleteCard(ctx context.Context, cardID primitive.ObjectID) error
+	AddAttachment(ctx context.Context, cardID primitive.ObjectID, in kanban.AddAttachmentInput) (*kanban.Attachment, error)
+	RemoveAttachment(ctx context.Context, cardID, attachmentID primitive.ObjectID) (*kanban.Attachment, error)
 	ArchiveCard(ctx context.Context, cardID primitive.ObjectID, reason kanban.ArchiveReason) (*kanban.Card, error)
 	UnarchiveCard(ctx context.Context, cardID primitive.ObjectID) (*kanban.Card, error)
 	ListArchivedCards(ctx context.Context, boardID primitive.ObjectID, filter kanban.ListArchivedFilter) ([]*kanban.Card, error)
@@ -64,6 +66,8 @@ func (h *Handler) Register(router fiber.Router) {
 	router.Patch("/cards/:id/move", h.moveCard)
 	router.Patch("/cards/:id/archive", h.archiveCard)
 	router.Patch("/cards/:id/unarchive", h.unarchiveCard)
+	router.Post("/cards/:id/attachments", h.addAttachment)
+	router.Delete("/cards/:id/attachments/:attachmentId", h.removeAttachment)
 	router.Patch("/cards/:id", h.updateCard)
 	router.Delete("/cards/:id", h.deleteCard)
 }
@@ -129,6 +133,9 @@ func (h *Handler) getBoard(c *fiber.Ctx) error {
 	for _, card := range cards {
 		if card.Tags == nil {
 			card.Tags = []string{}
+		}
+		if card.Attachments == nil {
+			card.Attachments = []kanban.Attachment{}
 		}
 		if card.Priority == "" {
 			card.Priority = kanban.PriorityNone
@@ -379,6 +386,9 @@ func (h *Handler) createCard(c *fiber.Ctx) error {
 	if card.Tags == nil {
 		card.Tags = []string{}
 	}
+	if card.Attachments == nil {
+		card.Attachments = []kanban.Attachment{}
+	}
 	return respond.Created(c, card)
 }
 
@@ -417,6 +427,9 @@ func (h *Handler) updateCard(c *fiber.Ctx) error {
 	}
 	if updated.Tags == nil {
 		updated.Tags = []string{}
+	}
+	if updated.Attachments == nil {
+		updated.Attachments = []kanban.Attachment{}
 	}
 	if updated.Priority == "" {
 		updated.Priority = kanban.PriorityNone
@@ -528,6 +541,9 @@ func (h *Handler) archiveCard(c *fiber.Ctx) error {
 	if archived.Tags == nil {
 		archived.Tags = []string{}
 	}
+	if archived.Attachments == nil {
+		archived.Attachments = []kanban.Attachment{}
+	}
 	return respond.Data(c, archived)
 }
 
@@ -562,6 +578,9 @@ func (h *Handler) unarchiveCard(c *fiber.Ctx) error {
 	}
 	if restored.Tags == nil {
 		restored.Tags = []string{}
+	}
+	if restored.Attachments == nil {
+		restored.Attachments = []kanban.Attachment{}
 	}
 	return respond.Data(c, restored)
 }
@@ -604,9 +623,88 @@ func (h *Handler) listArchive(c *fiber.Ctx) error {
 		if card.Tags == nil {
 			card.Tags = []string{}
 		}
+		if card.Attachments == nil {
+			card.Attachments = []kanban.Attachment{}
+		}
 		if card.Priority == "" {
 			card.Priority = kanban.PriorityNone
 		}
 	}
 	return respond.Data(c, cards)
+}
+
+// ---- Attachment handlers ---------------------------------------------------
+
+// addAttachment registers a file the client has already uploaded to Firebase Storage.
+// The bytes never pass through the backend; only metadata is persisted.
+func (h *Handler) addAttachment(c *fiber.Ctx) error {
+	userID := auth.GetUserID(c)
+	cardID, err := primitive.ObjectIDFromHex(c.Params("id"))
+	if err != nil {
+		return respond.BadRequest(c, "invalid card id")
+	}
+	card, err := h.repo.GetCard(c.Context(), cardID)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			return respond.NotFound(c, "card not found")
+		}
+		return respond.Internal(c, err)
+	}
+	if _, err := h.repo.GetBoardByID(c.Context(), card.BoardID, userID); err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			return respond.NotFound(c, "card not found")
+		}
+		return respond.Internal(c, err)
+	}
+	var in kanban.AddAttachmentInput
+	if err := c.BodyParser(&in); err != nil {
+		return respond.BadRequest(c, "invalid request body")
+	}
+	if err := validate.Struct(in); err != nil {
+		return err
+	}
+	att, err := h.repo.AddAttachment(c.Context(), cardID, in)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			return respond.NotFound(c, "card not found")
+		}
+		return respond.Internal(c, err)
+	}
+	return respond.Created(c, att)
+}
+
+// removeAttachment removes a single attachment from a card. The client is
+// responsible for deleting the underlying object from Firebase Storage; the
+// removed attachment is returned so the client knows the storage_path to delete.
+func (h *Handler) removeAttachment(c *fiber.Ctx) error {
+	userID := auth.GetUserID(c)
+	cardID, err := primitive.ObjectIDFromHex(c.Params("id"))
+	if err != nil {
+		return respond.BadRequest(c, "invalid card id")
+	}
+	attachmentID, err := primitive.ObjectIDFromHex(c.Params("attachmentId"))
+	if err != nil {
+		return respond.BadRequest(c, "invalid attachment id")
+	}
+	card, err := h.repo.GetCard(c.Context(), cardID)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			return respond.NotFound(c, "card not found")
+		}
+		return respond.Internal(c, err)
+	}
+	if _, err := h.repo.GetBoardByID(c.Context(), card.BoardID, userID); err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			return respond.NotFound(c, "card not found")
+		}
+		return respond.Internal(c, err)
+	}
+	removed, err := h.repo.RemoveAttachment(c.Context(), cardID, attachmentID)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			return respond.NotFound(c, err.Error())
+		}
+		return respond.Internal(c, err)
+	}
+	return respond.Data(c, removed)
 }

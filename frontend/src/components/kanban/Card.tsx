@@ -151,7 +151,7 @@ export default function KanbanCard({
 
           {/* Action buttons (visible on hover) */}
           <div
-            className="flex flex-shrink-0 flex-col gap-1 opacity-0 group-hover:opacity-100"
+            className="flex flex-shrink-0 flex-col gap-1"
             onPointerDown={(e) => e.stopPropagation()}
           >
             {/* Archive */}

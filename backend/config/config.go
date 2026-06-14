@@ -16,8 +16,8 @@ type Config struct {
 	FirebaseCredentials string `env:"FIREBASE_CREDENTIALS,required"`
 
 	// Gemini API — powers natural-language processing in the LINE webhook.
-	GeminiAPIKey  string `env:"GEMINI_API_KEY,required"`
-	GeminiModel   string `env:"GEMINI_MODEL" envDefault:"gemini-2.0-flash"`
+	GeminiAPIKey   string `env:"GEMINI_API_KEY,required"`
+	GeminiModel    string `env:"GEMINI_MODEL" envDefault:"gemini-2.0-flash"`
 	GeminiTTSModel string `env:"GEMINI_TTS_MODEL" envDefault:"gemini-2.5-flash-preview-tts"`
 
 	// LINE Messaging API credentials.

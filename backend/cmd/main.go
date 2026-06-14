@@ -16,17 +16,19 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/kinkando/personal-dashboard/config"
-	aichatHandler "github.com/kinkando/personal-dashboard/internal/aichat/handler"
 	achievementHandler "github.com/kinkando/personal-dashboard/internal/achievement/handler"
 	achievementRepo "github.com/kinkando/personal-dashboard/internal/achievement/repository"
 	achievementSvc "github.com/kinkando/personal-dashboard/internal/achievement/service"
+	aichatHandler "github.com/kinkando/personal-dashboard/internal/aichat/handler"
 	"github.com/kinkando/personal-dashboard/internal/auth"
+	cronHandler "github.com/kinkando/personal-dashboard/internal/cron/handler"
 	"github.com/kinkando/personal-dashboard/internal/fcm"
 	financeHandler "github.com/kinkando/personal-dashboard/internal/finance/handler"
 	financeRepo "github.com/kinkando/personal-dashboard/internal/finance/repository"
 	financeSvc "github.com/kinkando/personal-dashboard/internal/finance/service"
 	"github.com/kinkando/personal-dashboard/internal/gemini"
 	healthHandler "github.com/kinkando/personal-dashboard/internal/health/handler"
+	healthReminder "github.com/kinkando/personal-dashboard/internal/health/reminder"
 	healthRepo "github.com/kinkando/personal-dashboard/internal/health/repository"
 	healthSvc "github.com/kinkando/personal-dashboard/internal/health/service"
 	kanbanHandler "github.com/kinkando/personal-dashboard/internal/kanban/handler"
@@ -34,17 +36,12 @@ import (
 	"github.com/kinkando/personal-dashboard/internal/line"
 	lineHandler "github.com/kinkando/personal-dashboard/internal/line/handler"
 	"github.com/kinkando/personal-dashboard/internal/mcpserver"
-	cronHandler "github.com/kinkando/personal-dashboard/internal/cron/handler"
-	healthReminder "github.com/kinkando/personal-dashboard/internal/health/reminder"
 	medicineHandler "github.com/kinkando/personal-dashboard/internal/medicine/handler"
-	medicineRepo "github.com/kinkando/personal-dashboard/internal/medicine/repository"
 	medReminder "github.com/kinkando/personal-dashboard/internal/medicine/reminder"
+	medicineRepo "github.com/kinkando/personal-dashboard/internal/medicine/repository"
 	medicineSvc "github.com/kinkando/personal-dashboard/internal/medicine/service"
-	questReminder  "github.com/kinkando/personal-dashboard/internal/quest/reminder"
-	questSnapshot  "github.com/kinkando/personal-dashboard/internal/quest/snapshot"
 	newsHandler "github.com/kinkando/personal-dashboard/internal/news/handler"
 	newsSvc "github.com/kinkando/personal-dashboard/internal/news/service"
-	"github.com/kinkando/personal-dashboard/internal/reminderlog"
 	"github.com/kinkando/personal-dashboard/internal/notification"
 	notificationHandler "github.com/kinkando/personal-dashboard/internal/notification/handler"
 	notificationRepo "github.com/kinkando/personal-dashboard/internal/notification/repository"
@@ -52,8 +49,11 @@ import (
 	portfolioHandler "github.com/kinkando/personal-dashboard/internal/portfolio/handler"
 	"github.com/kinkando/personal-dashboard/internal/quest"
 	questHandler "github.com/kinkando/personal-dashboard/internal/quest/handler"
+	questReminder "github.com/kinkando/personal-dashboard/internal/quest/reminder"
 	questRepo "github.com/kinkando/personal-dashboard/internal/quest/repository"
 	questSvc "github.com/kinkando/personal-dashboard/internal/quest/service"
+	questSnapshot "github.com/kinkando/personal-dashboard/internal/quest/snapshot"
+	"github.com/kinkando/personal-dashboard/internal/reminderlog"
 	userHandler "github.com/kinkando/personal-dashboard/internal/user/handler"
 	userRepo "github.com/kinkando/personal-dashboard/internal/user/repository"
 	userSvc "github.com/kinkando/personal-dashboard/internal/user/service"
@@ -64,6 +64,7 @@ import (
 	"github.com/kinkando/personal-dashboard/pkg/middleware"
 	"github.com/kinkando/personal-dashboard/pkg/mongo"
 	"github.com/kinkando/personal-dashboard/pkg/postgres"
+	"github.com/kinkando/personal-dashboard/pkg/storage"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"go.uber.org/zap"
 )
@@ -121,7 +122,8 @@ func main() {
 	finH := financeHandler.New(finSvc, usrRepo)
 
 	kanRepo := kanbanRepo.New(mongoDB)
-	kanH := kanbanHandler.New(kanRepo)
+	kanStorage := storage.NewSupabase(cfg.SupabaseURL, cfg.SupabaseServiceKey, cfg.SupabaseStorageBucket)
+	kanH := kanbanHandler.New(kanRepo, kanStorage)
 
 	heaRepo := healthRepo.New(pgDB.SQL())
 	heaSvc := healthSvc.New(heaRepo, bus)
@@ -210,19 +212,19 @@ func main() {
 
 	// Subscribe notification service to domain events for fan-out delivery.
 	bus.Subscribe(event.WeightLogged, func(ctx context.Context, e event.Event) {
-		notiSvc.Notify(ctx, e.UserID, notification.Message{Title: "Weight logged", Body: "Your weight log has been recorded."})
+		// notiSvc.Notify(ctx, e.UserID, notification.Message{Title: "Weight logged", Body: "Your weight log has been recorded."})
 	})
 	bus.Subscribe(event.SleepLogged, func(ctx context.Context, e event.Event) {
-		notiSvc.Notify(ctx, e.UserID, notification.Message{Title: "Sleep logged", Body: "Your sleep log has been recorded."})
+		// notiSvc.Notify(ctx, e.UserID, notification.Message{Title: "Sleep logged", Body: "Your sleep log has been recorded."})
 	})
 	bus.Subscribe(event.MedicineTaken, func(ctx context.Context, e event.Event) {
-		notiSvc.Notify(ctx, e.UserID, notification.Message{Title: "Medicine taken", Body: "Your medicine intake has been recorded."})
+		// notiSvc.Notify(ctx, e.UserID, notification.Message{Title: "Medicine taken", Body: "Your medicine intake has been recorded."})
 	})
 	bus.Subscribe(event.SupplementTaken, func(ctx context.Context, e event.Event) {
-		notiSvc.Notify(ctx, e.UserID, notification.Message{Title: "Supplement taken", Body: "Your supplement intake has been recorded."})
+		// notiSvc.Notify(ctx, e.UserID, notification.Message{Title: "Supplement taken", Body: "Your supplement intake has been recorded."})
 	})
 	bus.Subscribe(event.WorkoutSessionFinished, func(ctx context.Context, e event.Event) {
-		notiSvc.Notify(ctx, e.UserID, notification.Message{Title: "Workout complete", Body: "Great job! Your workout session has been recorded."})
+		// notiSvc.Notify(ctx, e.UserID, notification.Message{Title: "Workout complete", Body: "Great job! Your workout session has been recorded."})
 	})
 
 	// Evaluate achievements on every unlock-relevant event (idempotent; pushes a

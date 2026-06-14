@@ -161,12 +161,14 @@ type MoveCardInput struct {
 	Order    int    `json:"order"     validate:"min=0"`
 }
 
+// AddAttachmentInput is the internal contract from handler → repo. The handler
+// builds it after a successful storage upload; clients never send this directly.
 type AddAttachmentInput struct {
-	Name        string `json:"name"         validate:"required"`
-	URL         string `json:"url"          validate:"required,url"`
-	StoragePath string `json:"storage_path" validate:"required"`
-	Size        int64  `json:"size"         validate:"min=0"`
-	ContentType string `json:"content_type"`
+	Name        string `validate:"required"`
+	URL         string `validate:"required,url"`
+	StoragePath string `validate:"required"`
+	Size        int64  `validate:"min=0"`
+	ContentType string
 }
 
 type BoardStats struct {

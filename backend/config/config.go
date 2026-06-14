@@ -28,6 +28,12 @@ type Config struct {
 	// CronSecret is the shared secret for authenticating calls from the
 	// external Cloudflare cron worker. Passed via X-Cron-Secret header.
 	CronSecret string `env:"CRON_SECRET,required"`
+
+	// Supabase Storage — backs kanban card attachments. The service_role key is
+	// used here so the backend can write to any bucket regardless of RLS.
+	SupabaseURL           string `env:"SUPABASE_URL,required"`
+	SupabaseServiceKey    string `env:"SUPABASE_SERVICE_KEY,required"`
+	SupabaseStorageBucket string `env:"SUPABASE_STORAGE_BUCKET,required"`
 }
 
 func Load() *Config {

@@ -2,8 +2,11 @@ package handler
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/kinkando/personal-dashboard/internal/auth"
@@ -12,6 +15,17 @@ import (
 	"github.com/kinkando/personal-dashboard/pkg/validate"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
+
+// Storage is the subset of object-storage operations the handler needs. It is
+// satisfied by *pkg/storage.Supabase but kept as an interface for tests.
+type Storage interface {
+	Upload(ctx context.Context, objectPath, contentType string, body io.Reader) (string, error)
+	Delete(ctx context.Context, objectPath string) error
+}
+
+// maxAttachmentBytes caps a single attachment at 25 MiB to keep request memory
+// bounded; the Fiber router applies its own BodyLimit on top of this.
+const maxAttachmentBytes = 25 << 20
 
 type Repository interface {
 	ListBoards(ctx context.Context, userID string) ([]*kanban.Board, error)
@@ -40,11 +54,12 @@ type Repository interface {
 }
 
 type Handler struct {
-	repo Repository
+	repo    Repository
+	storage Storage
 }
 
-func New(repo Repository) *Handler {
-	return &Handler{repo: repo}
+func New(repo Repository, storage Storage) *Handler {
+	return &Handler{repo: repo, storage: storage}
 }
 
 func (h *Handler) Register(router fiber.Router) {
@@ -635,8 +650,10 @@ func (h *Handler) listArchive(c *fiber.Ctx) error {
 
 // ---- Attachment handlers ---------------------------------------------------
 
-// addAttachment registers a file the client has already uploaded to Firebase Storage.
-// The bytes never pass through the backend; only metadata is persisted.
+// addAttachment accepts a multipart upload (field "file"), streams it into
+// Supabase Storage under a user/card-scoped path, and persists the metadata
+// on the card. Bytes pass through the backend; the client never holds a
+// storage credential.
 func (h *Handler) addAttachment(c *fiber.Ctx) error {
 	userID := auth.GetUserID(c)
 	cardID, err := primitive.ObjectIDFromHex(c.Params("id"))
@@ -656,15 +673,53 @@ func (h *Handler) addAttachment(c *fiber.Ctx) error {
 		}
 		return respond.Internal(c, err)
 	}
-	var in kanban.AddAttachmentInput
-	if err := c.BodyParser(&in); err != nil {
-		return respond.BadRequest(c, "invalid request body")
+
+	fh, err := c.FormFile("file")
+	if err != nil {
+		return respond.BadRequest(c, "file field required")
+	}
+	if fh.Size > maxAttachmentBytes {
+		return respond.BadRequest(c, "file too large (max 25 MiB)")
+	}
+
+	f, err := fh.Open()
+	if err != nil {
+		return respond.Internal(c, fmt.Errorf("open upload: %w", err))
+	}
+	defer f.Close() //nolint:errcheck
+
+	contentType := fh.Header.Get("Content-Type")
+	if contentType == "" {
+		contentType = "application/octet-stream"
+	}
+
+	// Path embeds userID + cardID + timestamp so two users (or two uploads of
+	// the same filename) never collide. sanitizeFilename keeps the original
+	// extension while stripping anything outside [A-Za-z0-9._-].
+	objectPath := fmt.Sprintf("kanban/%s/%s/%d_%s",
+		userID, cardID.Hex(), time.Now().UnixNano(), sanitizeFilename(fh.Filename))
+
+	publicURL, err := h.storage.Upload(c.Context(), objectPath, contentType, f)
+	if err != nil {
+		return respond.Internal(c, fmt.Errorf("upload to storage: %w", err))
+	}
+
+	in := kanban.AddAttachmentInput{
+		Name:        fh.Filename,
+		URL:         publicURL,
+		StoragePath: objectPath,
+		Size:        fh.Size,
+		ContentType: contentType,
 	}
 	if err := validate.Struct(in); err != nil {
+		// Roll back the storage write so we don't leak an orphaned object.
+		_ = h.storage.Delete(c.Context(), objectPath)
 		return err
 	}
+
 	att, err := h.repo.AddAttachment(c.Context(), cardID, in)
 	if err != nil {
+		_ = h.storage.Delete(c.Context(), objectPath)
 		if strings.Contains(err.Error(), "not found") {
 			return respond.NotFound(c, "card not found")
 		}
@@ -673,9 +728,10 @@ func (h *Handler) addAttachment(c *fiber.Ctx) error {
 	return respond.Created(c, att)
 }
 
-// removeAttachment removes a single attachment from a card. The client is
-// responsible for deleting the underlying object from Firebase Storage; the
-// removed attachment is returned so the client knows the storage_path to delete.
+// removeAttachment removes the metadata row first (the source of truth) and
+// then best-effort deletes the underlying object from storage. If storage
+// delete fails, the metadata is already gone — the orphan is cheaper than
+// leaving a dangling DB pointer to a missing object.
 func (h *Handler) removeAttachment(c *fiber.Ctx) error {
 	userID := auth.GetUserID(c)
 	cardID, err := primitive.ObjectIDFromHex(c.Params("id"))
@@ -706,5 +762,30 @@ func (h *Handler) removeAttachment(c *fiber.Ctx) error {
 		}
 		return respond.Internal(c, err)
 	}
+	if removed.StoragePath != "" {
+		_ = h.storage.Delete(c.Context(), removed.StoragePath)
+	}
 	return respond.Data(c, removed)
+}
+
+// sanitizeFilename keeps only filename-safe characters so an attacker can't
+// inject path separators or control characters into the object path.
+func sanitizeFilename(name string) string {
+	var b strings.Builder
+	for _, r := range name {
+		switch {
+		case r >= 'a' && r <= 'z',
+			r >= 'A' && r <= 'Z',
+			r >= '0' && r <= '9',
+			r == '.', r == '_', r == '-':
+			b.WriteRune(r)
+		default:
+			b.WriteByte('_')
+		}
+	}
+	out := b.String()
+	if out == "" {
+		out = "file"
+	}
+	return out
 }

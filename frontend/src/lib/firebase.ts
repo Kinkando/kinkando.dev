@@ -1,13 +1,11 @@
 import { getApps, getApp, initializeApp } from 'firebase/app'
 import { getAuth } from 'firebase/auth'
-import { getStorage } from 'firebase/storage'
 import env from '../config/env'
 
 export const app = getApps().length
   ? getApp()
   : initializeApp(env.firebaseConfig)
 export const auth = getAuth(app)
-export const storage = getStorage(app)
 
 export async function getIdToken(): Promise<string | null> {
   const user = auth.currentUser

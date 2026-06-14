@@ -124,9 +124,19 @@ func (f *fakeRepo) RemoveAttachment(_ context.Context, _, _ primitive.ObjectID) 
 // in tests; the fakeRepo ignores the userID value.
 func newTestApp(repo Repository) *fiber.App {
 	app := fiber.New(fiber.Config{DisableStartupMessage: true})
-	New(repo).Register(app)
+	New(repo, fakeStorage{}).Register(app)
 	return app
 }
+
+// fakeStorage is a no-op Storage implementation for handler tests that don't
+// exercise the attachment endpoints. It satisfies the Storage interface so the
+// handler can be constructed without reaching for the network.
+type fakeStorage struct{}
+
+func (fakeStorage) Upload(_ context.Context, _, _ string, _ io.Reader) (string, error) {
+	return "", nil
+}
+func (fakeStorage) Delete(_ context.Context, _ string) error { return nil }
 
 // readBody reads the HTTP response body and unmarshals it into a
 // map[string]interface{} for assertion.

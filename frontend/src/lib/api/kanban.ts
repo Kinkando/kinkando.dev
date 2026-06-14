@@ -1,13 +1,7 @@
-import {
-  deleteObject,
-  getDownloadURL,
-  ref as storageRef,
-  uploadBytes,
-} from 'firebase/storage'
-import { apiFetch } from './client'
-import { auth, storage } from '../firebase'
+import { ApiError, apiFetch } from './client'
+import env from '../../config/env'
+import { getIdToken } from '../firebase'
 import type {
-  AddAttachmentInput,
   ArchiveCardInput,
   ArchiveFilter,
   Attachment,
@@ -178,48 +172,46 @@ export function unarchiveCard(id: string): Promise<Card | undefined> {
   })
 }
 
-// uploadAndAttachFile pushes a file to Firebase Storage under the signed-in
-// user's namespace, then registers the resulting URL on the card.
+// uploadAndAttachFile streams the file to the backend as a multipart form;
+// the backend pushes the bytes to Supabase Storage and persists the metadata.
+// We bypass apiFetch here because it forces a JSON Content-Type.
 export async function uploadAndAttachFile(
   cardId: string,
   file: File,
 ): Promise<Attachment | undefined> {
-  const uid = auth.currentUser?.uid
-  if (!uid) throw new Error('not signed in')
-  // Path includes uid + cardId so Storage rules can scope writes per user/card.
-  const path = `kanban/${uid}/${cardId}/${Date.now()}_${file.name}`
-  const ref = storageRef(storage, path)
-  await uploadBytes(ref, file, { contentType: file.type || undefined })
-  const url = await getDownloadURL(ref)
-  const input: AddAttachmentInput = {
-    name: file.name,
-    url,
-    storage_path: path,
-    size: file.size,
-    content_type: file.type || 'application/octet-stream',
+  const token = await getIdToken()
+  if (!token) throw new Error('not signed in')
+
+  const form = new FormData()
+  form.append('file', file)
+
+  const res = await fetch(
+    `${env.apiUrl}/api/v1/kanban/cards/${cardId}/attachments`,
+    {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: form,
+    },
+  )
+
+  if (res.status === 204) return undefined
+  const json = await res.json()
+  if (!res.ok) {
+    throw new ApiError(
+      res.status,
+      (json as { error?: string }).error ?? `HTTP ${res.status}`,
+    )
   }
-  return apiFetch<Attachment>(`/kanban/cards/${cardId}/attachments`, {
-    method: 'POST',
-    body: input,
-    auth: true,
-  })
+  return (json as { data: Attachment }).data
 }
 
-// removeAttachment unregisters the metadata on the card, then best-effort
-// deletes the underlying object from Firebase Storage.
-export async function removeAttachment(
+// removeAttachment deletes the metadata + the underlying object server-side.
+export function removeAttachment(
   cardId: string,
   attachmentId: string,
-): Promise<void> {
-  const removed = await apiFetch<Attachment>(
+): Promise<undefined> {
+  return apiFetch<undefined>(
     `/kanban/cards/${cardId}/attachments/${attachmentId}`,
     { method: 'DELETE', auth: true },
   )
-  if (removed?.storage_path) {
-    try {
-      await deleteObject(storageRef(storage, removed.storage_path))
-    } catch {
-      // The storage object may already be gone; the DB row is authoritative.
-    }
-  }
 }

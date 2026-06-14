@@ -139,14 +139,6 @@ export type Attachment = {
   uploaded_at: string
 }
 
-export type AddAttachmentInput = {
-  name: string
-  url: string
-  storage_path: string
-  size: number
-  content_type: string
-}
-
 export type Card = {
   id: string
   board_id: string

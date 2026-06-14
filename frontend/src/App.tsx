@@ -21,6 +21,7 @@ import SleepPage from './pages/SleepPage'
 import NewsPage from './pages/NewsPage'
 import QuestPage from './pages/QuestPage'
 import TodayPage from './pages/TodayPage'
+import NotFoundPage from './pages/NotFoundPage'
 import ProtectedRoute from './auth/ProtectedRoute'
 import {
   getCurrentToken,
@@ -179,6 +180,7 @@ export default function App() {
           path="/medicine"
           element={<Navigate to="/health/medicine" replace />}
         />
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </div>
   )

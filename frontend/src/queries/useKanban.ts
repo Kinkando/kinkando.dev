@@ -17,6 +17,8 @@ import {
   deleteCard,
   archiveCard,
   unarchiveCard,
+  uploadAndAttachFile,
+  removeAttachment,
 } from '../lib/api/kanban'
 import type {
   ArchiveCardInput,
@@ -264,6 +266,33 @@ export function useUnarchiveCard(boardId: string) {
       queryClient.invalidateQueries({
         queryKey: ['kanban', 'archive', boardId],
       })
+    },
+  })
+}
+
+export function useUploadAttachment(boardId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ cardId, file }: { cardId: string; file: File }) =>
+      uploadAndAttachFile(cardId, file),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: keys.kanbanBoard(boardId) })
+    },
+  })
+}
+
+export function useRemoveAttachment(boardId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      cardId,
+      attachmentId,
+    }: {
+      cardId: string
+      attachmentId: string
+    }) => removeAttachment(cardId, attachmentId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: keys.kanbanBoard(boardId) })
     },
   })
 }

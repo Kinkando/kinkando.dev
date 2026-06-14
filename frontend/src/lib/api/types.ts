@@ -129,6 +129,24 @@ export type Column = {
   created_at: string
 }
 
+export type Attachment = {
+  id: string
+  name: string
+  url: string
+  storage_path: string
+  size: number
+  content_type: string
+  uploaded_at: string
+}
+
+export type AddAttachmentInput = {
+  name: string
+  url: string
+  storage_path: string
+  size: number
+  content_type: string
+}
+
 export type Card = {
   id: string
   board_id: string
@@ -139,6 +157,7 @@ export type Card = {
   priority: Priority
   due_date?: string
   tags: string[]
+  attachments: Attachment[]
   order: number
   completed_at?: string
   archived_at?: string

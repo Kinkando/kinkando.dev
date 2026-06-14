@@ -1,7 +1,16 @@
+import {
+  deleteObject,
+  getDownloadURL,
+  ref as storageRef,
+  uploadBytes,
+} from 'firebase/storage'
 import { apiFetch } from './client'
+import { auth, storage } from '../firebase'
 import type {
+  AddAttachmentInput,
   ArchiveCardInput,
   ArchiveFilter,
+  Attachment,
   Board,
   BoardStats,
   Card,
@@ -167,4 +176,50 @@ export function unarchiveCard(id: string): Promise<Card | undefined> {
     method: 'PATCH',
     auth: true,
   })
+}
+
+// uploadAndAttachFile pushes a file to Firebase Storage under the signed-in
+// user's namespace, then registers the resulting URL on the card.
+export async function uploadAndAttachFile(
+  cardId: string,
+  file: File,
+): Promise<Attachment | undefined> {
+  const uid = auth.currentUser?.uid
+  if (!uid) throw new Error('not signed in')
+  // Path includes uid + cardId so Storage rules can scope writes per user/card.
+  const path = `kanban/${uid}/${cardId}/${Date.now()}_${file.name}`
+  const ref = storageRef(storage, path)
+  await uploadBytes(ref, file, { contentType: file.type || undefined })
+  const url = await getDownloadURL(ref)
+  const input: AddAttachmentInput = {
+    name: file.name,
+    url,
+    storage_path: path,
+    size: file.size,
+    content_type: file.type || 'application/octet-stream',
+  }
+  return apiFetch<Attachment>(`/kanban/cards/${cardId}/attachments`, {
+    method: 'POST',
+    body: input,
+    auth: true,
+  })
+}
+
+// removeAttachment unregisters the metadata on the card, then best-effort
+// deletes the underlying object from Firebase Storage.
+export async function removeAttachment(
+  cardId: string,
+  attachmentId: string,
+): Promise<void> {
+  const removed = await apiFetch<Attachment>(
+    `/kanban/cards/${cardId}/attachments/${attachmentId}`,
+    { method: 'DELETE', auth: true },
+  )
+  if (removed?.storage_path) {
+    try {
+      await deleteObject(storageRef(storage, removed.storage_path))
+    } catch {
+      // The storage object may already be gone; the DB row is authoritative.
+    }
+  }
 }

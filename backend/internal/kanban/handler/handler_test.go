@@ -110,6 +110,12 @@ func (f *fakeRepo) ListArchivedCards(_ context.Context, _ primitive.ObjectID, fi
 func (f *fakeRepo) GetBoardStats(_ context.Context, _ primitive.ObjectID) (*kanban.BoardStats, error) {
 	return nil, nil
 }
+func (f *fakeRepo) AddAttachment(_ context.Context, _ primitive.ObjectID, _ kanban.AddAttachmentInput) (*kanban.Attachment, error) {
+	return nil, nil
+}
+func (f *fakeRepo) RemoveAttachment(_ context.Context, _, _ primitive.ObjectID) (*kanban.Attachment, error) {
+	return nil, nil
+}
 
 // ── Harness ───────────────────────────────────────────────────────────────────
 

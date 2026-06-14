@@ -103,7 +103,10 @@ export default function KanbanCard({
             )}
 
             {/* Metadata row */}
-            {(priorityMeta || card.due_date || card.tags.length > 0) && (
+            {(priorityMeta ||
+              card.due_date ||
+              card.tags.length > 0 ||
+              (card.attachments?.length ?? 0) > 0) && (
               <div className="mt-2 flex flex-wrap items-center gap-1.5">
                 {priorityMeta && (
                   <span
@@ -143,6 +146,12 @@ export default function KanbanCard({
                 {card.tags.length > 3 && (
                   <span className="text-xs text-gray-500">
                     +{card.tags.length - 3}
+                  </span>
+                )}
+
+                {(card.attachments?.length ?? 0) > 0 && (
+                  <span className="rounded bg-gray-700 px-1.5 py-0.5 text-xs text-gray-400">
+                    📎 {card.attachments.length}
                   </span>
                 )}
               </div>

@@ -3,6 +3,8 @@ import { Check, Copy } from 'lucide-react'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { useCreateLineLinkCode, useMe, useUnlinkLine } from '../queries/useUser'
 
+const lineBotLink = <a href="http://lin.ee/r5qOWAg" target="_blank" className="font-bold underline hover:text-gray-100">LINE bot</a>
+
 export default function AccountPage() {
   useDocumentTitle('Account')
 
@@ -134,7 +136,7 @@ export default function AccountPage() {
         {!isLoading && !isLinked && (
           <div className="space-y-3">
             <p className="text-sm text-gray-400">
-              Link your LINE account to use the LINE bot as your personal
+              Link your LINE account to use the {lineBotLink} as your personal
               assistant.
             </p>
 
@@ -156,10 +158,11 @@ export default function AccountPage() {
                 )}
               </>
             ) : (
-              <div className="space-y-3 rounded-lg border border-indigo-600/30 bg-indigo-900/20 p-4">
+              <div className="space-y-3 flex flex-col items-center rounded-lg border border-indigo-600/30 bg-indigo-900/20 p-4">
                 <p className="text-sm text-gray-300">
-                  Open the LINE bot and send the following message:
+                  Open the {lineBotLink} and send the following code to link your account:
                 </p>
+                <img src="images/line_qr.png" />
                 <div className="flex items-center gap-2">
                   <code className="rounded bg-gray-800 px-3 py-1.5 font-mono text-base tracking-widest text-indigo-300">
                     LINK {pendingCode}

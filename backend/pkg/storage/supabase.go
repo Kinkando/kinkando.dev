@@ -7,27 +7,32 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"net/http"
+	"log"
 	"net/url"
 	"strings"
-	"time"
+
+	storage_go "github.com/supabase-community/storage-go"
+	"github.com/supabase-community/supabase-go"
 )
 
 type Supabase struct {
-	baseURL    string
-	serviceKey string
-	bucket     string
-	httpClient *http.Client
+	bucket  string
+	baseURL string
+	client  *supabase.Client
 }
 
 // NewSupabase builds a client. baseURL is the project URL (no trailing slash),
 // e.g. "https://abc.supabase.co".
 func NewSupabase(baseURL, serviceKey, bucket string) *Supabase {
+	client, err := supabase.NewClient(baseURL, serviceKey, &supabase.ClientOptions{})
+	if err != nil {
+		log.Fatalf("failed to create Supabase client: %v", err)
+	}
+
 	return &Supabase{
-		baseURL:    strings.TrimRight(baseURL, "/"),
-		serviceKey: serviceKey,
-		bucket:     bucket,
-		httpClient: &http.Client{Timeout: 60 * time.Second},
+		baseURL: baseURL,
+		bucket:  bucket,
+		client:  client,
 	}
 }
 
@@ -35,57 +40,29 @@ func NewSupabase(baseURL, serviceKey, bucket string) *Supabase {
 // If the bucket is private, the URL will return 400 for unauthenticated GETs
 // — switch to SignedURL in that case.
 func (s *Supabase) Upload(ctx context.Context, objectPath, contentType string, body io.Reader) (string, error) {
-	endpoint := fmt.Sprintf("%s/storage/v1/object/%s/%s",
-		s.baseURL, s.bucket, encodePath(objectPath))
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, body)
+	isUpsert := true
+	result, err := s.client.Storage.UploadFile(s.bucket, encodePath(objectPath), body, storage_go.FileOptions{ContentType: &contentType, Upsert: &isUpsert})
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("unable to upload to supabase path '%s': %w", encodePath(objectPath), err)
 	}
-	req.Header.Set("Authorization", "Bearer "+s.serviceKey)
-	if contentType != "" {
-		req.Header.Set("Content-Type", contentType)
-	}
-	// Without this header Supabase rejects duplicate paths with 409; we want
-	// upload-or-replace semantics since paths embed a timestamp.
-	req.Header.Set("x-upsert", "true")
 
-	res, err := s.httpClient.Do(req)
-	if err != nil {
-		return "", err
+	if result.Error != "" {
+		return "", fmt.Errorf("supabase upload: %s", result.Error)
 	}
-	defer res.Body.Close() //nolint:errcheck
 
-	if res.StatusCode >= 300 {
-		b, _ := io.ReadAll(res.Body)
-		return "", fmt.Errorf("supabase upload %d: %s", res.StatusCode, string(b))
-	}
-	return fmt.Sprintf("%s/storage/v1/object/public/%s/%s",
-		s.baseURL, s.bucket, encodePath(objectPath)), nil
+	url := fmt.Sprintf("%s/storage/v1/object/public/%s/%s", s.baseURL, s.bucket, encodePath(objectPath))
+	return url, nil
 }
 
 // Delete removes a single object from the bucket. A 404 from the API is
 // treated as success so callers can safely retry.
 func (s *Supabase) Delete(ctx context.Context, objectPath string) error {
-	endpoint := fmt.Sprintf("%s/storage/v1/object/%s/%s",
-		s.baseURL, s.bucket, encodePath(objectPath))
-	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, endpoint, nil)
+	result, err := s.client.Storage.RemoveFile(s.bucket, []string{encodePath(objectPath)})
 	if err != nil {
 		return err
 	}
-	req.Header.Set("Authorization", "Bearer "+s.serviceKey)
-
-	res, err := s.httpClient.Do(req)
-	if err != nil {
-		return err
-	}
-	defer res.Body.Close() //nolint:errcheck
-
-	if res.StatusCode == http.StatusNotFound {
-		return nil
-	}
-	if res.StatusCode >= 300 {
-		b, _ := io.ReadAll(res.Body)
-		return fmt.Errorf("supabase delete %d: %s", res.StatusCode, string(b))
+	if len(result) > 0 && result[0].Error != "" {
+		return fmt.Errorf("supabase delete: %s", result[0].Error)
 	}
 	return nil
 }

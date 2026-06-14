@@ -103,6 +103,7 @@ export default function AccountPage() {
   const [pwdLoading, setPwdLoading] = useState(false)
   const [pwdError, setPwdError] = useState('')
   const [pwdSuccess, setPwdSuccess] = useState(false)
+  const newPwdValid = newPwd.length >= 6 && newPwd === confirmPwd
 
   async function handleChangePassword(e: FormEvent) {
     e.preventDefault()
@@ -318,8 +319,8 @@ export default function AccountPage() {
             <div className="flex justify-end gap-2">
               <button
                 type="submit"
-                disabled={pwdLoading}
-                className="cursor-pointer rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
+                disabled={pwdLoading || !newPwdValid}
+                className="cursor-pointer rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {pwdLoading ? 'Updating…' : 'Update password'}
               </button>

@@ -105,7 +105,10 @@ export default function AccountPage() {
     setResetSuccess(false)
     setResetLoading(true)
     try {
-      await sendPasswordResetEmail(auth, email)
+      await sendPasswordResetEmail(auth, email, {
+        url: `${window.location.origin}/auth/action`,
+        handleCodeInApp: false,
+      })
       setResetSuccess(true)
       setTimeout(() => setResetSuccess(false), 4000)
     } catch (err: unknown) {

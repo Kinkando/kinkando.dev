@@ -214,7 +214,7 @@ export default function ChatPage() {
   const hasUsage = sessionUsage.inputTokens > 0 || sessionUsage.outputTokens > 0
 
   return (
-    <main className="mx-auto flex h-[calc(100vh-52px-50px-16px)] max-w-3xl flex-col px-6 py-8 xl:h-[calc(100vh-57px)]">
+    <main className="mx-auto flex h-[calc(100vh-52px-50px-16px)] max-w-3xl flex-col px-6 py-8 lg:h-[calc(100vh-57px)]">
       {/* Header */}
       <div className="mb-6 flex flex-col gap-1.5">
         <div className="flex items-center justify-between gap-3">

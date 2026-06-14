@@ -46,7 +46,7 @@ export default function App() {
   }, [])
 
   return (
-    <div className="min-h-screen bg-gray-950 pb-16 text-gray-100 xl:pb-0">
+    <div className="min-h-screen bg-gray-950 pb-16 text-gray-100 lg:pb-0">
       <TopLoader />
       <NavBar />
       <Routes>

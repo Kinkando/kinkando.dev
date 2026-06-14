@@ -185,7 +185,7 @@ export default function NavBar() {
           </Link>
 
           {/* Desktop main links */}
-          <div className="hidden items-center gap-6 text-sm xl:flex">
+          <div className="hidden items-center gap-3 text-sm lg:flex xl:gap-6">
             {visibleGroups.map((g) => (
               <Link key={g.path} to={g.path} className={groupLinkClass(g)}>
                 <NavIcon name={g.icon} />
@@ -268,7 +268,7 @@ export default function NavBar() {
 
         {/* Sub row — desktop only */}
         {activeGroup?.subItems && (
-          <div className="scrollbar-none overflow-y-auto border-t border-gray-800 px-6 py-2">
+          <div className="scrollbar-none overflow-x-auto border-t border-gray-800 px-6 py-2">
             <div className="flex items-center gap-6 text-sm">
               {activeGroup.subItems.map((sub) => (
                 <Link
@@ -287,7 +287,7 @@ export default function NavBar() {
       {/* Mobile: backdrop — tap to close drawer */}
       {open && (
         <div
-          className="fixed inset-0 z-40 bg-black/50 xl:hidden"
+          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
           onClick={closeDrawer}
           aria-hidden="true"
         />
@@ -295,7 +295,7 @@ export default function NavBar() {
 
       {/* Mobile: slide-in drawer panel from the right */}
       <div
-        className={`fixed top-0 right-0 z-50 flex h-full w-72 max-w-[80%] flex-col overflow-y-auto border-l border-gray-800 bg-gray-900 transition-transform duration-300 ease-in-out xl:hidden ${
+        className={`fixed top-0 right-0 z-50 flex h-full w-72 max-w-[80%] flex-col overflow-y-auto border-l border-gray-800 bg-gray-900 transition-transform duration-300 ease-in-out lg:hidden ${
           open ? 'translate-x-0' : 'translate-x-full'
         }`}
         aria-hidden={!open}
@@ -448,7 +448,7 @@ export default function NavBar() {
 
       {/* Mobile: fixed bottom tab bar */}
       <nav
-        className="fixed inset-x-0 bottom-0 z-40 flex border-t border-gray-800 bg-gray-900 pb-[env(safe-area-inset-bottom)] xl:hidden"
+        className="fixed inset-x-0 bottom-0 z-40 flex border-t border-gray-800 bg-gray-900 pb-[env(safe-area-inset-bottom)] lg:hidden"
         aria-label="Mobile navigation"
       >
         {tabGroups.map((g) => (

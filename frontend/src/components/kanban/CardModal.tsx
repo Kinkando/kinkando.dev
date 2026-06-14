@@ -146,7 +146,7 @@ export default function CardModal({
         if (e.target === backdropRef.current) onClose()
       }}
     >
-      <div className="w-full max-w-md rounded-xl border border-gray-700 bg-gray-900 p-6 shadow-2xl">
+      <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-xl border border-gray-700 bg-gray-900 p-6 shadow-2xl">
         <div className="mb-5 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gray-100">
             {isEdit ? 'Edit Card' : 'Add Card'}

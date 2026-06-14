@@ -8,25 +8,11 @@ import {
   GoogleAuthProvider,
 } from 'firebase/auth'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { auth } from '../lib/firebase'
+import { auth, friendlyAuthError } from '../lib/firebase'
 import GoogleIcon from './icons/GoogleIcon'
 
 type Props = {
   mode: 'login' | 'register'
-}
-
-function friendlyError(code: string): string {
-  const map: Record<string, string> = {
-    'auth/invalid-email': 'Invalid email address.',
-    'auth/user-not-found': 'No account with that email.',
-    'auth/wrong-password': 'Incorrect password.',
-    'auth/invalid-credential': 'Incorrect email or password.',
-    'auth/email-already-in-use': 'An account with that email already exists.',
-    'auth/weak-password': 'Password must be at least 6 characters.',
-    'auth/too-many-requests': 'Too many attempts. Try again later.',
-    'auth/popup-closed-by-user': 'Sign-in popup was closed.',
-  }
-  return map[code] ?? 'Authentication failed. Please try again.'
 }
 
 export default function AuthForm({ mode }: Props) {
@@ -50,7 +36,7 @@ export default function AuthForm({ mode }: Props) {
       }
       navigate(redirect)
     } catch (err: unknown) {
-      setError(friendlyError((err as { code?: string }).code ?? ''))
+      setError(friendlyAuthError((err as { code?: string }).code))
     } finally {
       setLoading(false)
     }
@@ -68,7 +54,7 @@ export default function AuthForm({ mode }: Props) {
       }
       navigate(redirect)
     } catch (err: unknown) {
-      setError(friendlyError((err as { code?: string }).code ?? ''))
+      setError(friendlyAuthError((err as { code?: string }).code))
     } finally {
       setLoading(false)
     }

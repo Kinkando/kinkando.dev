@@ -64,7 +64,7 @@ export default function App() {
         />
         <Route path="/news" element={<NewsPage />} />
         <Route path="/login" element={<LoginPage />} />
-        <Route path="/auth/action" element={<ResetPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
         {/* <Route path="/register" element={<RegisterPage />} /> */}
         <Route
           path="/account"

@@ -56,7 +56,7 @@ export default function AuthForm({ mode }: Props) {
     setForgotSending(true)
     try {
       await sendPasswordResetEmail(auth, forgotEmail, {
-        url: `${window.location.origin}/auth/action`,
+        url: `${window.location.origin}/reset-password`,
         handleCodeInApp: false,
       })
       setForgotSent(true)

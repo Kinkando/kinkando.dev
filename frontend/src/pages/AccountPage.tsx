@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react'
+import type { FormEvent } from 'react'
 import { Check, Copy } from 'lucide-react'
 import type { UserInfo } from 'firebase/auth'
 import {
+  EmailAuthProvider,
   GoogleAuthProvider,
   linkWithPopup,
-  sendPasswordResetEmail,
+  reauthenticateWithCredential,
   unlink,
+  updatePassword,
 } from 'firebase/auth'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { useCreateLineLinkCode, useMe, useUnlinkLine } from '../queries/useUser'
@@ -93,28 +96,42 @@ export default function AccountPage() {
     }
   }
 
-  // Password reset state
-  const [resetLoading, setResetLoading] = useState(false)
-  const [resetError, setResetError] = useState('')
-  const [resetSuccess, setResetSuccess] = useState(false)
+  // Change-password state
+  const [currentPwd, setCurrentPwd] = useState('')
+  const [newPwd, setNewPwd] = useState('')
+  const [confirmPwd, setConfirmPwd] = useState('')
+  const [pwdLoading, setPwdLoading] = useState(false)
+  const [pwdError, setPwdError] = useState('')
+  const [pwdSuccess, setPwdSuccess] = useState(false)
 
-  async function handleResetPassword() {
-    const email = auth.currentUser?.email
-    if (!email) return
-    setResetError('')
-    setResetSuccess(false)
-    setResetLoading(true)
+  async function handleChangePassword(e: FormEvent) {
+    e.preventDefault()
+    const current = auth.currentUser
+    if (!current?.email) return
+    setPwdError('')
+    setPwdSuccess(false)
+    if (newPwd.length < 6) {
+      setPwdError('New password must be at least 6 characters.')
+      return
+    }
+    if (newPwd !== confirmPwd) {
+      setPwdError('New passwords do not match.')
+      return
+    }
+    setPwdLoading(true)
     try {
-      await sendPasswordResetEmail(auth, email, {
-        url: `${window.location.origin}/auth/action`,
-        handleCodeInApp: false,
-      })
-      setResetSuccess(true)
-      setTimeout(() => setResetSuccess(false), 4000)
+      const credential = EmailAuthProvider.credential(current.email, currentPwd)
+      await reauthenticateWithCredential(current, credential)
+      await updatePassword(current, newPwd)
+      setCurrentPwd('')
+      setNewPwd('')
+      setConfirmPwd('')
+      setPwdSuccess(true)
+      setTimeout(() => setPwdSuccess(false), 3000)
     } catch (err: unknown) {
-      setResetError(friendlyAuthError((err as { code?: string }).code))
+      setPwdError(friendlyAuthError((err as { code?: string }).code))
     } finally {
-      setResetLoading(false)
+      setPwdLoading(false)
     }
   }
 
@@ -266,27 +283,48 @@ export default function AccountPage() {
         </h2>
 
         {hasPassword ? (
-          <div className="space-y-3">
-            <p className="text-sm text-gray-400">
-              Send a password reset link to{' '}
-              <span className="text-gray-300">{user?.email}</span>.
-            </p>
-            <button
-              onClick={handleResetPassword}
-              disabled={resetLoading || resetSuccess}
-              className="cursor-pointer rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
-            >
-              {resetLoading ? 'Sending…' : 'Reset password'}
-            </button>
-            {resetSuccess && (
-              <p className="text-sm text-emerald-400">
-                Reset email sent. Check your inbox.
-              </p>
+          <form onSubmit={handleChangePassword} className="flex flex-col gap-3">
+            <input
+              type="password"
+              placeholder="Current password"
+              value={currentPwd}
+              onChange={(e) => setCurrentPwd(e.target.value)}
+              required
+              autoComplete="current-password"
+              className="rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:border-indigo-500 focus:outline-none"
+            />
+            <input
+              type="password"
+              placeholder="New password"
+              value={newPwd}
+              onChange={(e) => setNewPwd(e.target.value)}
+              required
+              autoComplete="new-password"
+              className="rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:border-indigo-500 focus:outline-none"
+            />
+            <input
+              type="password"
+              placeholder="Confirm new password"
+              value={confirmPwd}
+              onChange={(e) => setConfirmPwd(e.target.value)}
+              required
+              autoComplete="new-password"
+              className="rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:border-indigo-500 focus:outline-none"
+            />
+            {pwdError && <p className="text-sm text-red-400">{pwdError}</p>}
+            {pwdSuccess && (
+              <p className="text-sm text-emerald-400">Password updated.</p>
             )}
-            {resetError && (
-              <p className="text-sm text-red-400">{resetError}</p>
-            )}
-          </div>
+            <div className="flex justify-end gap-2">
+              <button
+                type="submit"
+                disabled={pwdLoading}
+                className="cursor-pointer rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
+              >
+                {pwdLoading ? 'Updating…' : 'Update password'}
+              </button>
+            </div>
+          </form>
         ) : (
           <p className="text-sm text-gray-400">
             This account has no password — sign in with Google.

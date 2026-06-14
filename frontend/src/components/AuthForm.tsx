@@ -6,6 +6,7 @@ import {
   signInWithPopup,
   getAdditionalUserInfo,
   GoogleAuthProvider,
+  sendPasswordResetEmail,
 } from 'firebase/auth'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { auth, friendlyAuthError } from '../lib/firebase'
@@ -39,6 +40,30 @@ export default function AuthForm({ mode }: Props) {
       setError(friendlyAuthError((err as { code?: string }).code))
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Forgot password (login mode only)
+  const [forgotOpen, setForgotOpen] = useState(false)
+  const [forgotEmail, setForgotEmail] = useState('')
+  const [forgotSending, setForgotSending] = useState(false)
+  const [forgotSent, setForgotSent] = useState(false)
+  const [forgotError, setForgotError] = useState('')
+
+  async function handleForgot(e: FormEvent) {
+    e.preventDefault()
+    setForgotError('')
+    setForgotSending(true)
+    try {
+      await sendPasswordResetEmail(auth, forgotEmail, {
+        url: `${window.location.origin}/auth/action`,
+        handleCodeInApp: false,
+      })
+      setForgotSent(true)
+    } catch (err: unknown) {
+      setForgotError(friendlyAuthError((err as { code?: string }).code))
+    } finally {
+      setForgotSending(false)
     }
   }
 
@@ -91,6 +116,73 @@ export default function AuthForm({ mode }: Props) {
           {mode === 'login' ? 'Sign in' : 'Register'}
         </button>
       </form>
+      {mode === 'login' && (
+        <div className="mt-3">
+          {!forgotOpen ? (
+            <button
+              type="button"
+              onClick={() => {
+                setForgotOpen(true)
+                setForgotEmail(email)
+                setForgotSent(false)
+                setForgotError('')
+              }}
+              className="cursor-pointer text-xs text-indigo-400 hover:text-indigo-300"
+            >
+              Forgot password?
+            </button>
+          ) : forgotSent ? (
+            <div className="space-y-2 rounded-lg border border-emerald-700/40 bg-emerald-900/20 p-3">
+              <p className="text-sm text-emerald-400">
+                Reset email sent. Check your inbox.
+              </p>
+              <button
+                type="button"
+                onClick={() => setForgotOpen(false)}
+                className="cursor-pointer text-xs text-gray-400 hover:text-gray-200"
+              >
+                Close
+              </button>
+            </div>
+          ) : (
+            <form
+              onSubmit={handleForgot}
+              className="flex flex-col gap-2 rounded-lg border border-gray-800 bg-gray-950/50 p-3"
+            >
+              <p className="text-xs text-gray-400">
+                Enter your email and we'll send a reset link.
+              </p>
+              <input
+                type="email"
+                placeholder="Email"
+                value={forgotEmail}
+                onChange={(e) => setForgotEmail(e.target.value)}
+                required
+                className="rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:border-indigo-500 focus:outline-none"
+              />
+              {forgotError && (
+                <p className="text-xs text-red-400">{forgotError}</p>
+              )}
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setForgotOpen(false)}
+                  className="cursor-pointer rounded-lg bg-gray-800 px-3 py-1.5 text-xs font-medium text-gray-300 hover:bg-gray-700"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={forgotSending}
+                  className="cursor-pointer rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
+                >
+                  {forgotSending ? 'Sending…' : 'Send reset link'}
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
+      )}
       <div className="my-4 border-t border-gray-800" />
       <button
         onClick={handleGoogle}

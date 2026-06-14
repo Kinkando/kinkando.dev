@@ -42,6 +42,9 @@ export default function AccountPage() {
   }, [user])
   const hasGoogle = providerData.some((p) => p.providerId === PROVIDER_GOOGLE)
   const hasPassword = providerData.some((p) => p.providerId === PROVIDER_PASSWORD)
+  // Block unlink when Google is the sole Firebase auth provider — otherwise
+  // the user would lose every way to sign back in.
+  const canUnlinkGoogle = hasGoogle && providerData.length > 1
   const googleEmail = providerData.find(
     (p) => p.providerId === PROVIDER_GOOGLE,
   )?.email
@@ -186,21 +189,24 @@ export default function AccountPage() {
             )}
 
             {!confirmUnlinkGoogle ? (
-              <button
-                onClick={() => {
-                  setConfirmUnlinkGoogle(true)
-                  setGoogleError('')
-                }}
-                disabled={providerData.length <= 1}
-                title={
-                  providerData.length <= 1
-                    ? 'Set a password before unlinking Google so you can still sign in.'
-                    : undefined
-                }
-                className="cursor-pointer rounded-lg bg-gray-800 px-4 py-2 text-sm font-medium text-red-400 hover:bg-gray-700 hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Unlink Google
-              </button>
+              <>
+                <button
+                  onClick={() => {
+                    setConfirmUnlinkGoogle(true)
+                    setGoogleError('')
+                  }}
+                  disabled={!canUnlinkGoogle}
+                  className="cursor-pointer rounded-lg bg-gray-800 px-4 py-2 text-sm font-medium text-red-400 hover:bg-gray-700 hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Unlink Google
+                </button>
+                {!canUnlinkGoogle && (
+                  <p className="text-xs text-gray-500">
+                    Google is your only sign-in method. Set a password before
+                    unlinking so you don't lose access.
+                  </p>
+                )}
+              </>
             ) : (
               <div className="space-y-3 rounded-lg border border-yellow-600/40 bg-yellow-900/20 p-4">
                 <p className="text-sm text-yellow-300">

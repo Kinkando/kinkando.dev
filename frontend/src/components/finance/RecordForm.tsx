@@ -11,7 +11,7 @@ import { todayDate } from '../../lib/date'
 export default function RecordForm({ month }: { month: string }) {
   const mutation = useCreateRecord(month)
   const { data: categories } = useCategories()
-  const [type, setType] = useState<RecordType>('income')
+  const [type, setType] = useState<RecordType>('expense')
   const [amount, setAmount] = useState('')
   const [categoryID, setCategoryID] = useState('')
   const [note, setNote] = useState('')

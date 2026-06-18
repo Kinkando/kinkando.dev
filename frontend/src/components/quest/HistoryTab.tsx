@@ -12,21 +12,30 @@ function formatDate(iso: string) {
   })
 }
 
+function toLocalYMD(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+function parseLocalYMD(ymd: string) {
+  const [year, month, day] = ymd.split('-').map(Number)
+  return new Date(year, month - 1, day)
+}
+
 function weekKey(isoDate: string) {
   const d = new Date(isoDate)
   const diff = (d.getDay() + 6) % 7
   const mon = new Date(d)
   mon.setDate(d.getDate() - diff)
-  return mon.toISOString().slice(0, 10)
+  return toLocalYMD(mon)
 }
 
 function dayKey(isoDate: string) {
   const d = new Date(isoDate)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  return toLocalYMD(d)
 }
 
 function formatWeek(mondayISO: string) {
-  const start = new Date(mondayISO)
+  const start = parseLocalYMD(mondayISO)
   const end = new Date(start)
   end.setDate(start.getDate() + 6)
   const opts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' }

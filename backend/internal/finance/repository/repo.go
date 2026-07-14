@@ -292,10 +292,11 @@ func (r *Repository) MonthlySummary(ctx context.Context, userID uuid.UUID, month
 }
 
 func (r *Repository) DistinctNotes(ctx context.Context, userID uuid.UUID) ([]string, error) {
-	stmt := postgres.SELECT(table.FinanceRecords.Note).DISTINCT().
+	stmt := postgres.SELECT(table.FinanceRecords.Note.AS("note")).DISTINCT().
 		FROM(table.FinanceRecords).
 		WHERE(
 			table.FinanceRecords.UserID.EQ(postgres.UUID(userID)).
+				AND(table.FinanceRecords.Note.IS_NOT_NULL()).
 				AND(table.FinanceRecords.Note.NOT_EQ(postgres.String(""))),
 		).
 		ORDER_BY(table.FinanceRecords.Note.ASC())

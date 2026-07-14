@@ -17,6 +17,7 @@ type Repository interface {
 	Create(ctx context.Context, userID uuid.UUID, in finance.CreateRecordInput) (*finance.Record, error)
 	List(ctx context.Context, userID uuid.UUID, month string) ([]*finance.Record, error)
 	MonthlySummary(ctx context.Context, userID uuid.UUID, month string) (*finance.MonthlySummary, error)
+	DistinctNotes(ctx context.Context, userID uuid.UUID) ([]string, error)
 	Delete(ctx context.Context, id uuid.UUID, userID uuid.UUID) error
 }
 
@@ -62,4 +63,8 @@ func (s *Service) MonthlySummary(ctx context.Context, userID uuid.UUID, month st
 
 func (s *Service) DeleteRecord(ctx context.Context, id uuid.UUID, userID uuid.UUID) error {
 	return s.repo.Delete(ctx, id, userID)
+}
+
+func (s *Service) DistinctNotes(ctx context.Context, userID uuid.UUID) ([]string, error) {
+	return s.repo.DistinctNotes(ctx, userID)
 }

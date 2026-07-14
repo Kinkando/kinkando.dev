@@ -291,6 +291,28 @@ func (r *Repository) MonthlySummary(ctx context.Context, userID uuid.UUID, month
 	return summary, nil
 }
 
+func (r *Repository) DistinctNotes(ctx context.Context, userID uuid.UUID) ([]string, error) {
+	stmt := postgres.SELECT(table.FinanceRecords.Note).DISTINCT().
+		FROM(table.FinanceRecords).
+		WHERE(
+			table.FinanceRecords.UserID.EQ(postgres.UUID(userID)).
+				AND(table.FinanceRecords.Note.NOT_EQ(postgres.String(""))),
+		).
+		ORDER_BY(table.FinanceRecords.Note.ASC())
+
+	var rows []struct {
+		Note string
+	}
+	if err := stmt.QueryContext(ctx, r.db, &rows); err != nil {
+		return nil, fmt.Errorf("distinct notes: %w", err)
+	}
+	notes := make([]string, len(rows))
+	for i, row := range rows {
+		notes[i] = row.Note
+	}
+	return notes, nil
+}
+
 func (r *Repository) Delete(ctx context.Context, id uuid.UUID, userID uuid.UUID) error {
 	stmt := table.FinanceRecords.DELETE().WHERE(
 		table.FinanceRecords.ID.EQ(postgres.UUID(id)).

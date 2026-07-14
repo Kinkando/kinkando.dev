@@ -43,6 +43,10 @@ export function fetchSummary(
   })
 }
 
+export function fetchNotes(): Promise<string[] | undefined> {
+  return apiFetch<string[]>('/finance/notes', { auth: true })
+}
+
 export function fetchCategories(): Promise<Category[] | undefined> {
   return apiFetch<Category[]>('/finance/categories', { auth: true })
 }

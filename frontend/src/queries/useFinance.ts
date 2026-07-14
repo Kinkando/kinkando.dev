@@ -8,6 +8,7 @@ import {
   createCategory,
   updateCategory,
   deleteCategory,
+  fetchNotes,
 } from '../lib/api/finance'
 import type {
   CreateRecordInput,
@@ -44,7 +45,15 @@ export function useCreateRecord(month: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: keys.financeRecords(month) })
       queryClient.invalidateQueries({ queryKey: keys.financeSummary(month) })
+      queryClient.invalidateQueries({ queryKey: keys.financeNotes })
     },
+  })
+}
+
+export function useFinanceNotes() {
+  return useQuery({
+    queryKey: keys.financeNotes,
+    queryFn: fetchNotes,
   })
 }
 

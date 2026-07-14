@@ -21,6 +21,7 @@ type Service interface {
 	CreateRecord(ctx context.Context, userID uuid.UUID, in finance.CreateRecordInput) (*finance.Record, error)
 	ListRecords(ctx context.Context, userID uuid.UUID, month string) ([]*finance.Record, error)
 	MonthlySummary(ctx context.Context, userID uuid.UUID, month string) (*finance.MonthlySummary, error)
+	DistinctNotes(ctx context.Context, userID uuid.UUID) ([]string, error)
 	DeleteRecord(ctx context.Context, id uuid.UUID, userID uuid.UUID) error
 }
 
@@ -43,6 +44,7 @@ func (h *Handler) Register(router fiber.Router) {
 	router.Post("/records", h.createRecord)
 	router.Delete("/records/:id", h.deleteRecord)
 	router.Get("/summary", h.summary)
+	router.Get("/notes", h.listNotes)
 }
 
 // ── Category handlers ─────────────────────────────────────────────────────────
@@ -203,4 +205,19 @@ func (h *Handler) summary(c *fiber.Ctx) error {
 		return respond.Internal(c, err)
 	}
 	return respond.Data(c, s)
+}
+
+func (h *Handler) listNotes(c *fiber.Ctx) error {
+	userID, err := auth.ResolveUserID(c, h.users)
+	if err != nil {
+		return respond.Unauthorized(c, "invalid user")
+	}
+	notes, err := h.svc.DistinctNotes(c.Context(), userID)
+	if err != nil {
+		return respond.Internal(c, err)
+	}
+	if notes == nil {
+		notes = []string{}
+	}
+	return respond.Data(c, notes)
 }

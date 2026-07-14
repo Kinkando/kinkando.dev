@@ -1,7 +1,11 @@
 import { useState, useRef, useEffect } from 'react'
 import type { FormEvent } from 'react'
 import type { CreateRecordInput, RecordType } from '../../lib/api/types'
-import { useCreateRecord, useCategories } from '../../queries/useFinance'
+import {
+  useCreateRecord,
+  useCategories,
+  useFinanceNotes,
+} from '../../queries/useFinance'
 import { getIcon } from '../../lib/icons'
 import { RECORD_TYPES, RECORD_TYPE_META } from '../../lib/finance'
 import { cn } from '../../lib/cn'
@@ -11,6 +15,7 @@ import { todayDate } from '../../lib/date'
 export default function RecordForm({ month }: { month: string }) {
   const mutation = useCreateRecord(month)
   const { data: categories } = useCategories()
+  const { data: notes } = useFinanceNotes()
   const [type, setType] = useState<RecordType>('expense')
   const [amount, setAmount] = useState('')
   const [categoryID, setCategoryID] = useState('')
@@ -18,6 +23,8 @@ export default function RecordForm({ month }: { month: string }) {
   const [date, setDate] = useState(todayDate)
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const [noteOpen, setNoteOpen] = useState(false)
+  const noteRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -27,12 +34,26 @@ export default function RecordForm({ month }: { month: string }) {
       ) {
         setDropdownOpen(false)
       }
+      if (noteRef.current && !noteRef.current.contains(e.target as Node)) {
+        setNoteOpen(false)
+      }
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
   const filtered = (categories ?? []).filter((c) => c.type === type)
+
+  const filteredNotes =
+    note.length > 0
+      ? (notes ?? []).filter((n) =>
+          n.toLowerCase().includes(note.toLowerCase()),
+        )
+      : []
+  const showNoteDropdown =
+    noteOpen &&
+    filteredNotes.length > 0 &&
+    !(filteredNotes.length === 1 && filteredNotes[0] === note)
 
   function handleTypeChange(t: RecordType) {
     setType(t)
@@ -53,6 +74,7 @@ export default function RecordForm({ month }: { month: string }) {
     setAmount('')
     setCategoryID('')
     setNote('')
+    setNoteOpen(false)
   }
 
   const inputClass =
@@ -159,13 +181,39 @@ export default function RecordForm({ month }: { month: string }) {
         readOnly
         tabIndex={-1}
       />
-      <input
-        type="text"
-        placeholder="Note (optional)"
-        value={note}
-        onChange={(e) => setNote(e.target.value)}
-        className={inputClass}
-      />
+      <div ref={noteRef} className="relative">
+        <input
+          type="text"
+          placeholder="Note (optional)"
+          value={note}
+          autoComplete="off"
+          onChange={(e) => {
+            const v = e.target.value
+            setNote(v)
+            setNoteOpen(v.length > 0)
+          }}
+          onFocus={() => setNoteOpen(note.length > 0)}
+          className={`${inputClass} w-full`}
+        />
+        {showNoteDropdown && (
+          <ul className="absolute z-10 mt-1 max-h-48 w-full overflow-y-auto rounded-lg border border-gray-700 bg-gray-800 py-1 shadow-lg">
+            {filteredNotes.map((n) => (
+              <li key={n}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNote(n)
+                    setNoteOpen(false)
+                  }}
+                  className="flex w-full cursor-pointer items-center px-3 py-2 text-left text-sm text-gray-100 hover:bg-gray-700"
+                >
+                  {n}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
       <input
         type="date"
         value={date}
